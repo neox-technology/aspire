@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.MySql.MigrationService</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MySql.EntityFrameworkCore" Version="$(MySqlEntityFrameworkCoreVersion)" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="$(MicrosoftEntityFrameworkCoreVersion)" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="$(MicrosoftEntityFrameworkCoreVersion)" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="$(MicrosoftExtensionsHostingAbstractionsVersion)" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\src\Neox.Aspire.EntityFrameworkCore.MigrationWorker\Neox.Aspire.EntityFrameworkCore.MigrationWorker.csproj" />
+    <ProjectReference Include="..\data\Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.MySql.Data.csproj" />
+    <ProjectReference Include="..\service-defaults\Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.MySql.ServiceDefaults.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,17 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.4.6">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.MySql.AppHost</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.MySql" Version="$(AspireVersion)" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\migration-service\Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.MySql.MigrationService.csproj" />
+    <ProjectReference Include="..\service-defaults\Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.MySql.ServiceDefaults.csproj" IsAspireProjectResource="false" />
+  </ItemGroup>
+</Project>

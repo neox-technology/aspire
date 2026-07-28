@@ -10,6 +10,8 @@
     <AspireVersion>13.4.6</AspireVersion>
     <MicrosoftEntityFrameworkCoreVersion>10.0.8</MicrosoftEntityFrameworkCoreVersion>
     <NpgsqlEntityFrameworkCorePostgreSQLVersion>10.0.0</NpgsqlEntityFrameworkCorePostgreSQLVersion>
+    <MySqlEntityFrameworkCoreVersion>10.0.1</MySqlEntityFrameworkCoreVersion>
+    <OracleEntityFrameworkCoreVersion>10.23.26300</OracleEntityFrameworkCoreVersion>
     <MicrosoftExtensionsHostingAbstractionsVersion>10.0.8</MicrosoftExtensionsHostingAbstractionsVersion>
     <!-- Arcade property (XUnitVersion); pins xunit.core / assert / runners -->
     <XUnitVersion>2.9.3</XUnitVersion>

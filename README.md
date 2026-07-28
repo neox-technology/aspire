@@ -110,7 +110,7 @@ Shipping packages: `artifacts/packages/Release/Shipping/`.
 
 ## Integration tests
 
-Per-provider Aspire xUnit harnesses live under [`tests/efcore-migration-worker/`](tests/efcore-migration-worker/) (`sqlserver`, `postgresql`). **Docker is required**.
+Per-provider Aspire xUnit harnesses live under [`tests/efcore-migration-worker/`](tests/efcore-migration-worker/) (`sqlserver`, `postgresql`, `mysql`, `oracle`). **Docker is required**.
 
 Same convention as other Neox Arcade repos:
 
