@@ -3,7 +3,7 @@
 | Field | Value |
 |-------|-------|
 | Slug | `efcore-migration-worker` |
-| Status | defined |
+| Status | implemented |
 | Last code review | 2026-07-28 |
 
 ## Summary
@@ -36,9 +36,9 @@ _N/A — DI / worker library._
 
 ## Acceptance criteria
 
-- [ ] Package id is `Neox.Aspire.EntityFrameworkCore.MigrationWorker` at `src/Neox.Aspire.EntityFrameworkCore.MigrationWorker/` (not under `src/hosting/`).
-- [ ] `AddEfCoreMigrationService<TDbContext>()` registers a hosted service that creates a DI scope, resolves `TDbContext`, calls `Database.MigrateAsync`, then `IHostApplicationLifetime.StopApplication()`.
-- [ ] Arcade pack produces a Shipping nupkg for the project.
+- [x] Package id is `Neox.Aspire.EntityFrameworkCore.MigrationWorker` at `src/Neox.Aspire.EntityFrameworkCore.MigrationWorker/` (not under `src/hosting/`).
+- [x] `AddEfCoreMigrationService<TDbContext>()` registers a hosted service that creates a DI scope, resolves `TDbContext`, calls `Database.MigrateAsync`, then `IHostApplicationLifetime.StopApplication()`.
+- [x] Arcade pack produces a Shipping nupkg for the project.
 
 ## Terminology
 
