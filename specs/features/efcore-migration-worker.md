@@ -3,7 +3,7 @@
 | Field | Value |
 |-------|-------|
 | Slug | `efcore-migration-worker` |
-| Status | defined |
+| Status | implemented |
 | Last code review | 2026-07-28 |
 
 ## Summary
@@ -44,11 +44,11 @@ _N/A — DI / worker library._
 - [x] Package id is `Neox.Aspire.EntityFrameworkCore.MigrationWorker` at `src/Neox.Aspire.EntityFrameworkCore.MigrationWorker/` (not under `src/hosting/`).
 - [x] `AddEfCoreMigrationService<TDbContext>()` registers a hosted service that creates a DI scope, resolves `TDbContext`, calls `Database.MigrateAsync`, then `IHostApplicationLifetime.StopApplication()`.
 - [x] Arcade pack produces a Shipping nupkg for the project.
-- [ ] Integration harness lives under `tests/efcore-migration-worker/{sqlserver|postgresql|mysql}/` with Neox folders `apphost/`, `migration-service/`, `service-defaults/`, `data/`, `tests/`.
-- [ ] One AppHost per database type; resource names via `ServiceNames` (kebab + short prefix).
-- [ ] MSTest waits for migrators in `KnownResourceStates.Finished`, then asserts `GetAppliedMigrationsAsync` non-empty and `GetPendingMigrationsAsync` empty.
-- [ ] Tests cover single-database and multiple-databases (same provider) scenarios.
-- [ ] CI runs the three MSTest projects; Docker is documented as a prerequisite.
+- [x] Integration harness lives under `tests/efcore-migration-worker/{sqlserver|postgresql|mysql}/` with Neox folders `apphost/`, `migration-service/`, `service-defaults/`, `data/`, `tests/`.
+- [x] One AppHost per database type; resource names via `ServiceNames` (kebab + short prefix).
+- [x] MSTest waits for migrators in `KnownResourceStates.Finished`, then asserts `GetAppliedMigrationsAsync` non-empty and `GetPendingMigrationsAsync` empty.
+- [x] Tests cover single-database and multiple-databases (same provider) scenarios.
+- [x] CI runs the three MSTest projects; Docker is documented as a prerequisite.
 
 ## Terminology
 

@@ -24,3 +24,34 @@ jobs:
           name: Shipping
           path: artifacts/packages/Release/Shipping/
           if-no-files-found: error
+
+  integration-tests:
+    name: Migration worker Aspire tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Run SQL Server tests
+        run: >
+          dotnet test
+          tests/efcore-migration-worker/sqlserver/tests/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.SqlServer.csproj
+          --configuration Release
+
+      - name: Run PostgreSQL tests
+        run: >
+          dotnet test
+          tests/efcore-migration-worker/postgresql/tests/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.PostgreSql.csproj
+          --configuration Release
+
+      - name: Run MySQL tests
+        run: >
+          dotnet test
+          tests/efcore-migration-worker/mysql/tests/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.MySql.csproj
+          --configuration Release
