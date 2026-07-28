@@ -1,0 +1,20 @@
+{
+  "rootNamespace": "Neox.Aspire",
+  "solutionSlug": "aspire",
+  "productName": "Neox Aspire",
+  "paths": {
+    "migrationWorker": "src/Neox.Aspire.EntityFrameworkCore.MigrationWorker"
+  },
+  "specs": {
+    "root": "specs",
+    "features": "specs/features",
+    "featuresIndex": "specs/README.md",
+    "glossaryOwner": "domain-glossary"
+  },
+  "aspire": {
+    "mcpServerHint": "aspire",
+    "packages": {
+      "migrationWorker": "Neox.Aspire.EntityFrameworkCore.MigrationWorker"
+    }
+  }
+}

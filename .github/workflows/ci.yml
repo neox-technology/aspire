@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build, pack, and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build, test, and pack
+        run: ./eng/common/build.sh --ci --restore --build --test --pack --configuration Release /p:Sign=false
+
+      - name: Upload Shipping packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: Shipping
+          path: artifacts/packages/Release/Shipping/
+          if-no-files-found: error

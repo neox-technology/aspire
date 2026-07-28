@@ -1,0 +1,35 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Neox.Aspire.EntityFrameworkCore.MigrationWorker/Neox.Aspire.EntityFrameworkCore.MigrationWorker.csproj" />
+  </Folder>
+  <Folder Name="/tests/" />
+  <Folder Name="/tests/efcore-migration-worker/" />
+  <Folder Name="/tests/efcore-migration-worker/sqlserver/">
+    <Project Path="tests/efcore-migration-worker/sqlserver/apphost/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.SqlServer.AppHost.csproj" />
+    <Project Path="tests/efcore-migration-worker/sqlserver/migration-service/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.SqlServer.MigrationService.csproj" />
+    <Project Path="tests/efcore-migration-worker/sqlserver/service-defaults/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.SqlServer.ServiceDefaults.csproj" />
+    <Project Path="tests/efcore-migration-worker/sqlserver/data/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.SqlServer.Data.csproj" />
+    <Project Path="tests/efcore-migration-worker/sqlserver/tests/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.SqlServer.csproj" />
+  </Folder>
+  <Folder Name="/tests/efcore-migration-worker/postgresql/">
+    <Project Path="tests/efcore-migration-worker/postgresql/apphost/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.PostgreSql.AppHost.csproj" />
+    <Project Path="tests/efcore-migration-worker/postgresql/migration-service/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.PostgreSql.MigrationService.csproj" />
+    <Project Path="tests/efcore-migration-worker/postgresql/service-defaults/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.PostgreSql.ServiceDefaults.csproj" />
+    <Project Path="tests/efcore-migration-worker/postgresql/data/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.PostgreSql.Data.csproj" />
+    <Project Path="tests/efcore-migration-worker/postgresql/tests/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.PostgreSql.csproj" />
+  </Folder>
+  <Folder Name="/tests/efcore-migration-worker/mysql/">
+    <Project Path="tests/efcore-migration-worker/mysql/apphost/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.MySql.AppHost.csproj" />
+    <Project Path="tests/efcore-migration-worker/mysql/migration-service/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.MySql.MigrationService.csproj" />
+    <Project Path="tests/efcore-migration-worker/mysql/service-defaults/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.MySql.ServiceDefaults.csproj" />
+    <Project Path="tests/efcore-migration-worker/mysql/data/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.MySql.Data.csproj" />
+    <Project Path="tests/efcore-migration-worker/mysql/tests/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.MySql.csproj" />
+  </Folder>
+  <Folder Name="/tests/efcore-migration-worker/oracle/">
+    <Project Path="tests/efcore-migration-worker/oracle/apphost/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.Oracle.AppHost.csproj" />
+    <Project Path="tests/efcore-migration-worker/oracle/migration-service/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.Oracle.MigrationService.csproj" />
+    <Project Path="tests/efcore-migration-worker/oracle/service-defaults/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.Oracle.ServiceDefaults.csproj" />
+    <Project Path="tests/efcore-migration-worker/oracle/data/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.Oracle.Data.csproj" />
+    <Project Path="tests/efcore-migration-worker/oracle/tests/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.Oracle.csproj" />
+  </Folder>
+</Solution>

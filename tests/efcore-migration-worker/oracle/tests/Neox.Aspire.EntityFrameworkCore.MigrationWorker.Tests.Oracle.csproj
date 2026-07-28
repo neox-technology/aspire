@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <!-- Arcade runs Test only when IsUnitTestProject; name does not end with .Tests -->
+    <IsUnitTestProject>true</IsUnitTestProject>
+    <IsTestProject>true</IsTestProject>
+    <RootNamespace>Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.Oracle</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.Testing" Version="$(AspireVersion)" />
+    <PackageReference Include="Oracle.EntityFrameworkCore" Version="$(OracleEntityFrameworkCoreVersion)" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="$(MicrosoftEntityFrameworkCoreVersion)" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="$(MicrosoftEntityFrameworkCoreVersion)" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\apphost\Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.Oracle.AppHost.csproj" />
+    <ProjectReference Include="..\data\Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.Oracle.Data.csproj" />
+    <ProjectReference Include="..\service-defaults\Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.Oracle.ServiceDefaults.csproj" />
+  </ItemGroup>
+</Project>
