@@ -1,0 +1,46 @@
+name: Publish NuGet
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    name: Pack and push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compute OfficialBuildId
+        id: version
+        run: echo "official_build_id=$(date -u +%Y%m%d).${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and pack
+        run: >
+          ./eng/common/build.sh
+          --ci --restore --build --pack
+          --configuration Release
+          /p:Sign=false
+          /p:OfficialBuildId=${{ steps.version.outputs.official_build_id }}
+
+      - name: Push packages to GitHub Packages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          packages=(artifacts/packages/Release/Shipping/*.nupkg)
+          if [ ${#packages[@]} -eq 0 ]; then
+            echo "No Shipping packages found under artifacts/packages/Release/Shipping/"
+            exit 1
+          fi
+          dotnet nuget push "${packages[@]}" \
+            --source "https://nuget.pkg.github.com/neox-technology/index.json" \
+            --api-key "${GITHUB_TOKEN}" \
+            --skip-duplicate
