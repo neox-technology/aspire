@@ -1,0 +1,15 @@
+<Project>
+  <Import Project="Sdk.targets" Sdk="Microsoft.DotNet.Arcade.Sdk" />
+
+  <!-- Override Arcade Microsoft defaults — must be AFTER Sdk.targets -->
+  <PropertyGroup>
+    <Company>Neox Technology</Company>
+    <Authors>Neox Technology</Authors>
+    <Copyright>© Neox Technology. All rights reserved.</Copyright>
+  </PropertyGroup>
+
+  <!-- Pack proprietary LICENSE into nupkg -->
+  <ItemGroup Condition="'$(IsPackable)' == 'true'">
+    <None Include="$(PackageLicenseFullPath)" Pack="true" PackagePath="$(PackageLicenseFile)" Visible="false" />
+  </ItemGroup>
+</Project>

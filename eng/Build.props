@@ -1,0 +1,6 @@
+<Project>
+  <ItemGroup>
+    <ProjectToBuild Remove="@(ProjectToBuild)" />
+    <ProjectToBuild Include="$(RepoRoot)Neox.Aspire.slnx" />
+  </ItemGroup>
+</Project>

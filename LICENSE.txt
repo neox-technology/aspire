@@ -1,0 +1,12 @@
+Copyright (c) Neox Technology. All rights reserved.
+
+This software and associated documentation files (the "Software") are the
+confidential and proprietary information of Neox Technology.
+
+The Software is licensed for use only by authorized Neox Technology personnel
+and contractors, and only in connection with Neox Technology projects, subject
+to applicable agreements. You may not copy, modify, distribute, sublicense,
+or create derivative works of the Software except as expressly permitted in
+writing by Neox Technology.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
