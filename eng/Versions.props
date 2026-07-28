@@ -6,7 +6,9 @@
     <!-- Packages with SuppressFinalPackageVersion stay prerelease after stabilize. -->
     <StabilizePackageVersion>false</StabilizePackageVersion>
 
+    <AspireVersion>13.4.6</AspireVersion>
     <MicrosoftEntityFrameworkCoreVersion>10.0.0</MicrosoftEntityFrameworkCoreVersion>
     <MicrosoftExtensionsHostingAbstractionsVersion>10.0.0</MicrosoftExtensionsHostingAbstractionsVersion>
+    <MSTestVersion>3.8.3</MSTestVersion>
   </PropertyGroup>
 </Project>
