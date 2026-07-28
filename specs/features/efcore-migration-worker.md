@@ -1,49 +1,55 @@
-# EF Core migration worker hosting package
+# EF Core migration worker package
 
 | Field | Value |
 |-------|-------|
 | Slug | `efcore-migration-worker` |
-| Status | draft |
+| Status | defined |
 | Last code review | 2026-07-28 |
 
 ## Summary
 
-Intent: ship a reusable Aspire **hosting package** (`Neox.Aspire.Hosting.EntityFrameworkCore.MigrationWorker`) — the first Shipping package in this broader `Neox.Aspire.*` repository — that helps AppHosts run EF Core database migrations as a dedicated worker/resource. This draft covers bootstrap only — project skeleton and packability — not the product API.
+Ship a reusable **non-hosting** NuGet library (`Neox.Aspire.EntityFrameworkCore.MigrationWorker`) that registers a one-shot `BackgroundService` to apply EF Core migrations for a registered `DbContext`, then stops the host. Consumers call `IServiceCollection.AddEfCoreMigrationService<TDbContext>()`. This is not an Aspire AppHost / `Neox.Aspire.Hosting.*` package.
 
 ## User scenarios
 
-- A Neox contributor restores/builds this repo and obtains a Shipping nupkg for the MigrationWorker project.
-- Consumers will later reference the package from GitHub Packages (see [`nuget-github-packages`](nuget-github-packages.md)); wiring details are deferred.
+- A contributor builds this repo and obtains a Shipping nupkg for `Neox.Aspire.EntityFrameworkCore.MigrationWorker`.
+- A consumer worker app references the package, registers a `DbContext`, and calls `services.AddEfCoreMigrationService<TDbContext>()` so migrations run on startup then the process exits.
+- Consumers obtain the package from GitHub Packages (see [`nuget-github-packages`](nuget-github-packages.md)).
 
 ## Routes (if UI)
 
-_N/A — hosting library._
+_N/A — DI / worker library._
 
 ## Dependencies
 
 - Arcade pack/publish ([`nuget-github-packages`](nuget-github-packages.md))
 - Terminology ([`domain-glossary`](domain-glossary.md))
+- `Microsoft.EntityFrameworkCore.Relational` (`MigrateAsync`)
+- `Microsoft.NET.Sdk.Worker` (library `OutputType`)
 
 ## Out of scope
 
-- Aspire AppHost extension API (`Add*` / `With*` surface)
-- EF Core / Aspire package references and runtime behavior
-- Worker base types, DI, health checks, or deployment wiring
-- Copying product code from consuming apps (e.g. business-plan MigrationService)
+- Aspire AppHost extension API (`Add*` / `With*` on `IDistributedApplicationBuilder`)
+- Registering or configuring the `DbContext` / database provider (consumer responsibility)
+- ServiceDefaults, health checks, or deployment wiring
+- Product-specific `DbContext` types from consuming apps
 
 ## Acceptance criteria
 
-- [ ] Project skeleton exists at `src/hosting/Neox.Aspire.Hosting.EntityFrameworkCore.MigrationWorker/` and is included in the solution so Arcade pack produces a Shipping nupkg.
+- [ ] Package id is `Neox.Aspire.EntityFrameworkCore.MigrationWorker` at `src/Neox.Aspire.EntityFrameworkCore.MigrationWorker/` (not under `src/hosting/`).
+- [ ] `AddEfCoreMigrationService<TDbContext>()` registers a hosted service that creates a DI scope, resolves `TDbContext`, calls `Database.MigrateAsync`, then `IHostApplicationLifetime.StopApplication()`.
+- [ ] Arcade pack produces a Shipping nupkg for the project.
 
 ## Terminology
 
-See [`domain-glossary`](domain-glossary.md) (`migration worker`, `hosting package`, `Shipping`, `Neox Aspire packages`).
+See [`domain-glossary`](domain-glossary.md) (`migration worker`, `Shipping`, `Neox Aspire packages`).
 
 ## Implementation notes
 
 | Item | Path |
 |------|------|
-| Project (planned) | `src/hosting/Neox.Aspire.Hosting.EntityFrameworkCore.MigrationWorker/` |
-| Package id | `Neox.Aspire.Hosting.EntityFrameworkCore.MigrationWorker` |
-
-Feature API and acceptance criteria beyond the skeleton will be added when this spec moves to `defined`.
+| Project | `src/Neox.Aspire.EntityFrameworkCore.MigrationWorker/` |
+| Package id | `Neox.Aspire.EntityFrameworkCore.MigrationWorker` |
+| Namespace | `Neox.Aspire.EntityFrameworkCore` |
+| Extension | `AddEfCoreMigrationService<TDbContext>(this IServiceCollection)` |
+| Worker | `EfCoreMigrationWorker<TDbContext> : BackgroundService` |

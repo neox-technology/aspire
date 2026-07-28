@@ -56,6 +56,6 @@ See [`domain-glossary`](domain-glossary.md).
 | Package metadata | `Directory.Build.props` / `Directory.Build.targets` (repo URL, MIT `PackageLicenseExpression`, Neox copyright, symbols) |
 | License | Root `LICENSE` (MIT); NuGet `PackageLicenseExpression=MIT` |
 | Versions | `eng/Versions.props` (`PreReleaseVersionLabel`; GA via `StabilizePackageVersion`) |
-| Shipping skeleton | `src/hosting/Neox.Aspire.Hosting.EntityFrameworkCore.MigrationWorker/` |
+| Shipping package (migration worker) | `src/Neox.Aspire.EntityFrameworkCore.MigrationWorker/` |
 
 NuGet API URL is owner-namespaced (`nuget.pkg.github.com/neox-technology`); packages are associated with this repository via Actions publish + `RepositoryUrl`.
