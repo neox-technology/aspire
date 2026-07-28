@@ -9,7 +9,12 @@
     <!-- Remain prerelease even when StabilizePackageVersion is true for the repo. -->
     <SuppressFinalPackageVersion>true</SuppressFinalPackageVersion>
     <Description>EF Core migration BackgroundService helpers for Aspire worker apps.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="$(MicrosoftEntityFrameworkCoreVersion)" />
