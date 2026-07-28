@@ -8,7 +8,7 @@
 
 ## Summary
 
-Intent: ship a reusable Aspire hosting package (`Neox.Aspire.Hosting.EntityFrameworkCore.MigrationWorker`) that helps AppHosts run EF Core database migrations as a dedicated worker/resource. This draft covers bootstrap only — project skeleton and packability — not the product API.
+Intent: ship a reusable Aspire **hosting package** (`Neox.Aspire.Hosting.EntityFrameworkCore.MigrationWorker`) — the first Shipping package in this broader `Neox.Aspire.*` repository — that helps AppHosts run EF Core database migrations as a dedicated worker/resource. This draft covers bootstrap only — project skeleton and packability — not the product API.
 
 ## User scenarios
 
@@ -37,7 +37,7 @@ _N/A — hosting library._
 
 ## Terminology
 
-See [`domain-glossary`](domain-glossary.md) (`migration worker`, `Shipping`, `Neox Aspire packages`).
+See [`domain-glossary`](domain-glossary.md) (`migration worker`, `hosting package`, `Shipping`, `Neox Aspire packages`).
 
 ## Implementation notes
 

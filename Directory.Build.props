@@ -2,8 +2,7 @@
   <Import Project="Sdk.props" Sdk="Microsoft.DotNet.Arcade.Sdk" />
 
   <PropertyGroup>
-    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
-    <PackageLicenseFullPath>$(MSBuildThisFileDirectory)LICENSE.txt</PackageLicenseFullPath>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/neox-technology/aspire</PackageProjectUrl>
     <RepositoryUrl>https://github.com/neox-technology/aspire</RepositoryUrl>
     <RepositoryType>git</RepositoryType>

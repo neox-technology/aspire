@@ -7,9 +7,4 @@
     <Authors>Neox Technology</Authors>
     <Copyright>© Neox Technology. All rights reserved.</Copyright>
   </PropertyGroup>
-
-  <!-- Pack proprietary LICENSE into nupkg -->
-  <ItemGroup Condition="'$(IsPackable)' == 'true'">
-    <None Include="$(PackageLicenseFullPath)" Pack="true" PackagePath="$(PackageLicenseFile)" Visible="false" />
-  </ItemGroup>
 </Project>

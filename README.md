@@ -1,6 +1,6 @@
 # Neox Aspire
 
-Shared [.NET Aspire](https://aspire.dev/) hosting packages for Neox projects.
+Shared [.NET Aspire](https://aspire.dev/) NuGet packages under the `Neox.Aspire.*` namespace for Neox projects — hosting packages and other reusable libraries. This repository is **public**; it is not an AppHost and does not run Aspire orchestration itself.
 
 ## Git flow
 
@@ -21,11 +21,13 @@ Feature work lands on `feature/*` branches from `develop`.
 
 ## Packages
 
+Hosting packages live under `src/hosting/`. Additional package roots under `src/` may be added later.
+
 | Project | Role |
 |---------|------|
 | [`Neox.Aspire.Hosting.EntityFrameworkCore.MigrationWorker`](src/hosting/Neox.Aspire.Hosting.EntityFrameworkCore.MigrationWorker) | Reusable EF Core migration worker hosting helpers (skeleton; feature API TBD) |
 
-Packages publish to **GitHub Packages linked to this repository** (not NuGet.org). License: proprietary Neox Technology ([`LICENSE.txt`](LICENSE.txt)). Spec: [`nuget-github-packages`](specs/features/nuget-github-packages.md).
+Packages publish to **GitHub Packages linked to this repository** (not NuGet.org). License: MIT ([`LICENSE`](LICENSE)). Spec: [`nuget-github-packages`](specs/features/nuget-github-packages.md).
 
 ## Prerequisites
 
@@ -46,7 +48,7 @@ Feed URL (owner namespace — packages are associated with this repo):
 </configuration>
 ```
 
-Authenticate with a PAT that has `read:packages` (and access to this private repo), or `GITHUB_TOKEN` in Actions when the consumer workflow can read this repo’s packages:
+Authenticate with a PAT that has `read:packages`, or `GITHUB_TOKEN` in Actions when the consumer workflow can read this repository’s packages:
 
 ```bash
 dotnet nuget add source "https://nuget.pkg.github.com/neox-technology/index.json" \
@@ -85,7 +87,7 @@ Optional: `workflow_dispatch` on the publish workflow to re-run from `main`.
 
 ### License
 
-Proprietary — [`LICENSE.txt`](LICENSE.txt). Packages use `PackageLicenseFile` (not an open-source SPDX expression such as MIT).
+MIT — [`LICENSE`](LICENSE). Packages use `PackageLicenseExpression=MIT`.
 
 ## Build
 

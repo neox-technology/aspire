@@ -1,6 +1,6 @@
 # Specifications — Neox Aspire
 
-Feature index. Each spec lives in `specs/features/<slug>.md`.
+Feature index for this public repository of shared `Neox.Aspire.*` NuGet packages (hosting and other libraries). Each spec lives in `specs/features/<slug>.md`.
 
 **Terminology authority:** [`domain-glossary.md`](features/domain-glossary.md) (`glossaryOwner` in `neox-rules.json`).
 

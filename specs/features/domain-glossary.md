@@ -8,13 +8,14 @@
 
 ## Summary
 
-Terminology authority for Neox Aspire packages in this repository (`aspire`). Seed terms only; expand as features land.
+Terminology authority for Neox Aspire packages in this **public** repository (`aspire`). Seed terms only; expand as features land.
 
 ## Terminology
 
 | Term | Definition |
 |------|------------|
-| **Neox Aspire packages** | Packable NuGet libraries under the `Neox.Aspire.*` root namespace, published from this repo to GitHub Packages (not NuGet.org). |
+| **Neox Aspire packages** | Packable NuGet libraries under the `Neox.Aspire.*` root namespace (hosting and non-hosting), published from this repo to GitHub Packages (not NuGet.org). MIT-licensed. |
+| **hosting package** | A `Neox.Aspire.Hosting.*` library that AppHosts reference for Aspire resource/extension helpers. Lives under `src/hosting/`. |
 | **Shipping** | Arcade package output bucket for packages intended for consumers (`artifacts/packages/<Configuration>/Shipping/`). Distinct from non-shipping / internal artifacts. |
 | **migration worker** | Reusable Aspire hosting helpers for running EF Core database migrations as a dedicated resource/process. Product API is out of scope until the related feature spec leaves draft. |
 
