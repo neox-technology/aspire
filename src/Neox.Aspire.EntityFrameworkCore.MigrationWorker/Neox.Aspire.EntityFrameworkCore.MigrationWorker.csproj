@@ -3,8 +3,8 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <RootNamespace>Neox.Aspire.Hosting.EntityFrameworkCore</RootNamespace>
+    <RootNamespace>Neox.Aspire.EntityFrameworkCore</RootNamespace>
     <IsPackable>true</IsPackable>
-    <Description>EF Core migration worker hosting helpers for Aspire (skeleton).</Description>
+    <Description>EF Core migration BackgroundService helpers for Aspire worker apps.</Description>
   </PropertyGroup>
 </Project>

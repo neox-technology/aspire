@@ -1,6 +1,5 @@
 <Solution>
-  <Folder Name="/src/" />
-  <Folder Name="/src/hosting/">
-    <Project Path="src/hosting/Neox.Aspire.Hosting.EntityFrameworkCore.MigrationWorker/Neox.Aspire.Hosting.EntityFrameworkCore.MigrationWorker.csproj" />
+  <Folder Name="/src/">
+    <Project Path="src/Neox.Aspire.EntityFrameworkCore.MigrationWorker/Neox.Aspire.EntityFrameworkCore.MigrationWorker.csproj" />
   </Folder>
 </Solution>

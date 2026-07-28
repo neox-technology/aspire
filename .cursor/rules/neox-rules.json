@@ -3,7 +3,7 @@
   "solutionSlug": "aspire",
   "productName": "Neox Aspire",
   "paths": {
-    "hostingMigrationWorker": "src/hosting/Neox.Aspire.Hosting.EntityFrameworkCore.MigrationWorker"
+    "migrationWorker": "src/Neox.Aspire.EntityFrameworkCore.MigrationWorker"
   },
   "specs": {
     "root": "specs",
@@ -14,7 +14,7 @@
   "aspire": {
     "mcpServerHint": "aspire",
     "packages": {
-      "migrationWorker": "Neox.Aspire.Hosting.EntityFrameworkCore.MigrationWorker"
+      "migrationWorker": "Neox.Aspire.EntityFrameworkCore.MigrationWorker"
     }
   }
 }

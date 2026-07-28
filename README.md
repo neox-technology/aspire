@@ -21,11 +21,11 @@ Feature work lands on `feature/*` branches from `develop`.
 
 ## Packages
 
-Hosting packages live under `src/hosting/`. Additional package roots under `src/` may be added later.
+Packable libraries live under `src/`. Hosting packages (when present) use the `Neox.Aspire.Hosting.*` namespace under `src/hosting/`.
 
 | Project | Role |
 |---------|------|
-| [`Neox.Aspire.Hosting.EntityFrameworkCore.MigrationWorker`](src/hosting/Neox.Aspire.Hosting.EntityFrameworkCore.MigrationWorker) | Reusable EF Core migration worker hosting helpers (skeleton; feature API TBD) |
+| [`Neox.Aspire.EntityFrameworkCore.MigrationWorker`](src/Neox.Aspire.EntityFrameworkCore.MigrationWorker) | One-shot EF Core migration `BackgroundService` via `AddEfCoreMigrationService<TDbContext>()` |
 
 Packages publish to **GitHub Packages linked to this repository** (not NuGet.org). License: MIT ([`LICENSE`](LICENSE)). Spec: [`nuget-github-packages`](specs/features/nuget-github-packages.md).
 
@@ -59,13 +59,18 @@ dotnet nuget add source "https://nuget.pkg.github.com/neox-technology/index.json
 ```
 
 ```xml
-<PackageReference Include="Neox.Aspire.Hosting.EntityFrameworkCore.MigrationWorker" Version="1.0.0-preview.*" />
+<PackageReference Include="Neox.Aspire.EntityFrameworkCore.MigrationWorker" Version="1.0.0-preview.*" />
 ```
 
 ### Local ProjectReference (dev)
 
 ```xml
-<ProjectReference Include="..\..\path\to\aspire\src\hosting\Neox.Aspire.Hosting.EntityFrameworkCore.MigrationWorker\Neox.Aspire.Hosting.EntityFrameworkCore.MigrationWorker.csproj" IsAspireProjectResource="false" />
+<ProjectReference Include="..\..\path\to\aspire\src\Neox.Aspire.EntityFrameworkCore.MigrationWorker\Neox.Aspire.EntityFrameworkCore.MigrationWorker.csproj" IsAspireProjectResource="false" />
+```
+
+```csharp
+builder.Services.AddEfCoreMigrationService<ApplicationDbContext>();
+// Register the DbContext separately (provider-specific).
 ```
 
 ## CI / publish
