@@ -7,7 +7,7 @@ on:
 
 permissions:
   contents: read
-  packages: write
+  id-token: write
 
 jobs:
   publish:
@@ -29,18 +29,29 @@ jobs:
           /p:Sign=false
           /p:OfficialBuildId=${{ steps.version.outputs.official_build_id }}
 
-      - name: Push packages to GitHub Packages
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: NuGet login (OIDC → temp API key)
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      - name: Push packages to nuget.org
         run: |
           set -euo pipefail
           shopt -s nullglob
           packages=(artifacts/packages/Release/Shipping/*.nupkg)
+          symbols=(artifacts/packages/Release/Shipping/*.snupkg)
           if [ ${#packages[@]} -eq 0 ]; then
             echo "No Shipping packages found under artifacts/packages/Release/Shipping/"
             exit 1
           fi
           dotnet nuget push "${packages[@]}" \
-            --source "https://nuget.pkg.github.com/neox-technology/index.json" \
-            --api-key "${GITHUB_TOKEN}" \
+            --source "https://api.nuget.org/v3/index.json" \
+            --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" \
             --skip-duplicate
+          if [ ${#symbols[@]} -gt 0 ]; then
+            dotnet nuget push "${symbols[@]}" \
+              --source "https://api.nuget.org/v3/index.json" \
+              --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" \
+              --skip-duplicate
+          fi

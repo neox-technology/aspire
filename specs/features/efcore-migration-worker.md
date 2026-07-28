@@ -17,7 +17,7 @@ Integration tests under `tests/efcore-migration-worker/{sqlserver|postgresql|mys
 - A contributor builds this repo and obtains a Shipping nupkg for `Neox.Aspire.EntityFrameworkCore.MigrationWorker`.
 - A consumer worker app references the package, registers a `DbContext`, and calls `services.AddEfCoreMigrationService<TDbContext>()` so migrations run on startup then the process exits.
 - A contributor runs xUnit integration tests via `Build.cmd -configuration Release -test` (Docker required) that start an Aspire AppHost per provider and assert migrations were applied for one and multiple databases of that type.
-- Consumers obtain the package from GitHub Packages (see [`nuget-github-packages`](nuget-github-packages.md)).
+- Consumers obtain the package from nuget.org (see [`nuget-org`](nuget-org.md)).
 
 ## Routes (if UI)
 
@@ -25,7 +25,7 @@ _N/A — DI / worker library._
 
 ## Dependencies
 
-- Arcade pack/publish ([`nuget-github-packages`](nuget-github-packages.md))
+- Arcade pack/publish ([`nuget-org`](nuget-org.md))
 - Terminology ([`domain-glossary`](domain-glossary.md))
 - `Microsoft.EntityFrameworkCore.Relational` (`MigrateAsync`)
 - `Microsoft.NET.Sdk.Worker` (library `OutputType`)

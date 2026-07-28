@@ -1,10 +1,14 @@
 # Neox.Aspire.EntityFrameworkCore.MigrationWorker
 
+[![NuGet](https://img.shields.io/nuget/vpre/Neox.Aspire.EntityFrameworkCore.MigrationWorker.svg?label=NuGet)](https://www.nuget.org/packages/Neox.Aspire.EntityFrameworkCore.MigrationWorker)
+
 One-shot EF Core migration helper for .NET worker apps. Registers a `BackgroundService` that applies pending migrations for a registered `DbContext`, then stops the host.
 
 ## Install
 
-Package feed: [GitHub Packages](https://nuget.pkg.github.com/neox-technology/index.json) (see the [repository README](https://github.com/neox-technology/aspire) for auth).
+```bash
+dotnet add package Neox.Aspire.EntityFrameworkCore.MigrationWorker
+```
 
 ```xml
 <PackageReference Include="Neox.Aspire.EntityFrameworkCore.MigrationWorker" Version="1.0.0-preview.*" />

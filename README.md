@@ -1,5 +1,10 @@
 # Neox Aspire
 
+[![CI](https://github.com/neox-technology/aspire/actions/workflows/ci.yml/badge.svg)](https://github.com/neox-technology/aspire/actions/workflows/ci.yml)
+[![NuGet](https://img.shields.io/nuget/vpre/Neox.Aspire.EntityFrameworkCore.MigrationWorker.svg?label=NuGet)](https://www.nuget.org/packages/Neox.Aspire.EntityFrameworkCore.MigrationWorker)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/Neox.Aspire.EntityFrameworkCore.MigrationWorker.svg)](https://www.nuget.org/packages/Neox.Aspire.EntityFrameworkCore.MigrationWorker)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Shared [.NET Aspire](https://aspire.dev/) NuGet packages under the `Neox.Aspire.*` namespace for Neox projects — hosting packages and other reusable libraries. This repository is **public**; it is not an AppHost and does not run Aspire orchestration itself.
 
 ## Git flow
@@ -27,58 +32,30 @@ Packable libraries live under `src/`. Hosting packages (when present) use the `N
 |---------|------|
 | [`Neox.Aspire.EntityFrameworkCore.MigrationWorker`](src/Neox.Aspire.EntityFrameworkCore.MigrationWorker) | One-shot EF Core migration `BackgroundService` via `AddEfCoreMigrationService<TDbContext>()` |
 
-Packages publish to **GitHub Packages linked to this repository** (not NuGet.org). License: MIT ([`LICENSE`](LICENSE)). Spec: [`nuget-github-packages`](specs/features/nuget-github-packages.md).
+Packages publish to **[nuget.org](https://www.nuget.org/packages/Neox.Aspire.EntityFrameworkCore.MigrationWorker)**. License: MIT ([`LICENSE`](LICENSE)). Spec: [`nuget-org`](specs/features/nuget-org.md).
 
 ## Prerequisites
 
 - .NET SDK **10.0.110** (pinned in `global.json`; Arcade installs a local copy via `eng/common` if needed)
 
-## Consume from NuGet (GitHub Packages)
-
-Feed URL (owner namespace — packages are associated with this repo):
-
-`https://nuget.pkg.github.com/neox-technology/index.json`
-
-```xml
-<!-- NuGet.config in the consuming AppHost repo -->
-<configuration>
-  <packageSources>
-    <add key="neox-aspire" value="https://nuget.pkg.github.com/neox-technology/index.json" />
-  </packageSources>
-</configuration>
-```
-
-Authenticate with a PAT that has `read:packages`, or `GITHUB_TOKEN` in Actions when the consumer workflow can read this repository’s packages:
+## Consume from NuGet
 
 ```bash
-dotnet nuget add source "https://nuget.pkg.github.com/neox-technology/index.json" \
-  --name neox-aspire \
-  --username USERNAME \
-  --password YOUR_TOKEN \
-  --store-password-in-clear-text
+dotnet add package Neox.Aspire.EntityFrameworkCore.MigrationWorker
 ```
 
 ```xml
 <PackageReference Include="Neox.Aspire.EntityFrameworkCore.MigrationWorker" Version="1.0.0-preview.*" />
 ```
 
-### Local ProjectReference (dev)
-
-```xml
-<ProjectReference Include="..\..\path\to\aspire\src\Neox.Aspire.EntityFrameworkCore.MigrationWorker\Neox.Aspire.EntityFrameworkCore.MigrationWorker.csproj" IsAspireProjectResource="false" />
-```
-
-```csharp
-builder.Services.AddEfCoreMigrationService<ApplicationDbContext>();
-// Register the DbContext separately (provider-specific).
-```
+See the [package README](src/Neox.Aspire.EntityFrameworkCore.MigrationWorker/README.md) for usage.
 
 ## CI / publish
 
 | Event | Workflow | Behavior |
 |-------|----------|----------|
 | PR → `main` | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | Pack (`*-ci` versions) + Arcade `-test` (Docker); no NuGet push |
-| Merge to `main` | [`.github/workflows/publish-nuget.yml`](.github/workflows/publish-nuget.yml) | Pack with `OfficialBuildId` + push to GitHub Packages |
+| Merge to `main` | [`.github/workflows/publish-nuget.yml`](.github/workflows/publish-nuget.yml) | Pack with `OfficialBuildId` + Trusted Publishing push to nuget.org |
 
 Optional: `workflow_dispatch` on the publish workflow to re-run from `main`.
 
