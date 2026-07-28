@@ -6,6 +6,8 @@
     <RootNamespace>Neox.Aspire.EntityFrameworkCore</RootNamespace>
     <OutputType>Library</OutputType>
     <IsPackable>true</IsPackable>
+    <!-- Remain prerelease even when StabilizePackageVersion is true for the repo. -->
+    <SuppressFinalPackageVersion>true</SuppressFinalPackageVersion>
     <Description>EF Core migration BackgroundService helpers for Aspire worker apps.</Description>
   </PropertyGroup>
 
