@@ -77,7 +77,7 @@ builder.Services.AddEfCoreMigrationService<ApplicationDbContext>();
 
 | Event | Workflow | Behavior |
 |-------|----------|----------|
-| PR → `main` | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | Pack (`*-ci` versions) + Aspire migration MSTest (Docker); no NuGet push |
+| PR → `main` | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | Pack (`*-ci` versions) + Arcade `-test` (Docker); no NuGet push |
 | Merge to `main` | [`.github/workflows/publish-nuget.yml`](.github/workflows/publish-nuget.yml) | Pack with `OfficialBuildId` + push to GitHub Packages |
 
 Optional: `workflow_dispatch` on the publish workflow to re-run from `main`.
@@ -96,11 +96,11 @@ MIT — [`LICENSE`](LICENSE). Packages use `PackageLicenseExpression=MIT`.
 
 ## Build
 
-```powershell
-.\Build.cmd
+```cmd
+Build.cmd -configuration Release
 ```
 
-Unix: `./build.sh`. Outputs land under `artifacts/`. Pack locally:
+Unix: `./build.sh --configuration Release`. Outputs land under `artifacts/`. Pack locally:
 
 ```bash
 ./eng/common/build.sh --restore --build --pack --configuration Release
@@ -110,13 +110,15 @@ Shipping packages: `artifacts/packages/Release/Shipping/`.
 
 ## Integration tests
 
-Per-provider Aspire MSTest harnesses live under [`tests/efcore-migration-worker/`](tests/efcore-migration-worker/) (`sqlserver`, `postgresql`, `mysql`). **Docker is required** (containers for the database engines).
+Per-provider Aspire xUnit harnesses live under [`tests/efcore-migration-worker/`](tests/efcore-migration-worker/) (`sqlserver`, `postgresql`). **Docker is required**.
 
-```powershell
-dotnet test tests/efcore-migration-worker/sqlserver/tests/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.SqlServer.csproj -c Release
-dotnet test tests/efcore-migration-worker/postgresql/tests/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.PostgreSql.csproj -c Release
-dotnet test tests/efcore-migration-worker/mysql/tests/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.MySql.csproj -c Release
+Same convention as other Neox Arcade repos:
+
+```cmd
+Build.cmd -configuration Release -test
 ```
+
+Unix: `./build.sh --configuration Release --test`.
 
 ## Specs
 

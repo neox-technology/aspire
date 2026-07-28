@@ -6,8 +6,12 @@
     <!-- Packages with SuppressFinalPackageVersion stay prerelease after stabilize. -->
     <StabilizePackageVersion>false</StabilizePackageVersion>
 
-    <AspireVersion>*</AspireVersion>
-    <MicrosoftEntityFrameworkCoreVersion>*</MicrosoftEntityFrameworkCoreVersion>
-    <MicrosoftExtensionsHostingAbstractionsVersion>*</MicrosoftExtensionsHostingAbstractionsVersion>
+    <!-- Align with Aspire 13.4.6 net10.0 dependency graph -->
+    <AspireVersion>13.4.6</AspireVersion>
+    <MicrosoftEntityFrameworkCoreVersion>10.0.8</MicrosoftEntityFrameworkCoreVersion>
+    <NpgsqlEntityFrameworkCorePostgreSQLVersion>10.0.0</NpgsqlEntityFrameworkCorePostgreSQLVersion>
+    <MicrosoftExtensionsHostingAbstractionsVersion>10.0.8</MicrosoftExtensionsHostingAbstractionsVersion>
+    <!-- Arcade property (XUnitVersion); pins xunit.core / assert / runners -->
+    <XUnitVersion>2.9.3</XUnitVersion>
   </PropertyGroup>
 </Project>

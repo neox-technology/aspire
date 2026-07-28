@@ -2,45 +2,28 @@ using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
 using Aspire.Hosting.Testing;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.SqlServer.Data;
 using Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.SqlServer.ServiceDefaults;
+using Xunit;
 
 namespace Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.SqlServer;
 
-[TestClass]
+[Collection(AppCollection.Name)]
 public sealed class MigrationWorkerTests
 {
-    private static DistributedApplication? s_app;
+    private readonly DistributedApplication _app;
 
-    [ClassInitialize]
-    public static async Task ClassInitialize(TestContext context)
+    public MigrationWorkerTests(DistributedAppFixture fixture)
     {
-        var appHost = await DistributedApplicationTestingBuilder
-            .CreateAsync<Projects.Neox_Aspire_EntityFrameworkCore_MigrationWorker_Tests_SqlServer_AppHost>();
-
-        s_app = await appHost.BuildAsync();
-        await s_app.StartAsync();
+        _app = fixture.App;
     }
 
-    [ClassCleanup(ClassCleanupBehavior.EndOfClass)]
-    public static async Task ClassCleanup()
-    {
-        if (s_app is not null)
-        {
-            await s_app.DisposeAsync();
-            s_app = null;
-        }
-    }
-
-    [TestMethod]
-    [Timeout(180_000)]
+    [Fact]
     public async Task SingleDatabase_AppliesMigrations()
     {
-        Assert.IsNotNull(s_app);
         using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(3));
 
-        await s_app.ResourceNotifications.WaitForResourceAsync(
+        await _app.ResourceNotifications.WaitForResourceAsync(
             ServiceNames.Workers.Migration,
             KnownResourceStates.Finished,
             cts.Token);
@@ -48,18 +31,16 @@ public sealed class MigrationWorkerTests
         await AssertMigrationsAppliedAsync(ServiceNames.Databases.Application, cts.Token);
     }
 
-    [TestMethod]
-    [Timeout(180_000)]
+    [Fact]
     public async Task MultipleDatabases_ApplyMigrations()
     {
-        Assert.IsNotNull(s_app);
         using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(3));
 
-        await s_app.ResourceNotifications.WaitForResourceAsync(
+        await _app.ResourceNotifications.WaitForResourceAsync(
             ServiceNames.Workers.Migration,
             KnownResourceStates.Finished,
             cts.Token);
-        await s_app.ResourceNotifications.WaitForResourceAsync(
+        await _app.ResourceNotifications.WaitForResourceAsync(
             ServiceNames.Workers.Migration2,
             KnownResourceStates.Finished,
             cts.Token);
@@ -68,11 +49,10 @@ public sealed class MigrationWorkerTests
         await AssertMigrationsAppliedAsync(ServiceNames.Databases.Application2, cts.Token);
     }
 
-    private static async Task AssertMigrationsAppliedAsync(string databaseResourceName, CancellationToken cancellationToken)
+    private async Task AssertMigrationsAppliedAsync(string databaseResourceName, CancellationToken cancellationToken)
     {
-        Assert.IsNotNull(s_app);
-        var connectionString = await s_app.GetConnectionStringAsync(databaseResourceName, cancellationToken);
-        Assert.IsFalse(string.IsNullOrWhiteSpace(connectionString), $"Missing connection string for '{databaseResourceName}'.");
+        var connectionString = await _app.GetConnectionStringAsync(databaseResourceName, cancellationToken);
+        Assert.False(string.IsNullOrWhiteSpace(connectionString), $"Missing connection string for '{databaseResourceName}'.");
 
         var options = new DbContextOptionsBuilder<TestDbContext>()
             .UseSqlServer(connectionString)
@@ -82,7 +62,7 @@ public sealed class MigrationWorkerTests
         var applied = await db.Database.GetAppliedMigrationsAsync(cancellationToken);
         var pending = await db.Database.GetPendingMigrationsAsync(cancellationToken);
 
-        Assert.IsTrue(applied.Any(), $"Expected applied migrations for '{databaseResourceName}'.");
-        Assert.IsFalse(pending.Any(), $"Expected no pending migrations for '{databaseResourceName}'.");
+        Assert.True(applied.Any(), $"Expected applied migrations for '{databaseResourceName}'.");
+        Assert.False(pending.Any(), $"Expected no pending migrations for '{databaseResourceName}'.");
     }
 }

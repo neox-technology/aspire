@@ -37,4 +37,4 @@ Each `specs/features/<slug>.md` file follows this skeleton:
 |------|--------|-------------|
 | [`domain-glossary`](features/domain-glossary.md) | draft | Neox Aspire terminology (seed) |
 | [`nuget-github-packages`](features/nuget-github-packages.md) | defined | Arcade pack/publish to repo GitHub Packages |
-| [`efcore-migration-worker`](features/efcore-migration-worker.md) | implemented | EF Core migration worker + Aspire MSTest harnesses (SqlServer/Postgres/MySql) |
+| [`efcore-migration-worker`](features/efcore-migration-worker.md) | implemented | EF Core migration worker + Aspire xUnit harnesses (SqlServer/Postgres) |
