@@ -1,0 +1,70 @@
+name: gitflow-auto-pr
+
+on:
+  push:
+    branches:
+      - "feature/**"
+      - "release/**"
+      - "hotfix/**"
+
+permissions:
+  contents: read
+
+jobs:
+  open-pr:
+    runs-on: ubuntu-latest
+    name: Open GitFlow PR
+    steps:
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.NEOX_GITFLOW_APP_ID }}
+          private-key: ${{ secrets.NEOX_GITFLOW_APP_PRIVATE_KEY }}
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Ensure pull request exists
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          HEAD_REF: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          case "$HEAD_REF" in
+            feature/*)
+              BASE=develop
+              TITLE="Feature: ${HEAD_REF#feature/}"
+              BODY="Automated GitFlow PR: \`${HEAD_REF}\` → \`${BASE}\`. Squash-merge when ready."
+              ;;
+            release/*)
+              BASE=main
+              TITLE="Release: ${HEAD_REF#release/}"
+              BODY="Automated GitFlow release PR: \`${HEAD_REF}\` → \`${BASE}\`. Squash-merge to ship; finish workflow tags and syncs develop."
+              ;;
+            hotfix/*)
+              BASE=main
+              TITLE="Hotfix: ${HEAD_REF#hotfix/}"
+              BODY="Automated GitFlow hotfix PR: \`${HEAD_REF}\` → \`${BASE}\`. Squash-merge to ship; finish workflow tags and syncs develop."
+              ;;
+            *)
+              echo "Unsupported branch: $HEAD_REF"
+              exit 1
+              ;;
+          esac
+
+          EXISTING=$(gh pr list --head "$HEAD_REF" --base "$BASE" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            echo "PR #$EXISTING already open for $HEAD_REF → $BASE"
+            exit 0
+          fi
+
+          gh pr create \
+            --base "$BASE" \
+            --head "$HEAD_REF" \
+            --title "$TITLE" \
+            --body "$BODY"

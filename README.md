@@ -69,14 +69,23 @@ Run tests (Docker required):
 Build.cmd -configuration Release -test
 ```
 
-### Git flow
+### Git flow / CI / publish
 
-- `main` — production releases
-- `develop` — integration / development
+Branch model: `feature/*` → `develop`; `release/*` / `hotfix/*` → `main`; `main` holds shipped releases. Spec: [`gitflow-ci`](specs/features/gitflow-ci.md).
 
-Feature work lands on `feature/*` branches from `develop`.
+| Event | Workflow | Behavior |
+|-------|----------|----------|
+| Push `feature/**` | [`.github/workflows/gitflow-auto-pr.yml`](.github/workflows/gitflow-auto-pr.yml) | Auto-PR → `develop` |
+| Push `release/**` / `hotfix/**` | same | Auto-PR → `main` |
+| Merge `feature/**` → `develop` | [`.github/workflows/gitflow-cleanup-feature.yml`](.github/workflows/gitflow-cleanup-feature.yml) | Delete feature branch |
+| `workflow_dispatch` on `develop` | [`.github/workflows/gitflow-start-release.yml`](.github/workflows/gitflow-start-release.yml) | Cut `release/x.y.z` + PR → `main` |
+| Merge `release/**` / `hotfix/**` → `main` | [`.github/workflows/gitflow-finish.yml`](.github/workflows/gitflow-finish.yml) | Tag `vX.Y.Z`, GitHub Release, sync PR `main` → `develop`, delete branch |
+| PR → `develop` or `main` | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | Build, test, pack (`*-ci` versions); no NuGet push |
+| Push / merge to `main` | [`.github/workflows/publish-nuget.yml`](.github/workflows/publish-nuget.yml) | Pack with `OfficialBuildId` + push to nuget.org |
 
-PRs to `main` pack and test; merges to `main` publish to nuget.org via [Trusted Publishing](https://learn.microsoft.com/nuget/nuget-org/trusted-publishing). Versioning follows the Arcade / Aspire model (`PreReleaseVersionLabel` / `StabilizePackageVersion` in [`eng/Versions.props`](eng/Versions.props)). Spec: [`nuget-org`](specs/features/nuget-org.md).
+Optional: `workflow_dispatch` on the publish workflow to re-run from `main`. Git automation uses org App **`neox-gitflow`** (not a PAT). Squash-merge only (linear history).
+
+Publishing uses [Trusted Publishing](https://learn.microsoft.com/nuget/nuget-org/trusted-publishing). Versioning follows the Arcade / Aspire model (`PreReleaseVersionLabel` / `StabilizePackageVersion` in [`eng/Versions.props`](eng/Versions.props)). Spec: [`nuget-org`](specs/features/nuget-org.md).
 
 ## License
 

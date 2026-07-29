@@ -36,5 +36,6 @@ Each `specs/features/<slug>.md` file follows this skeleton:
 | Slug | Status | Description |
 |------|--------|-------------|
 | [`domain-glossary`](features/domain-glossary.md) | draft | Neox Aspire terminology (seed) |
+| [`gitflow-ci`](features/gitflow-ci.md) | defined | GitFlow Actions (auto-PR, finish, cleanup, start-release) + CI on develop/main |
 | [`nuget-org`](features/nuget-org.md) | defined | Arcade pack/publish to nuget.org (Trusted Publishing) |
 | [`efcore-migration-worker`](features/efcore-migration-worker.md) | implemented | EF Core migration worker + Aspire xUnit harnesses (SqlServer/Postgres/MySQL/Oracle) |

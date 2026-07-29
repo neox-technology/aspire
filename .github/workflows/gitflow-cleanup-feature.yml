@@ -1,0 +1,43 @@
+name: gitflow-cleanup-feature
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - develop
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    if: >
+      github.event.pull_request.merged == true &&
+      startsWith(github.event.pull_request.head.ref, 'feature/')
+    runs-on: ubuntu-latest
+    name: Delete merged feature branch
+    steps:
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.NEOX_GITFLOW_APP_ID }}
+          private-key: ${{ secrets.NEOX_GITFLOW_APP_PRIVATE_KEY }}
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Delete feature branch
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code --heads origin "$HEAD_REF" >/dev/null 2>&1; then
+            git push origin --delete "$HEAD_REF"
+            echo "Deleted origin/$HEAD_REF"
+          else
+            echo "Branch $HEAD_REF already deleted"
+          fi
