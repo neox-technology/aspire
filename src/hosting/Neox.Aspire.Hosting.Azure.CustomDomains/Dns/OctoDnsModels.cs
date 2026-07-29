@@ -7,11 +7,12 @@ namespace Neox.Aspire.Hosting.Azure.Dns;
 /// </summary>
 public sealed class OctoDnsZoneRecord
 {
-    [YamlMember(Alias = "type", Order = 0)]
-    public required string Type { get; init; }
-
-    [YamlMember(Alias = "ttl", Order = 1)]
+    // OctoDNS YamlProvider enforce_order (default true) requires alphabetical keys: ttl, type, value.
+    [YamlMember(Alias = "ttl", Order = 0)]
     public int Ttl { get; init; } = 300;
+
+    [YamlMember(Alias = "type", Order = 1)]
+    public required string Type { get; init; }
 
     [YamlMember(Alias = "value", Order = 2)]
     public required string Value { get; init; }
