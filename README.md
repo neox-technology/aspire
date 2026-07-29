@@ -46,6 +46,7 @@ Packable libraries live under `src/`. Hosting packages (when present) use the `N
 | Package | Role |
 |---------|------|
 | [`Neox.Aspire.EntityFrameworkCore.MigrationWorker`](src/Neox.Aspire.EntityFrameworkCore.MigrationWorker) | One-shot EF Core migration `BackgroundService` via `AddEfCoreMigrationService<TDbContext>()` |
+| [`Neox.Aspire.Hosting.Azure.CustomDomains`](src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains) | ACA custom domain ops (`WithAzureCustomDomainOps`, OctoDNS / managed cert / GitHub vars via `aspire do`) |
 
 Integration tests (Aspire xUnit harnesses, Docker required) live under [`tests/efcore-migration-worker/`](tests/efcore-migration-worker/). Specs: [`specs/`](specs/README.md).
 

@@ -2,6 +2,9 @@
   <Folder Name="/src/">
     <Project Path="src/Neox.Aspire.EntityFrameworkCore.MigrationWorker/Neox.Aspire.EntityFrameworkCore.MigrationWorker.csproj" />
   </Folder>
+  <Folder Name="/src/hosting/">
+    <Project Path="src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains/Neox.Aspire.Hosting.Azure.CustomDomains.csproj" />
+  </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/efcore-migration-worker/" />
   <Folder Name="/tests/efcore-migration-worker/sqlserver/">
