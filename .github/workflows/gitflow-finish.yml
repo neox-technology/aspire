@@ -1,0 +1,113 @@
+name: gitflow-finish
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  finish:
+    if: >
+      github.event.pull_request.merged == true &&
+      (startsWith(github.event.pull_request.head.ref, 'release/') ||
+       startsWith(github.event.pull_request.head.ref, 'hotfix/'))
+    runs-on: ubuntu-latest
+    name: Finish release or hotfix
+    steps:
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.NEOX_GITFLOW_APP_ID }}
+          private-key: ${{ secrets.NEOX_GITFLOW_APP_PRIVATE_KEY }}
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+          ref: main
+
+      - name: Parse version and tag
+        id: version
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          RAW="${HEAD_REF#release/}"
+          RAW="${RAW#hotfix/}"
+          RAW="${RAW#v}"
+          if ! [[ "$RAW" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-].+)?$ ]]; then
+            echo "::error::Branch '$HEAD_REF' must end with semver (e.g. release/1.2.3 or hotfix/1.2.4)"
+            exit 1
+          fi
+          TAG="v${RAW}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$RAW" >> "$GITHUB_OUTPUT"
+          echo "head_ref=$HEAD_REF" >> "$GITHUB_OUTPUT"
+
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists — skipping create"
+            echo "created=false" >> "$GITHUB_OUTPUT"
+          else
+            git config user.name "neox-gitflow[bot]"
+            git config user.email "neox-gitflow[bot]@users.noreply.github.com"
+            git tag -a "$TAG" -m "Release $TAG"
+            git push origin "$TAG"
+            echo "created=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create GitHub Release
+        if: steps.version.outputs.created == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists"
+          else
+            gh release create "$TAG" --title "$TAG" --generate-notes
+          fi
+
+      - name: Open sync PR main → develop
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          EXISTING=$(gh pr list --base develop --head main --state open --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            echo "Sync PR #$EXISTING already open (main → develop)"
+            exit 0
+          fi
+
+          git fetch origin develop main
+          AHEAD=$(git rev-list --count origin/develop..origin/main)
+          if [ "$AHEAD" -eq 0 ]; then
+            echo "develop already contains main — no sync PR"
+            exit 0
+          fi
+
+          gh pr create \
+            --base develop \
+            --head main \
+            --title "chore: sync main → develop after ${{ steps.version.outputs.tag }}" \
+            --body "Automated GitFlow back-sync after merging \`${{ steps.version.outputs.head_ref }}\`. Squash-merge to keep develop aligned with production."
+
+      - name: Delete source branch
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          HEAD_REF: ${{ steps.version.outputs.head_ref }}
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code --heads origin "$HEAD_REF" >/dev/null 2>&1; then
+            git push origin --delete "$HEAD_REF"
+            echo "Deleted origin/$HEAD_REF"
+          else
+            echo "Branch $HEAD_REF already deleted"
+          fi
