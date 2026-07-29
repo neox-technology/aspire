@@ -18,6 +18,12 @@ Terminology authority for Neox Aspire packages in this **public** repository (`a
 | **hosting package** | A `Neox.Aspire.Hosting.*` library that AppHosts reference for Aspire resource/extension helpers. Lives under `src/hosting/` when present. |
 | **Shipping** | Arcade package output bucket for packages intended for consumers (`artifacts/packages/<Configuration>/Shipping/`). Distinct from non-shipping / internal artifacts. |
 | **migration worker** | Reusable non-hosting DI helper (`Neox.Aspire.EntityFrameworkCore.MigrationWorker`) that runs EF Core `MigrateAsync` in a one-shot `BackgroundService`, then stops the host via `AddEfCoreMigrationService<TDbContext>()`. |
+| **custom domain ops** | Hosting helpers (`Neox.Aspire.Hosting.Azure.CustomDomains`) that orchestrate ACA custom domain DNS, managed certificates, and GitHub variable updates via `aspire do` pipeline steps. |
+| **domain-provision** | Pipeline step that reads ACA ingress targets, syncs DNS with OctoDNS, binds a managed certificate, and sets the GitHub Actions certificate variable. |
+| **domain-verify** | Pipeline step that checks DNS and certificate parameter consistency before a steady-state deploy; fails closed on drift or missing cert in strict mode. |
+| **domain-guard** | Pipeline step that fails when a certificate name is required and empty (steady-state fail-fast). |
+| **managed certificate** | Free DigiCert TLS certificate issued and renewed by Azure Container Apps for a validated custom domain. |
+| **OctoDNS sync** | Applying planned DNS records to one or more providers by invoking the external `octodns-sync` CLI. |
 
 ## Out of scope
 
