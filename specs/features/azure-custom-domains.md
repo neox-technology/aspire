@@ -22,7 +22,7 @@ V1 supports **one hostname per binding** (apex **or** subdomain, auto-detected).
 
 - A contributor packs `Neox.Aspire.Hosting.Azure.CustomDomains` as a Shipping nupkg from this repo.
 - A consumer AppHost wires `AddDomainOpsProvider` + `ConfigureCustomDomain` + `WithAzureCustomDomainOps(provider)`, and runs CI with `Parameters__*` / `Azure__*` / `--non-interactive`.
-- Provider auth without explicit options resolves from `Parameters__{providerResourceName}_{param}` (e.g. `Parameters__dns_token`).
+- Provider auth without explicit options resolves from `Parameters__{providerResourceName}-{param}` (e.g. `Parameters__dns-token`; Aspire also accepts underscore env fallback).
 - **Bootstrap**: `aspire deploy` (empty cert) → `aspire do domain-provision` (generate OctoDNS YAML without secrets, `docker run` sync with `-e` credentials, hostname bind, `gh variable set`) → `aspire deploy` (cert name set).
 - **Steady-state**: `aspire do domain-verify` → `aspire deploy` with `Parameters__certificateName` from the GitHub variable; `domain-guard` fails if the cert is required and empty.
 - Contributors run xUnit unit tests (no live Azure) covering DNS planning, YAML generation (no secrets on disk), verify/guard, and provision orchestration with process fakes.
@@ -58,7 +58,7 @@ _N/A — hosting / pipeline library._
 
 - [x] Package id is `Neox.Aspire.Hosting.Azure.CustomDomains` under `src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains/`.
 - [x] `AddDomainOpsProvider(name)` returns a builder with `.Cloudflare(...)` / `.Ovh(...)` producing `DomainOpsProviderResource` subtypes.
-- [x] Auth options null → Aspire parameters `Parameters__{resourceName}_{param}`; credentials never written into generated YAML (`env/VAR` refs only).
+- [x] Auth options null → Aspire parameters `Parameters__{resourceName}-{param}` (hyphenated; Aspire-valid resource names); credentials never written into generated YAML (`env/VAR` refs only).
 - [x] `WithAzureCustomDomainOps` requires `IResourceBuilder<TProvider>` where `TProvider : DomainOpsProviderResource` (breaking).
 - [x] One provider resource may be referenced by multiple `WithAzureCustomDomainOps` bindings.
 - [x] `domain-provision` generates zone YAML + `octodns.yaml`, runs `docker run … octodns-sync --doit` with `-e` secrets, binds managed hostname, updates GitHub variable.
@@ -96,7 +96,7 @@ See [`domain-glossary`](domain-glossary.md) (`custom domain ops`, `DomainOps pro
 
 - `Azure__SubscriptionId`, `Azure__Location`, `Azure__ResourceGroup`
 - `Parameters__customDomain`, `Parameters__certificateName` (empty string allowed on bootstrap deploy)
-- Provider auth: `Parameters__{providerName}_token` (Cloudflare) or `Parameters__{providerName}_application_key` / `_application_secret` / `_consumer_key` (OVH)
+- Provider auth: `Parameters__{providerName}-token` (Cloudflare) or `Parameters__{providerName}-application-key` / `-application-secret` / `-consumer-key` (OVH)
 - Docker available on the runner PATH
 - GitHub token with permission to set Actions variables
 - `--non-interactive` on `aspire deploy` / `aspire do`

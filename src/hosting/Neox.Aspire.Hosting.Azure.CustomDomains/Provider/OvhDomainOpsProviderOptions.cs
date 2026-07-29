@@ -13,17 +13,17 @@ public sealed class OvhDomainOpsProviderOptions
     public string Endpoint { get; set; } = "ovh-eu";
 
     /// <summary>
-    /// Application key. When null, a parameter named <c>{resource}_application_key</c> is created.
+    /// Application key. When null, a parameter named <c>{resource}-application-key</c> is created.
     /// </summary>
     public IResourceBuilder<ParameterResource>? ApplicationKey { get; set; }
 
     /// <summary>
-    /// Application secret. When null, a parameter named <c>{resource}_application_secret</c> is created.
+    /// Application secret. When null, a parameter named <c>{resource}-application-secret</c> is created.
     /// </summary>
     public IResourceBuilder<ParameterResource>? ApplicationSecret { get; set; }
 
     /// <summary>
-    /// Consumer key. When null, a parameter named <c>{resource}_consumer_key</c> is created.
+    /// Consumer key. When null, a parameter named <c>{resource}-consumer-key</c> is created.
     /// </summary>
     public IResourceBuilder<ParameterResource>? ConsumerKey { get; set; }
 }
