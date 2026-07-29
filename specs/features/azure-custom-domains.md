@@ -14,9 +14,9 @@ Consumers:
 
 1. Register a DNS provider with `AddDomainOpsProvider(name).Cloudflare(...)` or `.Ovh(...)`.
 2. Call `WithAzureCustomDomainOps(..., provider, ...)` on the compute resource.
-3. Invoke pipeline steps with `aspire do` (`domain-verify`, `domain-provision`, `domain-guard`) around non-interactive `aspire deploy`.
+3. Invoke pipeline steps with `aspire do` (`domain-verify`, `domain-provision`, `domain-guard`) around non-interactive `aspire deploy`, **or** run the same actions from the local Aspire dashboard via resource commands on each DomainOps provider.
 
-V1 supports **one hostname per binding** (apex **or** subdomain, auto-detected). One provider resource may be shared by multiple bindings. Bootstrap uses an empty `certificateName` on the first deploy; steady-state fails closed when the certificate parameter is missing.
+V1 supports **one hostname per binding** (apex **or** subdomain, auto-detected). One provider resource may be shared by multiple bindings. Multiple provider resources may be registered; each only operates on its own bindings. Bootstrap uses an empty `certificateName` on the first deploy; steady-state fails closed when the certificate parameter is missing.
 
 ## User scenarios
 
@@ -25,11 +25,12 @@ V1 supports **one hostname per binding** (apex **or** subdomain, auto-detected).
 - Provider auth without explicit options resolves from `Parameters__{providerResourceName}-{param}` (e.g. `Parameters__dns-token`; Aspire also accepts underscore env fallback).
 - **Bootstrap**: `aspire deploy` (empty cert) → `aspire do domain-provision` (generate OctoDNS YAML without secrets, `docker run` sync with `-e` credentials, hostname bind, `gh variable set`) → `aspire deploy` (cert name set).
 - **Steady-state**: `aspire do domain-verify` → `aspire deploy` with `Parameters__certificateName` from the GitHub variable; `domain-guard` fails if the cert is required and empty.
-- Contributors run xUnit unit tests (no live Azure) covering DNS planning, YAML generation (no secrets on disk), verify/guard, and provision orchestration with process fakes.
+- Contributors run xUnit unit tests (no live Azure) covering DNS planning, YAML generation (no secrets on disk), verify/guard, provision orchestration with process fakes, and dashboard command registration (multi-provider / idempotence).
+- Locally, the Aspire dashboard shows **Verify**, **Guard**, and **Deploy** on each DomainOps provider that has at least one `WithAzureCustomDomainOps` binding; Deploy runs `domain-provision` logic.
 
 ## Routes (if UI)
 
-_N/A — hosting / pipeline library._
+Local Aspire dashboard only (resource commands on `DomainOpsProvider`). Not available when the dashboard runs in Azure Container Apps.
 
 ## Dependencies
 
@@ -68,10 +69,13 @@ _N/A — hosting / pipeline library._
 - [x] Package README documents provider API, `Parameters__*`, Docker prerequisite, bootstrap vs steady-state.
 - [x] Unit tests under `tests/azure-custom-domains/` (xUnit; no live Azure); assert `docker` args and no secrets in written YAML.
 - [x] DigiCert constraint documented: CNAME must point directly at the ACA FQDN.
+- [x] `WithAzureCustomDomainOps` registers dashboard commands `domain-verify` / `domain-guard` / `domain-provision` (display names Verify / Guard / Deploy) on the referenced `DomainOpsProvider` exactly once (idempotent across shared bindings).
+- [x] Each provider’s commands run `DomainOpsOrchestrator` only for bindings that reference that provider (`ReferenceEquals`); multiple bindings on one provider run sequentially and fail fast.
+- [x] Package README documents dashboard commands (local-only) and that Deploy ≡ `domain-provision`.
 
 ## Terminology
 
-See [`domain-glossary`](domain-glossary.md) (`custom domain ops`, `DomainOps provider`, `domain-provision`, `domain-verify`, `domain-guard`, `managed certificate`, `OctoDNS sync`).
+See [`domain-glossary`](domain-glossary.md) (`custom domain ops`, `DomainOps provider`, `DomainOps provider commands`, `domain-provision`, `domain-verify`, `domain-guard`, `managed certificate`, `OctoDNS sync`).
 
 ## Implementation notes
 
@@ -91,6 +95,16 @@ See [`domain-glossary`](domain-glossary.md) (`custom domain ops`, `DomainOps pro
 | `domain-verify` | Expected DNS + cert parameter consistent | Drift, missing cert in strict mode, tool failure |
 | `domain-guard` | Cert parameter non-empty when required | Empty/missing cert |
 | `domain-provision` | YAML generated, Docker OctoDNS sync, managed cert bound, GH var updated | Azure/Docker/gh/DNS poll failure |
+
+### Dashboard command contracts
+
+Registered on each `DomainOpsProvider` after the first `WithAzureCustomDomainOps(..., provider)` call. Same orchestrator as the pipeline steps; `aspire do` remains the CI surface.
+
+| Command name | Display name | Action |
+|--------------|--------------|--------|
+| `domain-verify` | Verify | `DomainOpsOrchestrator.VerifyAsync` for bindings of this provider |
+| `domain-guard` | Guard | `DomainOpsOrchestrator.GuardAsync` for bindings of this provider |
+| `domain-provision` | Deploy | `DomainOpsOrchestrator.ProvisionAsync` for bindings of this provider |
 
 ### Non-interactive inputs
 
