@@ -5,6 +5,9 @@ var builder = DistributedApplication.CreateBuilder(args);
 var customDomain = builder.AddParameter("customDomain");
 var certificateName = builder.AddParameter("certificateName");
 
+var dns = builder.AddDomainOpsProvider("dns")
+    .Cloudflare();
+
 builder.AddAzureContainerAppEnvironment("aca-env");
 
 // Minimal smoke AppHost: registers domain-ops pipeline steps for `aspire do --list-steps`.
@@ -13,7 +16,7 @@ builder.AddContainer("api", "mcr.microsoft.com/dotnet/samples:aspnetapp")
     .WithHttpEndpoint(targetPort: 8080)
     .WithExternalHttpEndpoints()
     .PublishAsAzureContainerApp((_, _) => { })
-    .WithAzureCustomDomainOps(customDomain, certificateName, options =>
+    .WithAzureCustomDomainOps(customDomain, certificateName, dns, options =>
     {
         options.RequireCertificateName = false;
         options.OctoDnsConfigPath = "octodns.yaml";
