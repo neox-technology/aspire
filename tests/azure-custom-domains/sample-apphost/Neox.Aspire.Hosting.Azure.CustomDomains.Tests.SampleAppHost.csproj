@@ -1,0 +1,18 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.4.6">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>Neox.Aspire.Hosting.Azure.CustomDomains.Tests.SampleAppHost</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.Azure.AppContainers" Version="$(AspireVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\hosting\Neox.Aspire.Hosting.Azure.CustomDomains\Neox.Aspire.Hosting.Azure.CustomDomains.csproj" IsAspireProjectResource="false" />
+  </ItemGroup>
+</Project>

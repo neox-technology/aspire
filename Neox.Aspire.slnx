@@ -8,6 +8,7 @@
   <Folder Name="/tests/" />
   <Folder Name="/tests/azure-custom-domains/">
     <Project Path="tests/azure-custom-domains/Neox.Aspire.Hosting.Azure.CustomDomains.Tests.csproj" />
+    <Project Path="tests/azure-custom-domains/sample-apphost/Neox.Aspire.Hosting.Azure.CustomDomains.Tests.SampleAppHost.csproj" />
   </Folder>
   <Folder Name="/tests/efcore-migration-worker/" />
   <Folder Name="/tests/efcore-migration-worker/sqlserver/">

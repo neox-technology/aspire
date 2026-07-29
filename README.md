@@ -1,7 +1,8 @@
 # Neox Aspire
 
 [![CI](https://github.com/neox-technology/aspire/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/neox-technology/aspire/actions/workflows/ci.yml)
-[![NuGet](https://img.shields.io/nuget/vpre/Neox.Aspire.EntityFrameworkCore.MigrationWorker.svg?label=NuGet)](https://www.nuget.org/packages/Neox.Aspire.EntityFrameworkCore.MigrationWorker)
+[![NuGet](https://img.shields.io/nuget/vpre/Neox.Aspire.EntityFrameworkCore.MigrationWorker.svg?label=MigrationWorker)](https://www.nuget.org/packages/Neox.Aspire.EntityFrameworkCore.MigrationWorker)
+[![NuGet](https://img.shields.io/nuget/vpre/Neox.Aspire.Hosting.Azure.CustomDomains.svg?label=CustomDomains)](https://www.nuget.org/packages/Neox.Aspire.Hosting.Azure.CustomDomains)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/Neox.Aspire.EntityFrameworkCore.MigrationWorker.svg)](https://www.nuget.org/packages/Neox.Aspire.EntityFrameworkCore.MigrationWorker)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
