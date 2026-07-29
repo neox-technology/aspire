@@ -1,12 +1,12 @@
 # Neox.Aspire.Hosting.Azure.CustomDomains
 
-Aspire hosting helpers that automate **Azure Container Apps** custom domains: multi-provider DNS via [OctoDNS](https://github.com/octodns/octodns), **managed certificates**, and GitHub Actions variable updates.
+Aspire hosting helpers that automate **Azure Container Apps** custom domains: multi-provider DNS via [OctoDNS](https://github.com/octodns/octodns) (config generated in-process; sync via **Docker**), **managed certificates**, and GitHub Actions variable updates.
 
 ## Prerequisites (consumer / CI)
 
 - [Aspire CLI](https://aspire.dev/) and Azure authentication for `aspire deploy`
 - [Azure CLI](https://learn.microsoft.com/cli/azure/) (`az`)
-- [OctoDNS](https://github.com/octodns/octodns) (`octodns-sync`) configured for your DNS provider(s)
+- [Docker](https://docs.docker.com/) with access to pull `octodns/cloudflare` or `octodns/ovh`
 - [GitHub CLI](https://cli.github.com/) (`gh`) with permission to set Actions variables
 
 ### Secrets / tokens
@@ -14,8 +14,11 @@ Aspire hosting helpers that automate **Azure Container Apps** custom domains: mu
 | Need | Typical source |
 |------|----------------|
 | Azure | OIDC / service principal (`Azure__SubscriptionId`, `Azure__Location`, `Azure__ResourceGroup`) |
-| OctoDNS providers | Provider API tokens in the runner environment (see your OctoDNS config) |
+| Cloudflare | `Parameters__{providerName}_token` (e.g. `Parameters__dns_token`) |
+| OVH | `Parameters__{providerName}_application_key`, `_application_secret`, `_consumer_key` |
 | GitHub variables | PAT or GitHub App token that can write repository Actions variables (`gh variable set`) |
+
+Credentials are **never** written into generated `octodns.yaml` (only `env/VAR` refs). Values are injected as container env vars when running `docker run`.
 
 > **DigiCert / managed certificates:** the CNAME must point **directly** at the Container App FQDN (`*.azurecontainerapps.io`). Do **not** use a Cloudflare orange-cloud proxy, Traffic Manager, or other intermediate CNAME — issuance and renewal will fail.
 
@@ -24,6 +27,9 @@ Aspire hosting helpers that automate **Azure Container Apps** custom domains: mu
 ```csharp
 var customDomain = builder.AddParameter("customDomain");
 var certificateName = builder.AddParameter("certificateName");
+
+var dns = builder.AddDomainOpsProvider("dns")
+    .Cloudflare(); // or .Ovh(); auth from Parameters__dns_* when options are omitted
 
 builder.AddAzureContainerAppEnvironment("env");
 
@@ -34,7 +40,7 @@ builder.AddProject<Projects.Api>("api")
     {
         app.ConfigureCustomDomain(customDomain, certificateName);
     })
-    .WithAzureCustomDomainOps(customDomain, certificateName, options =>
+    .WithAzureCustomDomainOps(customDomain, certificateName, dns, options =>
     {
         options.ContainerAppResourceName = "api";
         options.OctoDnsConfigPath = "dns/octodns.yaml";
@@ -44,6 +50,8 @@ builder.AddProject<Projects.Api>("api")
     });
 #pragma warning restore ASPIREACADOMAINS001
 ```
+
+The same provider resource can be passed to multiple `WithAzureCustomDomainOps` bindings.
 
 ### Pipeline steps
 
@@ -57,7 +65,7 @@ Optional env for verify DNS planning without re-querying Azure: `NEOX_ACA_FQDN`,
 
 ## GitHub Actions flows
 
-Pass Aspire parameters non-interactively (`Parameters__customDomain`, `Parameters__certificateName`) plus Azure settings.
+Pass Aspire parameters non-interactively (`Parameters__customDomain`, `Parameters__certificateName`, provider auth) plus Azure settings.
 
 ### Bootstrap (`CERTIFICATE_NAME` empty)
 
@@ -76,6 +84,7 @@ Pass Aspire parameters non-interactively (`Parameters__customDomain`, `Parameter
     Azure__ResourceGroup: ${{ vars.AZURE_RESOURCE_GROUP }}
     Parameters__customDomain: ${{ vars.CUSTOM_DOMAIN }}
     Parameters__certificateName: ""
+    Parameters__dns_token: ${{ secrets.CLOUDFLARE_TOKEN }}
     GITHUB_TOKEN: ${{ secrets.GH_VARIABLES_PAT }}
   run: aspire do domain-provision --non-interactive --environment production
 

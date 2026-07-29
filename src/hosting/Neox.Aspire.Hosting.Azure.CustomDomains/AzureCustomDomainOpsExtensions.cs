@@ -22,16 +22,19 @@ public static class AzureCustomDomainOpsExtensions
     /// <summary>
     /// Registers custom domain ops (verify / provision / guard) for the resource via <c>aspire do</c> pipeline steps.
     /// </summary>
-    public static IResourceBuilder<T> WithAzureCustomDomainOps<T>(
+    public static IResourceBuilder<T> WithAzureCustomDomainOps<T, TProvider>(
         this IResourceBuilder<T> builder,
         IResourceBuilder<ParameterResource> customDomain,
         IResourceBuilder<ParameterResource> certificateName,
+        IResourceBuilder<TProvider> provider,
         Action<AzureCustomDomainOpsOptions>? configure = null)
         where T : IResource
+        where TProvider : DomainOpsProviderResource
     {
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(customDomain);
         ArgumentNullException.ThrowIfNull(certificateName);
+        ArgumentNullException.ThrowIfNull(provider);
 
         var options = new AzureCustomDomainOpsOptions
         {
@@ -39,10 +42,11 @@ public static class AzureCustomDomainOpsExtensions
         };
         configure?.Invoke(options);
 
-        builder.WithAnnotation(new AzureCustomDomainOpsAnnotation(customDomain, certificateName, options));
+        builder.WithAnnotation(new AzureCustomDomainOpsAnnotation(customDomain, certificateName, provider.Resource, options));
 
         EnsureDomainOpsResource(builder.ApplicationBuilder)
-            .WithPipelineStepFactory(factoryContext => CreateSteps(factoryContext, builder.Resource, customDomain, certificateName, options));
+            .WithPipelineStepFactory(factoryContext =>
+                CreateSteps(factoryContext, builder.Resource, customDomain, certificateName, provider.Resource, options));
 
         return builder;
     }
@@ -74,6 +78,7 @@ public static class AzureCustomDomainOpsExtensions
         IResource targetResource,
         IResourceBuilder<ParameterResource> customDomain,
         IResourceBuilder<ParameterResource> certificateName,
+        DomainOpsProviderResource provider,
         AzureCustomDomainOpsOptions options)
     {
         yield return new PipelineStep
@@ -111,7 +116,7 @@ public static class AzureCustomDomainOpsExtensions
         yield return new PipelineStep
         {
             Name = DomainProvisionStepName,
-            Description = "Provision DNS via OctoDNS, bind ACA managed certificate, update GitHub variable.",
+            Description = "Provision DNS via OctoDNS (Docker), bind ACA managed certificate, update GitHub variable.",
             Tags = ["domain-ops"],
             Resource = factoryContext.Resource,
             Action = async context =>
@@ -119,7 +124,13 @@ public static class AzureCustomDomainOpsExtensions
                 var logger = context.Services.GetRequiredService<ILoggerFactory>().CreateLogger(DomainProvisionStepName);
                 var runner = context.Services.GetService<IProcessRunner>() ?? new ProcessRunner();
                 var orchestrator = new DomainOpsOrchestrator(runner, logger);
-                await orchestrator.ProvisionAsync(targetResource, customDomain.Resource, certificateName.Resource, options, context.CancellationToken)
+                await orchestrator.ProvisionAsync(
+                        targetResource,
+                        customDomain.Resource,
+                        certificateName.Resource,
+                        provider,
+                        options,
+                        context.CancellationToken)
                     .ConfigureAwait(false);
             }
         };
