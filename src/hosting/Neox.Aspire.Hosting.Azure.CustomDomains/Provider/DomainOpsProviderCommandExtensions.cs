@@ -1,7 +1,6 @@
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using Neox.Aspire.Hosting.Azure.Pipeline;
 using Neox.Aspire.Hosting.Azure.Processes;
 
@@ -67,6 +66,9 @@ internal static class DomainOpsProviderCommandExtensions
         DomainOpsProviderResource provider,
         DomainOpsActionKind kind)
     {
+        var report = new DomainOpsCommandReport(kind, provider.Name);
+        string? currentTarget = null;
+
         try
         {
             var model = context.ServiceProvider.GetRequiredService<DistributedApplicationModel>();
@@ -77,13 +79,14 @@ internal static class DomainOpsProviderCommandExtensions
                     $"No custom domain bindings reference DomainOps provider '{provider.Name}'.");
             }
 
-            var loggerFactory = context.ServiceProvider.GetRequiredService<ILoggerFactory>();
-            var logger = loggerFactory.CreateLogger($"domain-ops-command-{kind.ToString().ToLowerInvariant()}");
+            var logger = context.Logger;
             var runner = context.ServiceProvider.GetService<IProcessRunner>() ?? new ProcessRunner();
             var orchestrator = new DomainOpsOrchestrator(runner, logger);
 
             foreach (var (target, annotation) in bindings)
             {
+                currentTarget = target.Name;
+
                 await DomainOpsParameterPrompt.EnsureReadyAsync(
                         context.ServiceProvider,
                         DomainOpsParameterPrompt.CollectRequired(
@@ -98,30 +101,34 @@ internal static class DomainOpsProviderCommandExtensions
                 switch (kind)
                 {
                     case DomainOpsActionKind.Verify:
-                        await orchestrator.VerifyAsync(
-                                target,
-                                annotation.CustomDomain.Resource,
-                                annotation.CertificateName.Resource,
-                                annotation.Options,
-                                context.CancellationToken)
-                            .ConfigureAwait(false);
+                        report.AddVerify(
+                            await orchestrator.VerifyAsync(
+                                    target,
+                                    annotation.CustomDomain.Resource,
+                                    annotation.CertificateName.Resource,
+                                    annotation.Options,
+                                    context.CancellationToken)
+                                .ConfigureAwait(false));
                         break;
                     case DomainOpsActionKind.Guard:
-                        await orchestrator.GuardAsync(
-                                annotation.CertificateName.Resource,
-                                annotation.Options,
-                                context.CancellationToken)
-                            .ConfigureAwait(false);
+                        report.AddGuard(
+                            target.Name,
+                            await orchestrator.GuardAsync(
+                                    annotation.CertificateName.Resource,
+                                    annotation.Options,
+                                    context.CancellationToken)
+                                .ConfigureAwait(false));
                         break;
                     case DomainOpsActionKind.Provision:
-                        await orchestrator.ProvisionAsync(
-                                target,
-                                annotation.CustomDomain.Resource,
-                                annotation.CertificateName.Resource,
-                                provider,
-                                annotation.Options,
-                                context.CancellationToken)
-                            .ConfigureAwait(false);
+                        report.AddProvision(
+                            await orchestrator.ProvisionAsync(
+                                    target,
+                                    annotation.CustomDomain.Resource,
+                                    annotation.CertificateName.Resource,
+                                    provider,
+                                    annotation.Options,
+                                    context.CancellationToken)
+                                .ConfigureAwait(false));
                         break;
                     default:
                         throw new InvalidOperationException($"Unknown DomainOps command kind '{kind}'.");
@@ -129,7 +136,10 @@ internal static class DomainOpsProviderCommandExtensions
             }
 
             return CommandResults.Success(
-                $"Completed {kind} for {bindings.Count} binding(s) on provider '{provider.Name}'.");
+                report.SummaryMessage,
+                report.ToMarkdown(),
+                CommandResultFormat.Markdown,
+                displayImmediately: kind == DomainOpsActionKind.Verify);
         }
         catch (OperationCanceledException)
         {
@@ -137,7 +147,11 @@ internal static class DomainOpsProviderCommandExtensions
         }
         catch (Exception ex)
         {
-            return CommandResults.Failure(ex);
+            report.SetFailure(currentTarget, ex);
+            return CommandResults.Failure(
+                report.SummaryMessage,
+                report.ToMarkdown(),
+                CommandResultFormat.Markdown);
         }
     }
 }

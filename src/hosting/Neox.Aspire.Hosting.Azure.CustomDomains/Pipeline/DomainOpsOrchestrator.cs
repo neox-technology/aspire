@@ -53,7 +53,7 @@ public sealed class DomainOpsOrchestrator
         _provisioner = provisioner;
     }
 
-    public async Task VerifyAsync(
+    public async Task<DomainOpsVerifyOutcome> VerifyAsync(
         IResource targetResource,
         ParameterResource customDomain,
         ParameterResource certificateName,
@@ -85,7 +85,10 @@ public sealed class DomainOpsOrchestrator
             _logger.LogInformation(
                 "domain-verify: certificate/domain parameters OK for {Resource}; skipping DNS drift check (no ACA plan input).",
                 targetResource.Name);
-            return;
+            return new DomainOpsVerifyOutcome(
+                targetResource.Name,
+                hostname,
+                DomainOpsDnsCheckStatus.SkippedNoPlanInput);
         }
 
         var plan = _planner.Plan(planInput);
@@ -97,7 +100,12 @@ public sealed class DomainOpsOrchestrator
 
         if (observedRecords is null)
         {
-            return;
+            return new DomainOpsVerifyOutcome(
+                targetResource.Name,
+                hostname,
+                DomainOpsDnsCheckStatus.PlannedOnly,
+                plan.Kind,
+                plan.Records.Count);
         }
 
         var drift = _verifier.FindDrift(plan.Records, observedRecords);
@@ -108,15 +116,21 @@ public sealed class DomainOpsOrchestrator
         }
 
         _logger.LogInformation("domain-verify: DNS records match expected plan.");
+        return new DomainOpsVerifyOutcome(
+            targetResource.Name,
+            hostname,
+            DomainOpsDnsCheckStatus.Matched,
+            plan.Kind,
+            plan.Records.Count);
     }
 
-    public Task GuardAsync(
+    public Task<DomainOpsGuardOutcome> GuardAsync(
         ParameterResource certificateName,
         AzureCustomDomainOpsOptions options,
         CancellationToken cancellationToken)
         => GuardCoreAsync(certificateName, options, cancellationToken);
 
-    public async Task ProvisionAsync(
+    public async Task<DomainOpsProvisionOutcome> ProvisionAsync(
         IResource targetResource,
         ParameterResource customDomain,
         ParameterResource certificateName,
@@ -153,6 +167,12 @@ public sealed class DomainOpsOrchestrator
             hostname,
             certName,
             options.CertificateGitHubVariableName);
+
+        return new DomainOpsProvisionOutcome(
+            targetResource.Name,
+            hostname,
+            certName,
+            options.CertificateGitHubVariableName);
     }
 
     /// <summary>
@@ -164,7 +184,7 @@ public sealed class DomainOpsOrchestrator
         return _zoneWriter.WriteToDirectory(plan, zoneDirectory);
     }
 
-    private async Task GuardCoreAsync(
+    private async Task<DomainOpsGuardOutcome> GuardCoreAsync(
         ParameterResource certificateName,
         AzureCustomDomainOpsOptions options,
         CancellationToken cancellationToken)
@@ -172,7 +192,7 @@ public sealed class DomainOpsOrchestrator
         if (!options.RequireCertificateName)
         {
             _logger.LogInformation("domain-guard skipped because RequireCertificateName is false.");
-            return;
+            return new DomainOpsGuardOutcome(Skipped: true);
         }
 
         var value = await certificateName.GetValueAsync(cancellationToken).ConfigureAwait(false);
@@ -183,6 +203,7 @@ public sealed class DomainOpsOrchestrator
         }
 
         _logger.LogInformation("domain-guard passed for certificate parameter.");
+        return new DomainOpsGuardOutcome(Skipped: false, CertificateName: value);
     }
 
     private static DnsPlanInput? TryBuildPlanInputFromEnvironment(string hostname)

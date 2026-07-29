@@ -25,7 +25,33 @@ public sealed class DomainOpsOrchestratorTests
         var orchestrator = CreateOrchestrator();
         var cert = CreateParameter("certificateName", "my-cert");
 
-        await orchestrator.GuardAsync(cert, new AzureCustomDomainOpsOptions { RequireCertificateName = true }, CancellationToken.None);
+        var outcome = await orchestrator.GuardAsync(
+            cert,
+            new AzureCustomDomainOpsOptions { RequireCertificateName = true },
+            CancellationToken.None);
+
+        Assert.False(outcome.Skipped);
+        Assert.Equal("my-cert", outcome.CertificateName);
+    }
+
+    [Fact]
+    public async Task VerifyAsync_ReturnsSkippedDnsWhenNoPlanInput()
+    {
+        var orchestrator = CreateOrchestrator();
+        var domain = CreateParameter("customDomain", "www.contoso.com");
+        var cert = CreateParameter("certificateName", "my-cert");
+        var resource = new TestResource("api");
+
+        var outcome = await orchestrator.VerifyAsync(
+            resource,
+            domain,
+            cert,
+            new AzureCustomDomainOpsOptions { RequireCertificateName = true },
+            CancellationToken.None);
+
+        Assert.Equal("api", outcome.TargetResourceName);
+        Assert.Equal("www.contoso.com", outcome.Hostname);
+        Assert.Equal(DomainOpsDnsCheckStatus.SkippedNoPlanInput, outcome.DnsStatus);
     }
 
     [Fact]
@@ -69,7 +95,7 @@ public sealed class DomainOpsOrchestratorTests
 
         var expected = new DnsRecordPlanner().Plan(planInput).Records;
 
-        await orchestrator.VerifyAsync(
+        var outcome = await orchestrator.VerifyAsync(
             resource,
             domain,
             cert,
@@ -77,6 +103,10 @@ public sealed class DomainOpsOrchestratorTests
             CancellationToken.None,
             observedRecords: expected,
             planInput: planInput);
+
+        Assert.Equal(DomainOpsDnsCheckStatus.Matched, outcome.DnsStatus);
+        Assert.Equal(HostnameKind.Subdomain, outcome.Kind);
+        Assert.Equal(expected.Count, outcome.PlannedRecordCount);
     }
 
     private static DomainOpsOrchestrator CreateOrchestrator()
