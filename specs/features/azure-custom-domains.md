@@ -26,7 +26,7 @@ V1 supports **one hostname per binding** (apex **or** subdomain, auto-detected).
 - **Bootstrap**: `aspire deploy` (empty cert) → `aspire do domain-provision` (generate OctoDNS YAML without secrets, `docker run` sync with `-e` credentials, hostname bind, `gh variable set`) → `aspire deploy` (cert name set).
 - **Steady-state**: `aspire do domain-verify` → `aspire deploy` with `Parameters__certificateName` from the GitHub variable; `domain-guard` fails if the cert is required and empty.
 - Contributors run xUnit unit tests (no live Azure) covering DNS planning, YAML generation (no secrets on disk), verify/guard, provision orchestration with process fakes, and dashboard command registration (multi-provider / idempotence).
-- Locally, the Aspire dashboard shows **Verify**, **Guard**, and **Deploy** on each DomainOps provider that has at least one `WithAzureCustomDomainOps` binding; Deploy runs `domain-provision` logic.
+- Locally, the Aspire dashboard shows **Verify**, **Guard**, and **Deploy** on each DomainOps provider that has at least one `WithAzureCustomDomainOps` binding; Deploy runs `domain-provision` logic. Command outcomes surface as Markdown in the notification center (**View response** / text visualizer); Verify opens the visualizer immediately.
 
 ## Routes (if UI)
 
@@ -72,6 +72,7 @@ Local Aspire dashboard only (resource commands on `DomainOpsProvider`). Not avai
 - [x] `WithAzureCustomDomainOps` registers dashboard commands `domain-verify` / `domain-guard` / `domain-provision` (display names Verify / Guard / Deploy) on the referenced `DomainOpsProvider` exactly once (idempotent across shared bindings).
 - [x] Each provider’s commands run `DomainOpsOrchestrator` only for bindings that reference that provider (`ReferenceEquals`); multiple bindings on one provider run sequentially and fail fast.
 - [x] Package README documents dashboard commands (local-only) and that Deploy ≡ `domain-provision`.
+- [x] Dashboard commands return Markdown `CommandResults` payload (View response / CLI stdout); Verify uses `displayImmediately`; progress uses `context.Logger`.
 - [x] Dashboard commands and interactive `aspire do` steps prompt unresolved parameters via `ParameterProcessor.SetParameterAsync` before `GetValueAsync` (avoids hanging on incomplete `WaitForValueTcs`).
 
 ## Terminology
@@ -106,6 +107,8 @@ Registered on each `DomainOpsProvider` after the first `WithAzureCustomDomainOps
 | `domain-verify` | Verify | `DomainOpsOrchestrator.VerifyAsync` for bindings of this provider |
 | `domain-guard` | Guard | `DomainOpsOrchestrator.GuardAsync` for bindings of this provider |
 | `domain-provision` | Deploy | `DomainOpsOrchestrator.ProvisionAsync` for bindings of this provider |
+
+Success and failure return `CommandResults` with a Markdown `Data` payload (dashboard notification center + CLI stdout). Verify sets `displayImmediately`. Progress logs use `ExecuteCommandContext.Logger` (provider console logs).
 
 ### Non-interactive inputs
 
