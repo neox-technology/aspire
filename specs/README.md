@@ -38,3 +38,4 @@ Each `specs/features/<slug>.md` file follows this skeleton:
 | [`domain-glossary`](features/domain-glossary.md) | draft | Neox Aspire terminology (seed) |
 | [`nuget-org`](features/nuget-org.md) | defined | Arcade pack/publish to nuget.org (Trusted Publishing) |
 | [`efcore-migration-worker`](features/efcore-migration-worker.md) | implemented | EF Core migration worker + Aspire xUnit harnesses (SqlServer/Postgres/MySQL/Oracle) |
+| [`azure-custom-domains`](features/azure-custom-domains.md) | defined | ACA custom domain ops hosting package (OctoDNS, managed cert, `aspire do` steps) |
