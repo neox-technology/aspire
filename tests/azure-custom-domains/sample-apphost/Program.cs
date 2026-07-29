@@ -2,11 +2,11 @@ using Neox.Aspire.Hosting.Azure;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
-var customDomain = builder.AddParameter("customDomain");
+var customDomain = builder.AddParameter("customDomain", "sokomwatt.com");
 var certificateName = builder.AddParameter("certificateName");
 
 var dns = builder.AddDomainOpsProvider("dns")
-    .Cloudflare();
+    .Ovh();
 
 builder.AddAzureContainerAppEnvironment("aca-env");
 
