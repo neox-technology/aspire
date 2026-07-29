@@ -17,10 +17,11 @@ public sealed class DomainOpsOrchestrator
     private readonly DnsRecordVerifier _verifier;
     private readonly OctoDnsZoneWriter _zoneWriter;
     private readonly OctoDnsConfigWriter _configWriter;
-    private readonly IAzureContainerAppReader? _azureReader;
+    private readonly IAzureContainerAppClient? _azureClient;
     private readonly DomainProvisioner? _provisioner;
+    private readonly IServiceProvider? _services;
 
-    public DomainOpsOrchestrator(IProcessRunner processRunner, ILogger logger)
+    public DomainOpsOrchestrator(IProcessRunner processRunner, ILogger logger, IServiceProvider? services = null)
         : this(
             processRunner,
             logger,
@@ -28,8 +29,9 @@ public sealed class DomainOpsOrchestrator
             new DnsRecordVerifier(),
             new OctoDnsZoneWriter(),
             new OctoDnsConfigWriter(),
-            azureReader: null,
-            provisioner: null)
+            azureClient: null,
+            provisioner: null,
+            services: services)
     {
     }
 
@@ -40,8 +42,9 @@ public sealed class DomainOpsOrchestrator
         DnsRecordVerifier verifier,
         OctoDnsZoneWriter zoneWriter,
         OctoDnsConfigWriter? configWriter = null,
-        IAzureContainerAppReader? azureReader = null,
-        DomainProvisioner? provisioner = null)
+        IAzureContainerAppClient? azureClient = null,
+        DomainProvisioner? provisioner = null,
+        IServiceProvider? services = null)
     {
         _processRunner = processRunner ?? throw new ArgumentNullException(nameof(processRunner));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -49,8 +52,9 @@ public sealed class DomainOpsOrchestrator
         _verifier = verifier ?? throw new ArgumentNullException(nameof(verifier));
         _zoneWriter = zoneWriter ?? throw new ArgumentNullException(nameof(zoneWriter));
         _configWriter = configWriter ?? new OctoDnsConfigWriter();
-        _azureReader = azureReader;
+        _azureClient = azureClient;
         _provisioner = provisioner;
+        _services = services;
     }
 
     public async Task<DomainOpsVerifyOutcome> VerifyAsync(
@@ -152,10 +156,16 @@ public sealed class DomainOpsOrchestrator
 
         options.ContainerAppResourceName ??= targetResource.Name;
 
+        var azureClient = _azureClient
+            ?? (_services is not null
+                ? ArmAzureContainerAppClient.Create(_services)
+                : throw new InvalidOperationException(
+                    "IAzureContainerAppClient is required. Pass an ARM client or IServiceProvider with ITokenCredentialProvider."));
+
         var provisioner = _provisioner
             ?? new DomainProvisioner(
                 _processRunner,
-                _azureReader ?? new AzureCliContainerAppReader(_processRunner),
+                azureClient,
                 _planner,
                 _zoneWriter,
                 _configWriter);

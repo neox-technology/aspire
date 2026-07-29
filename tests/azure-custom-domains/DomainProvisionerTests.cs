@@ -20,7 +20,7 @@ public sealed class DomainProvisionerTests
         try
         {
             var runner = new RecordingProcessRunner();
-            var reader = new FakeAzureReader(new AzureContainerAppTargets(
+            var azure = new FakeAzureClient(new AzureContainerAppTargets(
                 "api",
                 "rg-demo",
                 "aca-env",
@@ -32,7 +32,7 @@ public sealed class DomainProvisionerTests
 
             var provisioner = new DomainProvisioner(
                 runner,
-                reader,
+                azure,
                 delayAsync: (_, _) => Task.CompletedTask);
 
             var certName = await provisioner.ProvisionAsync(
@@ -62,8 +62,11 @@ public sealed class DomainProvisionerTests
             Assert.NotNull(docker.Environment);
             Assert.Equal("cf-token-secret", docker.Environment!["DNS_TOKEN"]);
 
-            Assert.Contains(runner.Commands, c => c.FileName == "az" && c.Arguments.Contains("hostname") && c.Arguments.Contains("add"));
-            Assert.Contains(runner.Commands, c => c.FileName == "az" && c.Arguments.Contains("bind") && c.Arguments.Contains("CNAME"));
+            Assert.DoesNotContain(runner.Commands, c => c.FileName == "az");
+            Assert.Single(azure.Binds);
+            Assert.Equal("www.contoso.com", azure.Binds[0].Hostname);
+            Assert.Equal("www-contoso-com", azure.Binds[0].CertificateName);
+            Assert.Equal("CNAME", azure.Binds[0].ValidationMethod);
             Assert.Contains(runner.Commands, c => c.FileName == "gh" && c.Arguments.Contains("CERTIFICATE_NAME") && c.Arguments.Contains("www-contoso-com"));
             Assert.True(File.Exists(Path.Combine(zoneDir, "contoso.com.yaml")));
             Assert.True(File.Exists(configPath));
@@ -93,7 +96,7 @@ public sealed class DomainProvisionerTests
         try
         {
             var runner = new RecordingProcessRunner();
-            var reader = new FakeAzureReader(new AzureContainerAppTargets(
+            var azure = new FakeAzureClient(new AzureContainerAppTargets(
                 "api",
                 "rg-demo",
                 "aca-env",
@@ -105,7 +108,7 @@ public sealed class DomainProvisionerTests
 
             var provisioner = new DomainProvisioner(
                 runner,
-                reader,
+                azure,
                 delayAsync: (_, _) => Task.CompletedTask);
 
             await provisioner.ProvisionAsync(
@@ -121,7 +124,8 @@ public sealed class DomainProvisionerTests
                 },
                 CancellationToken.None);
 
-            Assert.Contains(runner.Commands, c => c.FileName == "az" && c.Arguments.Contains("HTTP"));
+            Assert.DoesNotContain(runner.Commands, c => c.FileName == "az");
+            Assert.Equal("HTTP", Assert.Single(azure.Binds).ValidationMethod);
         }
         finally
         {
@@ -140,14 +144,27 @@ public sealed class DomainProvisionerTests
         return provider;
     }
 
-    private sealed class FakeAzureReader(AzureContainerAppTargets targets) : IAzureContainerAppReader
+    private sealed class FakeAzureClient(AzureContainerAppTargets targets) : IAzureContainerAppClient
     {
+        public List<(string Hostname, string CertificateName, string ValidationMethod)> Binds { get; } = [];
+
         public Task<AzureContainerAppTargets> GetTargetsAsync(
             string containerAppName,
             string? resourceGroup,
             string? environmentName,
             CancellationToken cancellationToken)
             => Task.FromResult(targets);
+
+        public Task BindManagedHostnameAsync(
+            AzureContainerAppTargets targets,
+            string hostname,
+            string certificateName,
+            string validationMethod,
+            CancellationToken cancellationToken)
+        {
+            Binds.Add((hostname, certificateName, validationMethod));
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class RecordingProcessRunner : IProcessRunner

@@ -20,6 +20,11 @@ public static class AzureCustomDomainOpsExtensions
     public const string DomainGuardStepName = "domain-guard";
 
     /// <summary>
+    /// Aspire Azure step that materializes subscription / resource group context after login.
+    /// </summary>
+    public const string CreateProvisioningContextStepName = "create-provisioning-context";
+
+    /// <summary>
     /// Registers custom domain ops (verify / provision / guard) for the resource via <c>aspire do</c> pipeline steps.
     /// </summary>
     public static IResourceBuilder<T> WithAzureCustomDomainOps<T, TProvider>(
@@ -103,7 +108,7 @@ public static class AzureCustomDomainOpsExtensions
                             options),
                         context.CancellationToken)
                     .ConfigureAwait(false);
-                var orchestrator = new DomainOpsOrchestrator(runner, logger);
+                var orchestrator = new DomainOpsOrchestrator(runner, logger, context.Services);
                 await orchestrator.VerifyAsync(targetResource, customDomain.Resource, certificateName.Resource, options, context.CancellationToken)
                     .ConfigureAwait(false);
             }
@@ -129,7 +134,7 @@ public static class AzureCustomDomainOpsExtensions
                             options),
                         context.CancellationToken)
                     .ConfigureAwait(false);
-                var orchestrator = new DomainOpsOrchestrator(runner, logger);
+                var orchestrator = new DomainOpsOrchestrator(runner, logger, context.Services);
                 await orchestrator.GuardAsync(certificateName.Resource, options, context.CancellationToken)
                     .ConfigureAwait(false);
             }
@@ -138,9 +143,10 @@ public static class AzureCustomDomainOpsExtensions
         yield return new PipelineStep
         {
             Name = DomainProvisionStepName,
-            Description = "Provision DNS via OctoDNS (Docker), bind ACA managed certificate, update GitHub variable.",
+            Description = "Provision DNS via OctoDNS (Docker), bind ACA managed certificate via ARM, update GitHub variable.",
             Tags = ["domain-ops"],
             Resource = factoryContext.Resource,
+            DependsOnSteps = [CreateProvisioningContextStepName],
             Action = async context =>
             {
                 var logger = context.Services.GetRequiredService<ILoggerFactory>().CreateLogger(DomainProvisionStepName);
@@ -155,7 +161,7 @@ public static class AzureCustomDomainOpsExtensions
                             options),
                         context.CancellationToken)
                     .ConfigureAwait(false);
-                var orchestrator = new DomainOpsOrchestrator(runner, logger);
+                var orchestrator = new DomainOpsOrchestrator(runner, logger, context.Services);
                 await orchestrator.ProvisionAsync(
                         targetResource,
                         customDomain.Resource,

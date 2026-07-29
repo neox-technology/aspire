@@ -9,6 +9,7 @@
     <Description>Aspire hosting helpers for Azure Container Apps custom domains (OctoDNS, managed certificates, GitHub Actions variables).</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>aspire;azure;container-apps;dns;octodns;custom-domain</PackageTags>
+    <UserSecretsId>f3c17a24-c048-442d-924f-143e22376191</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,6 +18,8 @@
 
   <ItemGroup>
     <PackageReference Include="Aspire.Hosting.Azure.AppContainers" Version="$(AspireVersion)" />
+    <PackageReference Include="Azure.Identity" Version="1.21.0" />
+    <PackageReference Include="Azure.ResourceManager.AppContainers" Version="1.5.0" />
     <PackageReference Include="YamlDotNet" Version="16.3.0" />
   </ItemGroup>
 

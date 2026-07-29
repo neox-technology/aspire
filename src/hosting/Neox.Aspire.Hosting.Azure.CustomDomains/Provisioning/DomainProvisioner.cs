@@ -9,7 +9,7 @@ namespace Neox.Aspire.Hosting.Azure.Provisioning;
 public sealed class DomainProvisioner
 {
     private readonly IProcessRunner _processRunner;
-    private readonly IAzureContainerAppReader _azureReader;
+    private readonly IAzureContainerAppClient _azureClient;
     private readonly DnsRecordPlanner _planner;
     private readonly OctoDnsZoneWriter _zoneWriter;
     private readonly OctoDnsConfigWriter _configWriter;
@@ -17,14 +17,14 @@ public sealed class DomainProvisioner
 
     public DomainProvisioner(
         IProcessRunner processRunner,
-        IAzureContainerAppReader azureReader,
+        IAzureContainerAppClient azureClient,
         DnsRecordPlanner? planner = null,
         OctoDnsZoneWriter? zoneWriter = null,
         OctoDnsConfigWriter? configWriter = null,
         Func<TimeSpan, CancellationToken, Task>? delayAsync = null)
     {
         _processRunner = processRunner ?? throw new ArgumentNullException(nameof(processRunner));
-        _azureReader = azureReader ?? throw new ArgumentNullException(nameof(azureReader));
+        _azureClient = azureClient ?? throw new ArgumentNullException(nameof(azureClient));
         _planner = planner ?? new DnsRecordPlanner();
         _zoneWriter = zoneWriter ?? new OctoDnsZoneWriter();
         _configWriter = configWriter ?? new OctoDnsConfigWriter();
@@ -44,7 +44,7 @@ public sealed class DomainProvisioner
         var appName = options.ContainerAppResourceName
             ?? throw new InvalidOperationException("ContainerAppResourceName must be set.");
 
-        var targets = await _azureReader.GetTargetsAsync(
+        var targets = await _azureClient.GetTargetsAsync(
             appName,
             resourceGroup: Environment.GetEnvironmentVariable("Azure__ResourceGroup"),
             environmentName: options.ContainerAppEnvironmentName,
@@ -78,31 +78,15 @@ public sealed class DomainProvisioner
             ? SanitizeCertificateName(customHostname)
             : options.ManagedCertificateName!;
 
-        await RunRequiredAsync(
-            "az",
-            [
-                "containerapp", "hostname", "add",
-                "--hostname", customHostname,
-                "-g", targets.ResourceGroup,
-                "-n", targets.ContainerAppName
-            ],
-            cancellationToken,
-            "hostname add").ConfigureAwait(false);
-
         var validationMethod = plan.Kind == HostnameKind.Apex ? "HTTP" : "CNAME";
 
-        await RunRequiredAsync(
-            "az",
-            [
-                "containerapp", "hostname", "bind",
-                "--hostname", customHostname,
-                "-g", targets.ResourceGroup,
-                "-n", targets.ContainerAppName,
-                "--environment", targets.EnvironmentName,
-                "--validation-method", validationMethod
-            ],
-            cancellationToken,
-            "hostname bind").ConfigureAwait(false);
+        await _azureClient.BindManagedHostnameAsync(
+                targets,
+                customHostname,
+                certificateName,
+                validationMethod,
+                cancellationToken)
+            .ConfigureAwait(false);
 
         await RunRequiredAsync(
             "gh",

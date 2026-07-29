@@ -23,9 +23,9 @@ V1 supports **one hostname per binding** (apex **or** subdomain, auto-detected).
 - A contributor packs `Neox.Aspire.Hosting.Azure.CustomDomains` as a Shipping nupkg from this repo.
 - A consumer AppHost wires `AddDomainOpsProvider` + `ConfigureCustomDomain` + `WithAzureCustomDomainOps(provider)`, and runs CI with `Parameters__*` / `Azure__*` / `--non-interactive`.
 - Provider auth without explicit options resolves from `Parameters__{providerResourceName}-{param}` (e.g. `Parameters__dns-token`; Aspire also accepts underscore env fallback).
-- **Bootstrap**: `aspire deploy` (empty cert) → `aspire do domain-provision` (generate OctoDNS YAML without secrets, `docker run` sync with `-e` credentials, hostname bind, `gh variable set`) → `aspire deploy` (cert name set).
+- **Bootstrap**: `aspire deploy` (empty cert) → `aspire do domain-provision` (generate OctoDNS YAML without secrets, `docker run` sync with `-e` credentials, ARM hostname bind, `gh variable set`) → `aspire deploy` (cert name set).
 - **Steady-state**: `aspire do domain-verify` → `aspire deploy` with `Parameters__certificateName` from the GitHub variable; `domain-guard` fails if the cert is required and empty.
-- Contributors run xUnit unit tests (no live Azure) covering DNS planning, YAML generation (no secrets on disk), verify/guard, provision orchestration with process fakes, and dashboard command registration (multi-provider / idempotence).
+- Contributors run xUnit unit tests (no live Azure) covering DNS planning, YAML generation (no secrets on disk), verify/guard, provision orchestration with Docker/`gh` process fakes and ARM client fakes (no `az` process), and dashboard command registration (multi-provider / idempotence).
 - Locally, the Aspire dashboard shows **Verify**, **Guard**, and **Deploy** on each DomainOps provider that has at least one `WithAzureCustomDomainOps` binding; Deploy runs `domain-provision` logic. Command outcomes surface as Markdown in the notification center (**View response** / text visualizer); Verify opens the visualizer immediately.
 
 ## Routes (if UI)
@@ -36,12 +36,13 @@ Local Aspire dashboard only (resource commands on `DomainOpsProvider`). Not avai
 
 - Arcade pack/publish ([`nuget-org`](nuget-org.md))
 - Terminology ([`domain-glossary`](domain-glossary.md))
-- `Aspire.Hosting.Azure.AppContainers` (`AspireVersion` in `eng/Versions.props`)
+- `Aspire.Hosting.Azure.AppContainers` (`AspireVersion` in `eng/Versions.props`) including public `ITokenCredentialProvider`
+- `Azure.ResourceManager.AppContainers` for Container App read + managed hostname bind (ARM `Microsoft.App`; token scope `https://management.azure.com/.default`)
 - YamlDotNet (OctoDNS zone/config serialization; no octodns NuGet — OctoDNS is Python-only)
 - Official OctoDNS JSON Schemas for zone/config shape:
   - https://octodns.readthedocs.io/en/stable/_static/octodns-zone.schema.json
   - https://octodns.readthedocs.io/en/stable/_static/octodns-config.schema.json
-- External CLIs (consumer / CI): Azure CLI (`az`), Docker (`docker run` of `octodns/cloudflare` or `octodns/ovh`), GitHub CLI (`gh`)
+- External CLIs (consumer / CI): Docker (`docker run` of `octodns/cloudflare` or `octodns/ovh`), GitHub CLI (`gh`). Azure CLI is **not** required for DomainOps; Aspire Azure credential (`Azure__CredentialSource`, often `az login` for local) supplies tokens.
 - Experimental Aspire API `ConfigureCustomDomain` (`ASPIREACADOMAINS001`) remains consumer-owned
 
 ## Out of scope
@@ -63,11 +64,15 @@ Local Aspire dashboard only (resource commands on `DomainOpsProvider`). Not avai
 - [x] `WithAzureCustomDomainOps` requires `IResourceBuilder<TProvider>` where `TProvider : DomainOpsProviderResource` (breaking).
 - [x] One provider resource may be referenced by multiple `WithAzureCustomDomainOps` bindings.
 - [x] `domain-provision` generates zone YAML + `octodns.yaml`, runs `docker run … octodns-sync --doit` with `-e` secrets, binds managed hostname, updates GitHub variable.
+- [x] `domain-provision` reads ACA targets and binds managed hostname via ARM (`ITokenCredentialProvider` + `Azure.ResourceManager.AppContainers`); does not invoke the `az` process.
+- [x] `domain-provision` pipeline step `DependsOnSteps` includes `create-provisioning-context` (which depends on `validate-azure-login`).
 - [x] Docker images default to `octodns/cloudflare` / `octodns/ovh` (overridable).
 - [x] Zone/config writers use YamlDotNet models aligned with OctoDNS JSON Schemas.
 - [x] `domain-verify` / `domain-guard` behavior preserved (drift / missing cert).
 - [x] Package README documents provider API, `Parameters__*`, Docker prerequisite, bootstrap vs steady-state.
+- [x] Package README documents ARM auth (`ITokenCredentialProvider` / `create-provisioning-context`) and that Azure CLI is not required for DomainOps.
 - [x] Unit tests under `tests/azure-custom-domains/` (xUnit; no live Azure); assert `docker` args and no secrets in written YAML.
+- [x] Unit tests assert provision path does not shell to `az`; ARM client covered with fakes.
 - [x] DigiCert constraint documented: CNAME must point directly at the ACA FQDN.
 - [x] `WithAzureCustomDomainOps` registers dashboard commands `domain-verify` / `domain-guard` / `domain-provision` (display names Verify / Guard / Deploy) on the referenced `DomainOpsProvider` exactly once (idempotent across shared bindings).
 - [x] Each provider’s commands run `DomainOpsOrchestrator` only for bindings that reference that provider (`ReferenceEquals`); multiple bindings on one provider run sequentially and fail fast.
@@ -87,6 +92,7 @@ See [`domain-glossary`](domain-glossary.md) (`custom domain ops`, `DomainOps pro
 | Package id | `Neox.Aspire.Hosting.Azure.CustomDomains` |
 | Namespace | `Neox.Aspire.Hosting.Azure` |
 | Extensions | `AddDomainOpsProvider`, `WithAzureCustomDomainOps` |
+| ARM client | `ArmAzureContainerAppClient` (`IAzureContainerAppClient`) |
 | Unit tests | `tests/azure-custom-domains/` |
 | Sample AppHost | `tests/azure-custom-domains/sample-apphost/` |
 
@@ -96,7 +102,9 @@ See [`domain-glossary`](domain-glossary.md) (`custom domain ops`, `DomainOps pro
 |------|--------|----------|
 | `domain-verify` | Expected DNS + cert parameter consistent | Drift, missing cert in strict mode, tool failure |
 | `domain-guard` | Cert parameter non-empty when required | Empty/missing cert |
-| `domain-provision` | YAML generated, Docker OctoDNS sync, managed cert bound, GH var updated | Azure/Docker/gh/DNS poll failure |
+| `domain-provision` | YAML generated, Docker OctoDNS sync, managed cert bound via ARM, GH var updated | Azure ARM/Docker/gh/DNS poll failure |
+
+`domain-provision` depends on Aspire step `create-provisioning-context` (after `validate-azure-login`; same ARM token credential as deploy).
 
 ### Dashboard command contracts
 
@@ -117,4 +125,5 @@ Success and failure return `CommandResults` with a Markdown `Data` payload (dash
 - Provider auth: `Parameters__{providerName}-token` (Cloudflare) or `Parameters__{providerName}-application-key` / `-application-secret` / `-consumer-key` (OVH)
 - Docker available on the runner PATH
 - GitHub token with permission to set Actions variables
+- Aspire Azure credential available (`ITokenCredentialProvider`; `Azure__SubscriptionId` required for `ArmClient`)
 - `--non-interactive` on `aspire deploy` / `aspire do`
