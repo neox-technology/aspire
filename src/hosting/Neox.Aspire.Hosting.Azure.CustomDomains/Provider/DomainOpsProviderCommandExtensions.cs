@@ -12,13 +12,6 @@ namespace Neox.Aspire.Hosting.Azure;
 /// </summary>
 internal static class DomainOpsProviderCommandExtensions
 {
-    private enum DomainOpsCommandKind
-    {
-        Verify,
-        Guard,
-        Provision
-    }
-
     public static void EnsureProviderCommands<TProvider>(IResourceBuilder<TProvider> provider)
         where TProvider : DomainOpsProviderResource
     {
@@ -36,7 +29,7 @@ internal static class DomainOpsProviderCommandExtensions
         provider.WithCommand(
             AzureCustomDomainOpsExtensions.DomainVerifyStepName,
             "Verify",
-            context => ExecuteAsync(context, providerResource, DomainOpsCommandKind.Verify),
+            context => ExecuteAsync(context, providerResource, DomainOpsActionKind.Verify),
             new CommandOptions
             {
                 Description = "Verify DNS and certificate parameter consistency for bindings using this provider.",
@@ -47,7 +40,7 @@ internal static class DomainOpsProviderCommandExtensions
         provider.WithCommand(
             AzureCustomDomainOpsExtensions.DomainGuardStepName,
             "Guard",
-            context => ExecuteAsync(context, providerResource, DomainOpsCommandKind.Guard),
+            context => ExecuteAsync(context, providerResource, DomainOpsActionKind.Guard),
             new CommandOptions
             {
                 Description = "Fail when a certificate name is required and empty (steady-state) for bindings using this provider.",
@@ -58,7 +51,7 @@ internal static class DomainOpsProviderCommandExtensions
         provider.WithCommand(
             AzureCustomDomainOpsExtensions.DomainProvisionStepName,
             "Deploy",
-            context => ExecuteAsync(context, providerResource, DomainOpsCommandKind.Provision),
+            context => ExecuteAsync(context, providerResource, DomainOpsActionKind.Provision),
             new CommandOptions
             {
                 Description = "Provision DNS via OctoDNS, bind ACA managed certificate, and update the GitHub variable (domain-provision).",
@@ -72,7 +65,7 @@ internal static class DomainOpsProviderCommandExtensions
     private static async Task<ExecuteCommandResult> ExecuteAsync(
         ExecuteCommandContext context,
         DomainOpsProviderResource provider,
-        DomainOpsCommandKind kind)
+        DomainOpsActionKind kind)
     {
         try
         {
@@ -91,9 +84,20 @@ internal static class DomainOpsProviderCommandExtensions
 
             foreach (var (target, annotation) in bindings)
             {
+                await DomainOpsParameterPrompt.EnsureReadyAsync(
+                        context.ServiceProvider,
+                        DomainOpsParameterPrompt.CollectRequired(
+                            kind,
+                            annotation.CustomDomain.Resource,
+                            annotation.CertificateName.Resource,
+                            provider,
+                            annotation.Options),
+                        context.CancellationToken)
+                    .ConfigureAwait(false);
+
                 switch (kind)
                 {
-                    case DomainOpsCommandKind.Verify:
+                    case DomainOpsActionKind.Verify:
                         await orchestrator.VerifyAsync(
                                 target,
                                 annotation.CustomDomain.Resource,
@@ -102,14 +106,14 @@ internal static class DomainOpsProviderCommandExtensions
                                 context.CancellationToken)
                             .ConfigureAwait(false);
                         break;
-                    case DomainOpsCommandKind.Guard:
+                    case DomainOpsActionKind.Guard:
                         await orchestrator.GuardAsync(
                                 annotation.CertificateName.Resource,
                                 annotation.Options,
                                 context.CancellationToken)
                             .ConfigureAwait(false);
                         break;
-                    case DomainOpsCommandKind.Provision:
+                    case DomainOpsActionKind.Provision:
                         await orchestrator.ProvisionAsync(
                                 target,
                                 annotation.CustomDomain.Resource,
@@ -126,6 +130,10 @@ internal static class DomainOpsProviderCommandExtensions
 
             return CommandResults.Success(
                 $"Completed {kind} for {bindings.Count} binding(s) on provider '{provider.Name}'.");
+        }
+        catch (OperationCanceledException)
+        {
+            return CommandResults.Canceled();
         }
         catch (Exception ex)
         {

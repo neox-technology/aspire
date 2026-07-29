@@ -72,6 +72,7 @@ Local Aspire dashboard only (resource commands on `DomainOpsProvider`). Not avai
 - [x] `WithAzureCustomDomainOps` registers dashboard commands `domain-verify` / `domain-guard` / `domain-provision` (display names Verify / Guard / Deploy) on the referenced `DomainOpsProvider` exactly once (idempotent across shared bindings).
 - [x] Each provider’s commands run `DomainOpsOrchestrator` only for bindings that reference that provider (`ReferenceEquals`); multiple bindings on one provider run sequentially and fail fast.
 - [x] Package README documents dashboard commands (local-only) and that Deploy ≡ `domain-provision`.
+- [x] Dashboard commands and interactive `aspire do` steps prompt unresolved parameters via `ParameterProcessor.SetParameterAsync` before `GetValueAsync` (avoids hanging on incomplete `WaitForValueTcs`).
 
 ## Terminology
 

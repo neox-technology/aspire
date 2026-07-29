@@ -93,6 +93,16 @@ public static class AzureCustomDomainOpsExtensions
             {
                 var logger = context.Services.GetRequiredService<ILoggerFactory>().CreateLogger(DomainVerifyStepName);
                 var runner = context.Services.GetService<IProcessRunner>() ?? new ProcessRunner();
+                await DomainOpsParameterPrompt.EnsureReadyAsync(
+                        context.Services,
+                        DomainOpsParameterPrompt.CollectRequired(
+                            DomainOpsActionKind.Verify,
+                            customDomain.Resource,
+                            certificateName.Resource,
+                            provider,
+                            options),
+                        context.CancellationToken)
+                    .ConfigureAwait(false);
                 var orchestrator = new DomainOpsOrchestrator(runner, logger);
                 await orchestrator.VerifyAsync(targetResource, customDomain.Resource, certificateName.Resource, options, context.CancellationToken)
                     .ConfigureAwait(false);
@@ -109,6 +119,16 @@ public static class AzureCustomDomainOpsExtensions
             {
                 var logger = context.Services.GetRequiredService<ILoggerFactory>().CreateLogger(DomainGuardStepName);
                 var runner = context.Services.GetService<IProcessRunner>() ?? new ProcessRunner();
+                await DomainOpsParameterPrompt.EnsureReadyAsync(
+                        context.Services,
+                        DomainOpsParameterPrompt.CollectRequired(
+                            DomainOpsActionKind.Guard,
+                            customDomain.Resource,
+                            certificateName.Resource,
+                            provider,
+                            options),
+                        context.CancellationToken)
+                    .ConfigureAwait(false);
                 var orchestrator = new DomainOpsOrchestrator(runner, logger);
                 await orchestrator.GuardAsync(certificateName.Resource, options, context.CancellationToken)
                     .ConfigureAwait(false);
@@ -125,6 +145,16 @@ public static class AzureCustomDomainOpsExtensions
             {
                 var logger = context.Services.GetRequiredService<ILoggerFactory>().CreateLogger(DomainProvisionStepName);
                 var runner = context.Services.GetService<IProcessRunner>() ?? new ProcessRunner();
+                await DomainOpsParameterPrompt.EnsureReadyAsync(
+                        context.Services,
+                        DomainOpsParameterPrompt.CollectRequired(
+                            DomainOpsActionKind.Provision,
+                            customDomain.Resource,
+                            certificateName.Resource,
+                            provider,
+                            options),
+                        context.CancellationToken)
+                    .ConfigureAwait(false);
                 var orchestrator = new DomainOpsOrchestrator(runner, logger);
                 await orchestrator.ProvisionAsync(
                         targetResource,
