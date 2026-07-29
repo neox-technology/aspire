@@ -4,8 +4,8 @@ Aspire hosting helpers that automate **Azure Container Apps** custom domains: mu
 
 ## Prerequisites (consumer / CI)
 
-- [Aspire CLI](https://aspire.dev/) and Azure authentication for `aspire deploy`
-- [Azure CLI](https://learn.microsoft.com/cli/azure/) (`az`)
+- [Aspire CLI](https://aspire.dev/) and Azure authentication for `aspire deploy` / DomainOps
+- Aspire Azure credential via `ITokenCredentialProvider` (local: typically `az login` or another `Azure__CredentialSource`; CI: OIDC / service principal). The Azure CLI **binary is not required** for DomainOps ARM calls.
 - [Docker](https://docs.docker.com/) with access to pull `octodns/cloudflare` or `octodns/ovh`
 - [GitHub CLI](https://cli.github.com/) (`gh`) with permission to set Actions variables
 
@@ -13,12 +13,12 @@ Aspire hosting helpers that automate **Azure Container Apps** custom domains: mu
 
 | Need | Typical source |
 |------|----------------|
-| Azure | OIDC / service principal (`Azure__SubscriptionId`, `Azure__Location`, `Azure__ResourceGroup`) |
+| Azure | OIDC / service principal (`Azure__SubscriptionId`, `Azure__Location`, `Azure__ResourceGroup`) + Aspire credential |
 | Cloudflare | `Parameters__{providerName}-token` (e.g. `Parameters__dns-token`; env fallback `Parameters__dns_token`) |
 | OVH | `Parameters__{providerName}-application-key`, `-application-secret`, `-consumer-key` |
 | GitHub variables | PAT or GitHub App token that can write repository Actions variables (`gh variable set`) |
 
-Credentials are **never** written into generated `octodns.yaml` (only `env/VAR` refs). Values are injected as container env vars when running `docker run`.
+Credentials are **never** written into generated `octodns.yaml` (only `env/VAR` refs). Values are injected as container env vars when running `docker run`. DomainOps reads Container Apps and binds managed hostnames via **Azure Resource Manager** (`Azure.ResourceManager.AppContainers`), using the same token scope as Aspire deploy (`https://management.azure.com/.default`).
 
 > **DigiCert / managed certificates:** the CNAME must point **directly** at the Container App FQDN (`*.azurecontainerapps.io`). Do **not** use a Cloudflare orange-cloud proxy, Traffic Manager, or other intermediate CNAME — issuance and renewal will fail.
 
@@ -60,6 +60,8 @@ The same provider resource can be passed to multiple `WithAzureCustomDomainOps` 
 | Verify | `aspire do domain-verify --non-interactive --environment production` |
 | Provision | `aspire do domain-provision --non-interactive --environment production` |
 | Guard | `aspire do domain-guard --non-interactive --environment production` |
+
+`domain-provision` depends on Aspire's `create-provisioning-context` step (which itself depends on `validate-azure-login`), then syncs DNS with Docker and binds the managed certificate through ARM — it does not shell out to `az`.
 
 Optional env for verify DNS planning without re-querying Azure: `NEOX_ACA_FQDN`, `NEOX_ACA_STATIC_IP`, `NEOX_ACA_ASUID`.
 
