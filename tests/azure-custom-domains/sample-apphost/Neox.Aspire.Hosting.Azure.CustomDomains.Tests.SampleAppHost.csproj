@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <IsPackable>false</IsPackable>
     <RootNamespace>Neox.Aspire.Hosting.Azure.CustomDomains.Tests.SampleAppHost</RootNamespace>
+    <UserSecretsId>d60b8300-0516-4732-8014-353b1c6754f0</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
