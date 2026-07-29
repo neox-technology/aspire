@@ -14,8 +14,8 @@ Aspire hosting helpers that automate **Azure Container Apps** custom domains: mu
 | Need | Typical source |
 |------|----------------|
 | Azure | OIDC / service principal (`Azure__SubscriptionId`, `Azure__Location`, `Azure__ResourceGroup`) |
-| Cloudflare | `Parameters__{providerName}_token` (e.g. `Parameters__dns_token`) |
-| OVH | `Parameters__{providerName}_application_key`, `_application_secret`, `_consumer_key` |
+| Cloudflare | `Parameters__{providerName}-token` (e.g. `Parameters__dns-token`; env fallback `Parameters__dns_token`) |
+| OVH | `Parameters__{providerName}-application-key`, `-application-secret`, `-consumer-key` |
 | GitHub variables | PAT or GitHub App token that can write repository Actions variables (`gh variable set`) |
 
 Credentials are **never** written into generated `octodns.yaml` (only `env/VAR` refs). Values are injected as container env vars when running `docker run`.
@@ -29,7 +29,7 @@ var customDomain = builder.AddParameter("customDomain");
 var certificateName = builder.AddParameter("certificateName");
 
 var dns = builder.AddDomainOpsProvider("dns")
-    .Cloudflare(); // or .Ovh(); auth from Parameters__dns_* when options are omitted
+    .Cloudflare(); // or .Ovh(); auth from Parameters__dns-* when options are omitted
 
 builder.AddAzureContainerAppEnvironment("env");
 
@@ -84,7 +84,7 @@ Pass Aspire parameters non-interactively (`Parameters__customDomain`, `Parameter
     Azure__ResourceGroup: ${{ vars.AZURE_RESOURCE_GROUP }}
     Parameters__customDomain: ${{ vars.CUSTOM_DOMAIN }}
     Parameters__certificateName: ""
-    Parameters__dns_token: ${{ secrets.CLOUDFLARE_TOKEN }}
+    Parameters__dns-token: ${{ secrets.CLOUDFLARE_TOKEN }}
     GITHUB_TOKEN: ${{ secrets.GH_VARIABLES_PAT }}
   run: aspire do domain-provision --non-interactive --environment production
 
