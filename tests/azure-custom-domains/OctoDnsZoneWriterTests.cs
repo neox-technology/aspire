@@ -20,6 +20,8 @@ public sealed class OctoDnsZoneWriterTests
         Assert.Contains("type: TXT", yaml, StringComparison.Ordinal);
         Assert.Contains("asuid.www", yaml, StringComparison.Ordinal);
         Assert.Contains("app.example.azurecontainerapps.io", yaml, StringComparison.Ordinal);
+        // OctoDNS enforce_order: ttl before type before value within each record mapping.
+        Assert.Matches(@"(?s)- ttl: \d+\s+type: CNAME\s+value:", yaml);
     }
 
     [Fact]
