@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   build:
-    name: Build, pack, and test
+    name: Build
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
