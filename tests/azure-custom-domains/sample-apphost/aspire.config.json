@@ -1,5 +1,5 @@
 {
   "appHost": {
-    "path": "sample_apphost.csproj"
+    "path": "Neox.Aspire.Hosting.Azure.CustomDomains.Tests.SampleAppHost.csproj"
   }
 }
