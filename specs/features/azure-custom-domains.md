@@ -3,7 +3,7 @@
 | Field | Value |
 |-------|-------|
 | Slug | `azure-custom-domains` |
-| Status | defined |
+| Status | implemented |
 | Last code review | 2026-07-29 |
 
 ## Summary
@@ -50,10 +50,10 @@ _N/A — hosting / pipeline library._
 - [x] `domain-verify` exits non-zero on DNS drift or missing certificate in strict/steady-state mode.
 - [x] `domain-guard` fails when certificate name is required and empty.
 - [x] `domain-provision` reads ACA ingress targets, runs OctoDNS sync, binds managed hostname, updates GitHub variable (default `CERTIFICATE_NAME`) via `IProcessRunner` (fakes in tests).
-- [ ] Package README documents bootstrap vs steady-state GitHub Actions flows and required secrets/tokens.
+- [x] Package README documents bootstrap vs steady-state GitHub Actions flows and required secrets/tokens.
 - [x] Unit tests live under `tests/azure-custom-domains/` (xUnit; no live Azure requirement).
 - [x] Arcade pack produces a Shipping nupkg for the project.
-- [ ] DigiCert constraint is documented: CNAME must point directly at the ACA FQDN (no proxied/intermediate CNAME).
+- [x] DigiCert constraint is documented: CNAME must point directly at the ACA FQDN (no proxied/intermediate CNAME).
 
 ## Terminology
 

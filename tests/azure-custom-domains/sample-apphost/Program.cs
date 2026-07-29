@@ -1,0 +1,22 @@
+using Neox.Aspire.Hosting.Azure;
+
+var builder = DistributedApplication.CreateBuilder(args);
+
+var customDomain = builder.AddParameter("customDomain");
+var certificateName = builder.AddParameter("certificateName");
+
+builder.AddAzureContainerAppEnvironment("aca-env");
+
+// Minimal smoke AppHost: registers domain-ops pipeline steps for `aspire do --list-steps`.
+// No real project is published; this validates package wiring compile-time / list-steps locally.
+builder.AddContainer("api", "mcr.microsoft.com/dotnet/samples:aspnetapp")
+    .WithHttpEndpoint(targetPort: 8080)
+    .WithExternalHttpEndpoints()
+    .PublishAsAzureContainerApp((_, _) => { })
+    .WithAzureCustomDomainOps(customDomain, certificateName, options =>
+    {
+        options.RequireCertificateName = false;
+        options.OctoDnsConfigPath = "octodns.yaml";
+    });
+
+builder.Build().Run();
