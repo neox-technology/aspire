@@ -63,6 +63,20 @@ The same provider resource can be passed to multiple `WithAzureCustomDomainOps` 
 
 Optional env for verify DNS planning without re-querying Azure: `NEOX_ACA_FQDN`, `NEOX_ACA_STATIC_IP`, `NEOX_ACA_ASUID`.
 
+### Dashboard commands (local)
+
+After `WithAzureCustomDomainOps(..., provider)`, the Aspire dashboard shows **Verify**, **Guard**, and **Deploy** on that DomainOps provider resource (also via `aspire resource command`).
+
+| Display | Command name | Same as |
+|---------|--------------|---------|
+| Verify | `domain-verify` | `aspire do domain-verify` |
+| Guard | `domain-guard` | `aspire do domain-guard` |
+| Deploy | `domain-provision` | `aspire do domain-provision` |
+
+- Each registered provider gets its own buttons; a command only runs bindings that reference **that** provider.
+- Multiple bindings on one provider run sequentially (fail fast on the first error).
+- Dashboard resource commands are **local development only** (not available when the dashboard runs in Azure Container Apps). Prefer `aspire do` in CI.
+
 ## GitHub Actions flows
 
 Pass Aspire parameters non-interactively (`Parameters__customDomain`, `Parameters__certificateName`, provider auth) plus Azure settings.
