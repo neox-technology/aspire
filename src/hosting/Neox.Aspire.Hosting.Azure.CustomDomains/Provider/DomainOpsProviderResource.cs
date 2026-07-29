@@ -53,12 +53,13 @@ public abstract class DomainOpsProviderResource : Resource
     }
 
     /// <summary>
-    /// Aspire parameter name for an auth property (e.g. <c>dns_token</c> → <c>Parameters__dns_token</c>).
+    /// Aspire parameter name for an auth property (e.g. <c>dns-token</c> → <c>Parameters__dns-token</c>).
+    /// Names use hyphens so they satisfy Aspire resource naming rules.
     /// </summary>
     public string GetParameterName(string yamlPropertyName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(yamlPropertyName);
-        return $"{Name}_{yamlPropertyName.Replace('-', '_')}";
+        return $"{Name}-{yamlPropertyName.Replace('_', '-')}";
     }
 
     internal void BindAuthParameter(string yamlPropertyName, ParameterResource parameter)

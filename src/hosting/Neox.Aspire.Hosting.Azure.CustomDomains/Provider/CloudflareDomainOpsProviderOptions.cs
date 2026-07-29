@@ -8,7 +8,7 @@ namespace Neox.Aspire.Hosting.Azure;
 public sealed class CloudflareDomainOpsProviderOptions
 {
     /// <summary>
-    /// API token. When null, a parameter named <c>{resource}_token</c> is created.
+    /// API token. When null, a parameter named <c>{resource}-token</c> is created.
     /// </summary>
     public IResourceBuilder<ParameterResource>? Token { get; set; }
 
