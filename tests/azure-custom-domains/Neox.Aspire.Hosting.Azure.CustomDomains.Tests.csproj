@@ -12,4 +12,11 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\hosting\Neox.Aspire.Hosting.Azure.CustomDomains\Neox.Aspire.Hosting.Azure.CustomDomains.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="sample-apphost/**" />
+    <Content Remove="sample-apphost/**" />
+    <None Remove="sample-apphost/**" />
+    <None Include="sample-apphost/**" />
+  </ItemGroup>
 </Project>
