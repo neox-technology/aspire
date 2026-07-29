@@ -43,16 +43,16 @@ _N/A — hosting / pipeline library._
 
 ## Acceptance criteria
 
-- [ ] Package id is `Neox.Aspire.Hosting.Azure.CustomDomains` under `src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains/`.
-- [ ] `WithAzureCustomDomainOps` registers pipeline steps `domain-verify`, `domain-provision`, and `domain-guard` invocable via `aspire do`.
-- [ ] `DnsRecordPlanner` emits A+TXT for apex and CNAME+TXT for subdomain from hostname + FQDN / static IP / `asuid`.
-- [ ] OctoDNS zone YAML can be generated for the planned records.
-- [ ] `domain-verify` exits non-zero on DNS drift or missing certificate in strict/steady-state mode.
-- [ ] `domain-guard` fails when certificate name is required and empty.
+- [x] Package id is `Neox.Aspire.Hosting.Azure.CustomDomains` under `src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains/`.
+- [x] `WithAzureCustomDomainOps` registers pipeline steps `domain-verify`, `domain-provision`, and `domain-guard` invocable via `aspire do`.
+- [x] `DnsRecordPlanner` emits A+TXT for apex and CNAME+TXT for subdomain from hostname + FQDN / static IP / `asuid`.
+- [x] OctoDNS zone YAML can be generated for the planned records.
+- [x] `domain-verify` exits non-zero on DNS drift or missing certificate in strict/steady-state mode.
+- [x] `domain-guard` fails when certificate name is required and empty.
 - [ ] `domain-provision` reads ACA ingress targets, runs OctoDNS sync, binds managed hostname, updates GitHub variable (default `CERTIFICATE_NAME`) via `IProcessRunner` (fakes in tests).
 - [ ] Package README documents bootstrap vs steady-state GitHub Actions flows and required secrets/tokens.
-- [ ] Unit tests live under `tests/azure-custom-domains/` (xUnit; no live Azure requirement).
-- [ ] Arcade pack produces a Shipping nupkg for the project.
+- [x] Unit tests live under `tests/azure-custom-domains/` (xUnit; no live Azure requirement).
+- [x] Arcade pack produces a Shipping nupkg for the project.
 - [ ] DigiCert constraint is documented: CNAME must point directly at the ACA FQDN (no proxied/intermediate CNAME).
 
 ## Terminology
