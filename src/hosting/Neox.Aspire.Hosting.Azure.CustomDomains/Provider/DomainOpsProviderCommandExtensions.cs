@@ -81,7 +81,7 @@ internal static class DomainOpsProviderCommandExtensions
 
             var logger = context.Logger;
             var runner = context.ServiceProvider.GetService<IProcessRunner>() ?? new ProcessRunner();
-            var orchestrator = new DomainOpsOrchestrator(runner, logger);
+            var orchestrator = new DomainOpsOrchestrator(runner, logger, context.ServiceProvider);
 
             foreach (var (target, annotation) in bindings)
             {
