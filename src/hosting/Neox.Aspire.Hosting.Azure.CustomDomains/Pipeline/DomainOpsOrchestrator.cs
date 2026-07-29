@@ -2,6 +2,7 @@ using Aspire.Hosting.ApplicationModel;
 using Microsoft.Extensions.Logging;
 using Neox.Aspire.Hosting.Azure.Dns;
 using Neox.Aspire.Hosting.Azure.Processes;
+using Neox.Aspire.Hosting.Azure.Provisioning;
 
 namespace Neox.Aspire.Hosting.Azure.Pipeline;
 
@@ -15,9 +16,11 @@ public sealed class DomainOpsOrchestrator
     private readonly DnsRecordPlanner _planner;
     private readonly DnsRecordVerifier _verifier;
     private readonly OctoDnsZoneWriter _zoneWriter;
+    private readonly IAzureContainerAppReader? _azureReader;
+    private readonly DomainProvisioner? _provisioner;
 
     public DomainOpsOrchestrator(IProcessRunner processRunner, ILogger logger)
-        : this(processRunner, logger, new DnsRecordPlanner(), new DnsRecordVerifier(), new OctoDnsZoneWriter())
+        : this(processRunner, logger, new DnsRecordPlanner(), new DnsRecordVerifier(), new OctoDnsZoneWriter(), azureReader: null, provisioner: null)
     {
     }
 
@@ -26,13 +29,17 @@ public sealed class DomainOpsOrchestrator
         ILogger logger,
         DnsRecordPlanner planner,
         DnsRecordVerifier verifier,
-        OctoDnsZoneWriter zoneWriter)
+        OctoDnsZoneWriter zoneWriter,
+        IAzureContainerAppReader? azureReader = null,
+        DomainProvisioner? provisioner = null)
     {
         _processRunner = processRunner ?? throw new ArgumentNullException(nameof(processRunner));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _planner = planner ?? throw new ArgumentNullException(nameof(planner));
         _verifier = verifier ?? throw new ArgumentNullException(nameof(verifier));
         _zoneWriter = zoneWriter ?? throw new ArgumentNullException(nameof(zoneWriter));
+        _azureReader = azureReader;
+        _provisioner = provisioner;
     }
 
     public async Task VerifyAsync(
@@ -98,7 +105,7 @@ public sealed class DomainOpsOrchestrator
         CancellationToken cancellationToken)
         => GuardCoreAsync(certificateName, options, cancellationToken);
 
-    public Task ProvisionAsync(
+    public async Task ProvisionAsync(
         IResource targetResource,
         ParameterResource customDomain,
         ParameterResource certificateName,
@@ -109,11 +116,28 @@ public sealed class DomainOpsOrchestrator
         ArgumentNullException.ThrowIfNull(customDomain);
         ArgumentNullException.ThrowIfNull(certificateName);
         ArgumentNullException.ThrowIfNull(options);
-        _ = _processRunner;
-        _ = _zoneWriter;
 
-        throw new NotImplementedException(
-            "domain-provision is not implemented yet. Use a package revision that includes DNS/cert provisioning.");
+        var hostname = await customDomain.GetValueAsync(cancellationToken).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(hostname))
+        {
+            throw new InvalidOperationException("Custom domain parameter is empty. Set Parameters__customDomain.");
+        }
+
+        options.ContainerAppResourceName ??= targetResource.Name;
+
+        var provisioner = _provisioner
+            ?? new DomainProvisioner(
+                _processRunner,
+                _azureReader ?? new AzureCliContainerAppReader(_processRunner),
+                _planner,
+                _zoneWriter);
+
+        var certName = await provisioner.ProvisionAsync(hostname, options, cancellationToken).ConfigureAwait(false);
+        _logger.LogInformation(
+            "domain-provision completed for {Hostname}; certificate '{Certificate}' (GitHub variable {Variable}).",
+            hostname,
+            certName,
+            options.CertificateGitHubVariableName);
     }
 
     /// <summary>
