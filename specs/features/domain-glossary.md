@@ -4,7 +4,7 @@
 |-------|-------|
 | Slug | `domain-glossary` |
 | Status | draft |
-| Last code review | 2026-07-28 |
+| Last code review | 2026-07-29 |
 
 ## Summary
 
@@ -19,11 +19,12 @@ Terminology authority for Neox Aspire packages in this **public** repository (`a
 | **Shipping** | Arcade package output bucket for packages intended for consumers (`artifacts/packages/<Configuration>/Shipping/`). Distinct from non-shipping / internal artifacts. |
 | **migration worker** | Reusable non-hosting DI helper (`Neox.Aspire.EntityFrameworkCore.MigrationWorker`) that runs EF Core `MigrateAsync` in a one-shot `BackgroundService`, then stops the host via `AddEfCoreMigrationService<TDbContext>()`. |
 | **custom domain ops** | Hosting helpers (`Neox.Aspire.Hosting.Azure.CustomDomains`) that orchestrate ACA custom domain DNS, managed certificates, and GitHub variable updates via `aspire do` pipeline steps. |
-| **domain-provision** | Pipeline step that reads ACA ingress targets, syncs DNS with OctoDNS, binds a managed certificate, and sets the GitHub Actions certificate variable. |
+| **DomainOps provider** | Aspire resource (`DomainOpsProviderResource` and subtypes such as Cloudflare/OVH) that selects an OctoDNS DNS **provider**, holds auth parameter bindings, and drives generated `octodns.yaml` + Docker image choice. Aligns with octoDNS terminology (**provider**, not provisioner). |
+| **domain-provision** | Pipeline step that reads ACA ingress targets, generates OctoDNS YAML (no secrets on disk), syncs DNS via `docker run` + `octodns-sync`, binds a managed certificate, and sets the GitHub Actions certificate variable. |
 | **domain-verify** | Pipeline step that checks DNS and certificate parameter consistency before a steady-state deploy; fails closed on drift or missing cert in strict mode. |
 | **domain-guard** | Pipeline step that fails when a certificate name is required and empty (steady-state fail-fast). |
 | **managed certificate** | Free DigiCert TLS certificate issued and renewed by Azure Container Apps for a validated custom domain. |
-| **OctoDNS sync** | Applying planned DNS records to one or more providers by invoking the external `octodns-sync` CLI. |
+| **OctoDNS sync** | Applying planned DNS records by running the official OctoDNS Docker image (`octodns/cloudflare`, `octodns/ovh`, …) with `octodns-sync`, mounting generated config/zones and injecting credentials via container env (`env/VAR` refs in YAML). |
 
 ## Out of scope
 

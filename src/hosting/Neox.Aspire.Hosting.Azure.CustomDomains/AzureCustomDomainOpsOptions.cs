@@ -16,7 +16,7 @@ public sealed class AzureCustomDomainOpsOptions
     public string? ContainerAppEnvironmentName { get; set; }
 
     /// <summary>
-    /// Path to the OctoDNS config YAML used by <c>octodns-sync</c>.
+    /// Path where the generated OctoDNS config YAML is written (secrets use <c>env/VAR</c> refs only).
     /// </summary>
     public string OctoDnsConfigPath { get; set; } = "octodns.yaml";
 
@@ -24,6 +24,11 @@ public sealed class AzureCustomDomainOpsOptions
     /// Directory where generated zone YAML fragments are written before sync.
     /// </summary>
     public string OctoDnsZoneDirectory { get; set; } = "zones";
+
+    /// <summary>
+    /// Optional override for the OctoDNS Docker image (defaults to the provider resource image).
+    /// </summary>
+    public string? OctoDnsDockerImage { get; set; }
 
     /// <summary>
     /// GitHub Actions repository variable that stores the managed certificate name.

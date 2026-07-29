@@ -16,11 +16,20 @@ public sealed class DomainOpsOrchestrator
     private readonly DnsRecordPlanner _planner;
     private readonly DnsRecordVerifier _verifier;
     private readonly OctoDnsZoneWriter _zoneWriter;
+    private readonly OctoDnsConfigWriter _configWriter;
     private readonly IAzureContainerAppReader? _azureReader;
     private readonly DomainProvisioner? _provisioner;
 
     public DomainOpsOrchestrator(IProcessRunner processRunner, ILogger logger)
-        : this(processRunner, logger, new DnsRecordPlanner(), new DnsRecordVerifier(), new OctoDnsZoneWriter(), azureReader: null, provisioner: null)
+        : this(
+            processRunner,
+            logger,
+            new DnsRecordPlanner(),
+            new DnsRecordVerifier(),
+            new OctoDnsZoneWriter(),
+            new OctoDnsConfigWriter(),
+            azureReader: null,
+            provisioner: null)
     {
     }
 
@@ -30,6 +39,7 @@ public sealed class DomainOpsOrchestrator
         DnsRecordPlanner planner,
         DnsRecordVerifier verifier,
         OctoDnsZoneWriter zoneWriter,
+        OctoDnsConfigWriter? configWriter = null,
         IAzureContainerAppReader? azureReader = null,
         DomainProvisioner? provisioner = null)
     {
@@ -38,6 +48,7 @@ public sealed class DomainOpsOrchestrator
         _planner = planner ?? throw new ArgumentNullException(nameof(planner));
         _verifier = verifier ?? throw new ArgumentNullException(nameof(verifier));
         _zoneWriter = zoneWriter ?? throw new ArgumentNullException(nameof(zoneWriter));
+        _configWriter = configWriter ?? new OctoDnsConfigWriter();
         _azureReader = azureReader;
         _provisioner = provisioner;
     }
@@ -109,12 +120,14 @@ public sealed class DomainOpsOrchestrator
         IResource targetResource,
         ParameterResource customDomain,
         ParameterResource certificateName,
+        DomainOpsProviderResource provider,
         AzureCustomDomainOpsOptions options,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(targetResource);
         ArgumentNullException.ThrowIfNull(customDomain);
         ArgumentNullException.ThrowIfNull(certificateName);
+        ArgumentNullException.ThrowIfNull(provider);
         ArgumentNullException.ThrowIfNull(options);
 
         var hostname = await customDomain.GetValueAsync(cancellationToken).ConfigureAwait(false);
@@ -130,9 +143,11 @@ public sealed class DomainOpsOrchestrator
                 _processRunner,
                 _azureReader ?? new AzureCliContainerAppReader(_processRunner),
                 _planner,
-                _zoneWriter);
+                _zoneWriter,
+                _configWriter);
 
-        var certName = await provisioner.ProvisionAsync(hostname, options, cancellationToken).ConfigureAwait(false);
+        var certName = await provisioner.ProvisionAsync(hostname, provider, options, cancellationToken)
+            .ConfigureAwait(false);
         _logger.LogInformation(
             "domain-provision completed for {Hostname}; certificate '{Certificate}' (GitHub variable {Variable}).",
             hostname,
