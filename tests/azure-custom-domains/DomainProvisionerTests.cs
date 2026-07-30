@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Neox.Aspire.Hosting.Azure;
 using Neox.Aspire.Hosting.Azure.Dns;
 using Neox.Aspire.Hosting.Azure.Processes;
@@ -168,6 +169,96 @@ public sealed class DomainProvisionerTests
     }
 
     [Fact]
+    public async Task ProvisionEnvCertificates_CreatesMissingCertificatesInParallel()
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        var bothStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var started = 0;
+
+        var azure = new FakeAzureClient(
+            new AzureContainerAppTargets(
+                "api",
+                "rg-demo",
+                "aca-env",
+                "api.nicehill.westeurope.azurecontainerapps.io",
+                "20.1.2.3",
+                "verification"),
+            beforeCreate: async (_, _, _, cancellationToken) =>
+            {
+                if (Interlocked.Increment(ref started) == 2)
+                {
+                    bothStarted.TrySetResult();
+                }
+
+                // Sequential create would deadlock here: the first call waits for the second to start.
+                await bothStarted.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+            });
+
+        var provisioner = new DomainProvisioner(
+            new RecordingProcessRunner(),
+            azure,
+            delayAsync: (_, _) => Task.CompletedTask);
+
+        var www = provisioner.PlanResourceDomain(
+            "api",
+            "www.contoso.com",
+            new AzureCustomDomainOpsOptions { ManagedCertificateName = "www-contoso-com" },
+            certificateNameParameter: null);
+        var api = provisioner.PlanResourceDomain(
+            "api",
+            "api.contoso.com",
+            new AzureCustomDomainOpsOptions { ManagedCertificateName = "api-contoso-com" },
+            certificateNameParameter: null);
+
+        await provisioner.ProvisionEnvCertificatesAsync(
+            azure.Targets,
+            [www, api],
+            existingCertificates: [],
+            cts.Token);
+
+        Assert.Equal(2, azure.Created.Count);
+        Assert.Contains(azure.Created, c => c.Name == "www-contoso-com");
+        Assert.Contains(azure.Created, c => c.Name == "api-contoso-com");
+    }
+
+    [Fact]
+    public async Task ProvisionEnvCertificates_DedupesByCertificateName()
+    {
+        var azure = new FakeAzureClient(new AzureContainerAppTargets(
+            "api",
+            "rg-demo",
+            "aca-env",
+            "api.nicehill.westeurope.azurecontainerapps.io",
+            "20.1.2.3",
+            "verification"));
+
+        var provisioner = new DomainProvisioner(
+            new RecordingProcessRunner(),
+            azure,
+            delayAsync: (_, _) => Task.CompletedTask);
+
+        var first = provisioner.PlanResourceDomain(
+            "api",
+            "www.contoso.com",
+            new AzureCustomDomainOpsOptions { ManagedCertificateName = "shared-cert" },
+            certificateNameParameter: null);
+        var duplicateName = provisioner.PlanResourceDomain(
+            "web",
+            "app.contoso.com",
+            new AzureCustomDomainOpsOptions { ManagedCertificateName = "SHARED-CERT" },
+            certificateNameParameter: null);
+
+        await provisioner.ProvisionEnvCertificatesAsync(
+            azure.Targets,
+            [first, duplicateName],
+            existingCertificates: [],
+            CancellationToken.None);
+
+        Assert.Single(azure.Created);
+        Assert.Equal("shared-cert", azure.Created[0].Name);
+    }
+
+    [Fact]
     public async Task EnsureResourceHostname_AddsOnceThenNoOps()
     {
         var runner = new RecordingProcessRunner();
@@ -281,13 +372,17 @@ public sealed class DomainProvisionerTests
         return provider;
     }
 
-    private sealed class FakeAzureClient(AzureContainerAppTargets targets) : IAzureContainerAppClient
+    private sealed class FakeAzureClient(
+        AzureContainerAppTargets targets,
+        Func<string, string, string, CancellationToken, Task>? beforeCreate = null) : IAzureContainerAppClient
     {
+        private readonly ConcurrentBag<AzureManagedCertificateInfo> _created = [];
+
         public AzureContainerAppTargets Targets { get; } = targets;
-        public List<AzureManagedCertificateInfo> Created { get; } = [];
+        public IReadOnlyList<AzureManagedCertificateInfo> Created => _created.ToList();
         public List<(string Hostname, string CertificateId)> Binds { get; } = [];
-        public HashSet<string> Hostnames { get; } = new(StringComparer.OrdinalIgnoreCase);
-        public List<string> Ensured { get; } = [];
+        public ConcurrentDictionary<string, byte> Hostnames { get; } = new(StringComparer.OrdinalIgnoreCase);
+        public ConcurrentBag<string> Ensured { get; } = [];
 
         public Task<AzureContainerAppTargets> GetTargetsAsync(
             string containerAppName,
@@ -299,18 +394,24 @@ public sealed class DomainProvisionerTests
         public Task<IReadOnlyList<AzureManagedCertificateInfo>> ListManagedCertificatesAsync(
             AzureContainerAppTargets targets,
             CancellationToken cancellationToken)
-            => Task.FromResult<IReadOnlyList<AzureManagedCertificateInfo>>(Created.ToList());
+            => Task.FromResult<IReadOnlyList<AzureManagedCertificateInfo>>(Created);
 
-        public Task<AzureManagedCertificateInfo> CreateManagedCertificateAsync(
+        public async Task<AzureManagedCertificateInfo> CreateManagedCertificateAsync(
             AzureContainerAppTargets targets,
             string hostname,
             string certificateName,
             string validationMethod,
             CancellationToken cancellationToken)
         {
+            if (beforeCreate is not null)
+            {
+                await beforeCreate(hostname, certificateName, validationMethod, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
             var info = new AzureManagedCertificateInfo(certificateName, hostname, $"/subscriptions/x/certs/{certificateName}");
-            Created.Add(info);
-            return Task.FromResult(info);
+            _created.Add(info);
+            return info;
         }
 
         public Task BindHostnameAsync(
@@ -320,7 +421,7 @@ public sealed class DomainProvisionerTests
             CancellationToken cancellationToken)
         {
             Binds.Add((hostname, certificateId));
-            Hostnames.Add(hostname);
+            Hostnames[hostname] = 0;
             return Task.CompletedTask;
         }
 
@@ -329,12 +430,11 @@ public sealed class DomainProvisionerTests
             string hostname,
             CancellationToken cancellationToken)
         {
-            if (Hostnames.Contains(hostname))
+            if (!Hostnames.TryAdd(hostname, 0))
             {
                 return Task.FromResult(false);
             }
 
-            Hostnames.Add(hostname);
             Ensured.Add(hostname);
             return Task.FromResult(true);
         }

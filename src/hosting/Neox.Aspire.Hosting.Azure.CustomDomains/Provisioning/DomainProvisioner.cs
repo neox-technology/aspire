@@ -178,27 +178,36 @@ public sealed class DomainProvisioner
         ArgumentNullException.ThrowIfNull(bindingPlans);
         ArgumentNullException.ThrowIfNull(existingCertificates);
 
+        var missing = new List<DomainBindingPlan>();
+        var seenNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
         foreach (var plan in bindingPlans)
         {
             var exists = existingCertificates.Any(c =>
                 string.Equals(c.Name, plan.CertificateName, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(c.SubjectName, plan.Hostname, StringComparison.OrdinalIgnoreCase));
 
-            if (exists)
+            if (exists || !seenNames.Add(plan.CertificateName))
             {
                 continue;
             }
 
-            var created = await _azureClient.CreateManagedCertificateAsync(
+            missing.Add(plan);
+        }
+
+        if (missing.Count == 0)
+        {
+            return;
+        }
+
+        await Task.WhenAll(missing.Select(plan =>
+                _azureClient.CreateManagedCertificateAsync(
                     targets,
                     plan.Hostname,
                     plan.CertificateName,
                     plan.ValidationMethod,
-                    cancellationToken)
-                .ConfigureAwait(false);
-
-            existingCertificates = existingCertificates.Append(created).ToList();
-        }
+                    cancellationToken)))
+            .ConfigureAwait(false);
     }
 
     public DomainBindingPlan PlanResourceDomain(
