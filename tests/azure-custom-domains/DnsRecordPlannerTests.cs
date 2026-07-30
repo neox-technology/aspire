@@ -23,7 +23,7 @@ public sealed class DnsRecordPlannerTests
     }
 
     [Fact]
-    public void Plan_Subdomain_EmitsCnameAndAsuidTxt()
+    public void Plan_Subdomain_EmitsAAndAsuidTxt()
     {
         var plan = _planner.Plan(new DnsPlanInput(
             "www.contoso.com",
@@ -34,8 +34,9 @@ public sealed class DnsRecordPlannerTests
         Assert.Equal(HostnameKind.Subdomain, plan.Kind);
         Assert.Equal("contoso.com", plan.ZoneName);
         Assert.Equal("www", plan.RelativeHost);
-        Assert.Contains(plan.Records, r => r.Type == "CNAME" && r.Name == "www" && r.Value == "api.nicehill-1234.westeurope.azurecontainerapps.io.");
+        Assert.Contains(plan.Records, r => r.Type == "A" && r.Name == "www" && r.Value == "20.50.1.2");
         Assert.Contains(plan.Records, r => r.Type == "TXT" && r.Name == "asuid.www" && r.Value == "verification-code");
+        Assert.DoesNotContain(plan.Records, r => r.Type == "CNAME");
     }
 
     [Theory]

@@ -27,12 +27,12 @@ Terminology authority for Neox Aspire packages in this **public** repository (`a
 | **plan-domain-{zone}** | Writes/upserts OctoDNS zone YAML for one registrable domain (aggregated across resources); dump live zone is internal. |
 | **provision-domain-{zone}** | Runs OctoDNS sync for a zone (dry-run + Deletes=0 guard internal, then `--doit`); waits for DNS internally. |
 | **plan-{env}-certificates** | Inventories managed certificates already on the ACA environment. |
-| **provision-{env}-domains** | Gate that depends on all `provision-{resource}-domain` steps for an ACA environment (no ARM). |
+| **provision-{env}-domains** | Gate that depends on all `provision-{resource}-domain-{dom}` steps for an ACA environment (no ARM). |
 | **provision-{env}-certificates** | Creates missing managed certificates on the ACA environment (long wait); requires hostnames already on apps. |
-| **plan-{resource}-domain** | Prepares/validates the per-resource domain model (hostname, HTTP\|CNAME, expected cert name) without ARM calls. |
-| **provision-{resource}-domain** | Adds the custom hostname to the Container App without a certificate (`BindingType.Disabled`); no-op if the hostname already exists (does not detach an existing cert). |
-| **deploy-{resource}-domain** | Binds an existing managed certificate to the Container App hostname (SNI); rebinds if a different cert is already linked. |
-| **deploy-domains** | Gate that depends on all `deploy-{resource}-domain` steps; required by Aspire `deploy`. |
+| **plan-{resource}-domain-{dom}** | Prepares/validates the per-resource domain model (hostname, HTTP validation, expected cert name) without ARM calls. `{dom}` is the hostname slug (`.` → `-`). |
+| **provision-{resource}-domain-{dom}** | Adds the custom hostname to the Container App without a certificate (`BindingType.Disabled`); no-op if the hostname already exists (does not detach an existing cert). |
+| **deploy-{resource}-domain-{dom}** | Binds an existing managed certificate to the Container App hostname (SNI); rebinds if a different cert is already linked. |
+| **deploy-domains** | Gate that depends on all `deploy-{resource}-domain-{dom}` steps; required by Aspire `deploy`. |
 | **managed certificate** | Free DigiCert TLS certificate issued and renewed by Azure Container Apps for a validated custom domain. |
 | **OctoDNS sync** | Applying **upserted** DNS records (create/update only; DomainOps never deletes) by running the official OctoDNS Docker image (`octodns/cloudflare`, `octodns/ovh`, …) with `octodns-dump` then `octodns-sync`, mounting generated config/zones and injecting credentials via container env (`env/VAR` refs in YAML). DomainOps does not treat the zone YAML as full zone ownership. |
 
