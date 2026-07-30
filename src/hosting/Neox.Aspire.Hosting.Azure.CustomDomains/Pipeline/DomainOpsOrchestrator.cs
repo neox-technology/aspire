@@ -173,7 +173,7 @@ public sealed class DomainOpsOrchestrator
         var certName = await provisioner.ProvisionAsync(hostname, provider, options, cancellationToken)
             .ConfigureAwait(false);
         _logger.LogInformation(
-            "domain-provision completed for {Hostname}; certificate '{Certificate}' (GitHub variable {Variable}).",
+            "provision-domain completed for {Hostname}; certificate '{Certificate}' (GitHub variable {Variable}).",
             hostname,
             certName,
             options.CertificateGitHubVariableName);

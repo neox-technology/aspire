@@ -13,4 +13,6 @@ public sealed class CloudflareDomainOpsProviderResource : DomainOpsProviderResou
     public override string ProviderClass => "octodns_cloudflare.CloudflareProvider";
 
     public override string DefaultDockerImage => "octodns/cloudflare";
+
+    public override string ProviderSlug => "cloudflare";
 }

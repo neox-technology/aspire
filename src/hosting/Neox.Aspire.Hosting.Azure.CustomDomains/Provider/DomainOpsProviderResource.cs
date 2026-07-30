@@ -27,6 +27,11 @@ public abstract class DomainOpsProviderResource : Resource
     public abstract string DefaultDockerImage { get; }
 
     /// <summary>
+    /// Stable provider slug used in pipeline step names (e.g. <c>cloudflare</c>, <c>ovh</c>).
+    /// </summary>
+    public abstract string ProviderSlug { get; }
+
+    /// <summary>
     /// YAML provider property → environment variable name (without <c>env/</c> prefix).
     /// </summary>
     public IReadOnlyDictionary<string, string> AuthEnvBindings => _authEnvBindings;

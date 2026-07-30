@@ -16,13 +16,35 @@ namespace Neox.Aspire.Hosting.Azure;
 public static class AzureCustomDomainOpsExtensions
 {
     public const string DomainVerifyStepName = "domain-verify";
-    public const string DomainProvisionStepName = "domain-provision";
     public const string DomainGuardStepName = "domain-guard";
+    public const string DomainPrereqStepName = "prereq-domain";
 
     /// <summary>
-    /// Aspire Azure step that materializes subscription / resource group context after login.
+    /// Builds the per-compute DomainOps provision step name (<c>provision-{resource}-domain</c>).
     /// </summary>
-    public const string CreateProvisioningContextStepName = "create-provisioning-context";
+    public static string GetDomainProvisionStepName(string resourceName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(resourceName);
+        return $"provision-{resourceName}-domain";
+    }
+
+    /// <summary>
+    /// Builds the provider-specific DomainOps prereq step name (<c>prereq-domain-{providerSlug}</c>).
+    /// </summary>
+    public static string GetDomainPrereqProviderStepName(string providerSlug)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(providerSlug);
+        return $"prereq-domain-{providerSlug}";
+    }
+
+    /// <summary>
+    /// Builds the Aspire Container App Bicep provision step name (<c>provision-{resource}-containerapp</c>).
+    /// </summary>
+    public static string GetContainerAppProvisionStepName(string resourceName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(resourceName);
+        return $"provision-{resourceName}-containerapp";
+    }
 
     /// <summary>
     /// Registers custom domain ops (verify / provision / guard) for the resource via <c>aspire do</c> pipeline steps.
@@ -49,14 +71,34 @@ public static class AzureCustomDomainOpsExtensions
 
         builder.WithAnnotation(new AzureCustomDomainOpsAnnotation(customDomain, certificateName, provider.Resource, options));
 
-        EnsureDomainOpsResource(builder.ApplicationBuilder)
-            .WithPipelineStepFactory(factoryContext =>
-                CreateSteps(factoryContext, builder.Resource, customDomain, certificateName, provider.Resource, options));
+        var domainOps = EnsureDomainOpsResource(builder.ApplicationBuilder);
+        domainOps.WithPipelineStepFactory(factoryContext =>
+            CreateSteps(factoryContext, builder.Resource, customDomain, certificateName, provider.Resource, options));
+
+        // provision-{resource}-containerapp is created only after prepare-azure-container-apps
+        // materializes the out-of-model AzureContainerAppResource. Wire DependsOn in the
+        // configuration pass so ValidateSteps does not fail on an unknown step name.
+        var targetResource = builder.Resource;
+        domainOps.WithPipelineConfiguration(context =>
+        {
+            var deploymentTarget = targetResource.GetDeploymentTargetAnnotation()?.DeploymentTarget;
+            if (deploymentTarget is null)
+            {
+                return;
+            }
+
+            var provisionStepName = GetDomainProvisionStepName(targetResource.Name);
+            var domainProvisionSteps = context.GetSteps(domainOps.Resource)
+                .Where(s => string.Equals(s.Name, provisionStepName, StringComparison.Ordinal));
+
+            domainProvisionSteps.DependsOn(
+                context.GetSteps(deploymentTarget, WellKnownPipelineTags.ProvisionInfrastructure));
+        });
 
         return builder;
     }
 
-    private static IResourceBuilder<AzureCustomDomainOpsResource> EnsureDomainOpsResource(
+    internal static IResourceBuilder<AzureCustomDomainOpsResource> EnsureDomainOpsResource(
         IDistributedApplicationBuilder applicationBuilder)
     {
         var existing = applicationBuilder.Resources
@@ -138,16 +180,20 @@ public static class AzureCustomDomainOpsExtensions
             }
         };
 
+        var provisionStepName = GetDomainProvisionStepName(targetResource.Name);
         yield return new PipelineStep
         {
-            Name = DomainProvisionStepName,
+            Name = provisionStepName,
             Description = "Provision DNS via OctoDNS (Docker), bind ACA managed certificate via ARM, update GitHub variable.",
             Tags = ["domain-ops"],
             Resource = factoryContext.Resource,
-            DependsOnSteps = [CreateProvisioningContextStepName],
+            DependsOnSteps =
+            [
+                GetDomainPrereqProviderStepName(provider.ProviderSlug)
+            ],
             Action = async context =>
             {
-                var logger = context.Services.GetRequiredService<ILoggerFactory>().CreateLogger(DomainProvisionStepName);
+                var logger = context.Services.GetRequiredService<ILoggerFactory>().CreateLogger(provisionStepName);
                 var runner = context.Services.GetService<IProcessRunner>() ?? new ProcessRunner();
                 await DomainOpsParameterPrompt.EnsureReadyAsync(
                         context.Services,
