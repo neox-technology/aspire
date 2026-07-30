@@ -175,6 +175,17 @@ public sealed class DomainOpsPipelineStepTests
         Assert.Contains(steps, s => s.Name == "deploy-api-domain-example-com");
         Assert.Single(steps, s => s.Name == "provision-aca-env-domains");
         Assert.Single(steps, s => s.Name == "deploy-domains");
+
+        // Ordinal: example-com before www-example-com — later sibling DependsOn earlier.
+        AzureCustomDomainOpsExtensions.SerializeSameResourceDomainArmSteps(steps, "api");
+        var provisionWww = Assert.Single(steps, s => s.Name == "provision-api-domain-www-example-com");
+        var provisionApex = Assert.Single(steps, s => s.Name == "provision-api-domain-example-com");
+        var deployWww = Assert.Single(steps, s => s.Name == "deploy-api-domain-www-example-com");
+        var deployApex = Assert.Single(steps, s => s.Name == "deploy-api-domain-example-com");
+        Assert.Contains("provision-api-domain-example-com", provisionWww.DependsOnSteps);
+        Assert.DoesNotContain("provision-api-domain-www-example-com", provisionApex.DependsOnSteps);
+        Assert.Contains("deploy-api-domain-example-com", deployWww.DependsOnSteps);
+        Assert.DoesNotContain("deploy-api-domain-www-example-com", deployApex.DependsOnSteps);
     }
 
     [Fact]

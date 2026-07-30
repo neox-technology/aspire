@@ -85,10 +85,10 @@ None — invocation is via `aspire do` pipeline steps only.
 - [x] `provision-{resource}-domain-{dom}` adds hostname without certificate (`BindingType.Disabled`); no-op if hostname already present (does not detach an existing cert); depends on `plan-{resource}-domain-{dom}`, zone provision, and `provision-{resource}-containerapp`.
 - [x] `provision-{env}-domains` is a no-op gate depending on all `provision-{resource}-domain-{dom}` for the env.
 - [x] `provision-{env}-certificates` creates missing managed certificates **in parallel** (wall-clock ≈ max DigiCert/ARM wait, not sum; long wait); dedupes by certificate name; depends on `plan-{env}-certificates` and `provision-{env}-domains`.
-- [x] `deploy-{resource}-domain-{dom}` binds existing cert to hostname (SNI; rebinds wrong cert); depends on `provision-{env}-certificates` and `provision-{resource}-containerapp`; required by `deploy-domains`.
+- [x] `deploy-{resource}-domain-{dom}` binds existing cert to hostname (SNI; rebinds wrong cert; no-op if already bound to the same cert); depends on `provision-{env}-certificates` and `provision-{resource}-containerapp`; required by `deploy-domains`; siblings on the same compute are serialized by ordinal slug.
 - [x] `deploy-domains` is a no-op gate depending on all `deploy-{resource}-domain-{dom}`; required by Aspire `deploy`.
 - [x] Multi-resource same zone: single `plan-domain-{zone}` / `provision-domain-{zone}` aggregating hostnames.
-- [x] Multi-hostname same resource: distinct per-binding `{dom}` steps; zone/env steps remain shared.
+- [x] Multi-hostname same resource: distinct per-binding `{dom}` steps; zone/env steps remain shared; `provision|deploy-{resource}-domain-*` on the **same compute** are serialized (ordinal slug order) to avoid concurrent Container App PATCH races.
 - [x] Auth options null → Aspire parameters `Parameters__{resourceName}-{param}`; credentials never written into generated YAML.
 - [x] `WithAzureCustomDomainOps` requires `IResourceBuilder<TProvider>` where `TProvider : DomainOpsProviderResource`.
 - [x] DomainOps DNS is **upsert-only**; a plan with `Deletes > 0` must not be applied.
@@ -133,10 +133,10 @@ See [`domain-glossary`](domain-glossary.md).
 | `provision-domain-{zone}` | `WithAzureCustomDomainOps` (idempotent per zone) | `plan-domain-{zone}` | OctoDNS apply (dry-run+Deletes guard internal); DNS wait internal | Deletes>0 / Docker failure |
 | `plan-{env}-certificates` | `WithAzureCustomDomainOps` (idempotent per env) | `provision-{acaEnv}` | Cert inventory loaded | ARM failure |
 | `plan-{resource}-domain-{dom}` | `WithAzureCustomDomainOps` | `provision-domain-{zone}` | Domain model validated | Missing hostname / invalid model |
-| `provision-{resource}-domain-{dom}` | `WithAzureCustomDomainOps` | `plan-{resource}-domain-{dom}`; `provision-domain-{zone}`; `provision-{resource}-containerapp` (PipelineConfiguration) | Hostname present without requiring cert | ARM add failure |
+| `provision-{resource}-domain-{dom}` | `WithAzureCustomDomainOps` | `plan-{resource}-domain-{dom}`; `provision-domain-{zone}`; `provision-{resource}-containerapp` (PipelineConfiguration); previous sibling `provision-{resource}-domain-*` (same compute, ordinal slug) | Hostname present without requiring cert | ARM add failure |
 | `provision-{env}-domains` | `WithAzureCustomDomainOps` (idempotent per env) | all `provision-{resource}-domain-{dom}` for env (PipelineConfiguration) | Gate only | Dependency failure |
 | `provision-{env}-certificates` | `WithAzureCustomDomainOps` (idempotent per env) | `plan-{env}-certificates`; `provision-{env}-domains` | Missing certs created in parallel | ARM / DigiCert validation failure |
-| `deploy-{resource}-domain-{dom}` | `WithAzureCustomDomainOps` | `provision-{env}-certificates`; `provision-{resource}-containerapp` (PipelineConfiguration) | Hostname bound to cert | ARM bind failure |
+| `deploy-{resource}-domain-{dom}` | `WithAzureCustomDomainOps` | `provision-{env}-certificates`; `provision-{resource}-containerapp` (PipelineConfiguration); previous sibling `deploy-{resource}-domain-*` (same compute, ordinal slug) | Hostname bound to cert (no-op if already SNI-bound to same cert) | ARM bind failure |
 | `deploy-domains` | `WithAzureCustomDomainOps` (idempotent) | all `deploy-{resource}-domain-{dom}`; RequiredBy Aspire `deploy` | Gate only | Dependency failure |
 
 Aspire naming (upstream): ACA env Bicep step is `provision-{AzureContainerAppEnvironmentResource.Name}`; Container App Bicep step is `provision-{compute.Name}-containerapp`.
