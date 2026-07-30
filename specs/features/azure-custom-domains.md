@@ -12,11 +12,18 @@ Ship a reusable **hosting** NuGet package (`Neox.Aspire.Hosting.Azure.CustomDoma
 
 Consumers:
 
-1. Register a DNS provider with `AddDomainOpsProvider(name).Cloudflare(...)` or `.Ovh(...)` (registers `prereq-domain` + `prereq-domain-{provider}`).
+1. Register a DNS provider with `AddDomainOpsProvider(name).{Provider}(...)` (e.g. `.Cloudflare(...)`, `.Ovh(...)`, `.Route53(...)`) — methods are **source-generated** from a versioned OctoDNS provider catalogue (registers `prereq-domain` + `prereq-domain-{provider}`).
 2. Call `WithAzureCustomDomainOps(..., provider, ...)` on the compute resource (registers `provision-{resource}-domain`, plus `domain-verify` / `domain-guard`).
 3. Invoke pipeline steps with `aspire do` (`domain-verify`, `provision-{resource}-domain`, `domain-guard`) around non-interactive `aspire deploy`.
 
 V1 supports **one hostname per binding** (apex **or** subdomain, auto-detected). One provider resource may be shared by multiple bindings. Multiple provider resources may be registered; each only operates on its own bindings. Bootstrap uses an empty `certificateName` on the first deploy; steady-state fails closed when the certificate parameter is missing.
+
+### OctoDNS provider catalogue + source generator
+
+- Catalogue JSON (`Provider/octodns-providers.json`) lists official Docker flavors from [octodns-docker](https://github.com/octodns/octodns-docker) except `octodns` (all), `etchosts`, and `dyn` (deprecated).
+- Refresh is **manual** via `tools/octodns-provider-catalog` (scrapes docker README + per-provider READMEs); compile/CI stays offline and deterministic.
+- A Roslyn source generator emits `{Name}DomainOpsProviderResource`, `{Name}DomainOpsProviderOptions`, and fluent `.MethodName(...)` on `IDomainOpsProviderBuilder`.
+- Setting heuristics from provider README Configuration YAML: `env/...` → secret parameter; non-`env/` uncommented values → literals with defaults; commented non-`env/` toggles are ignored.
 
 ## User scenarios
 
@@ -52,7 +59,8 @@ None — invocation is via `aspire do` pipeline steps only.
 - Azure Front Door or other edge frontends
 - Live Azure + real DNS integration harness in default CI
 - In-process DNS provider SDKs (Cloudflare/OVH C# APIs) — sync stays OctoDNS-in-Docker
-- Source generator for additional OctoDNS providers (manual Cloudflare + OVH in V1)
+- Providers listed only on OctoDNS docs without an official `octodns/{flavor}` Docker image
+- Automatic catalogue refresh in Arcade CI (refresh is manual / contributor PR)
 - Separate non-Azure DNS hosting package
 - Replacing `ConfigureCustomDomain` itself
 - Renaming `domain-verify` / `domain-guard` (left unchanged in this pipeline split)
@@ -62,6 +70,10 @@ None — invocation is via `aspire do` pipeline steps only.
 - [x] Package id is `Neox.Aspire.Hosting.Azure.CustomDomains` under `src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains/`.
 - [x] `AddDomainOpsProvider(name)` returns a builder with `.Cloudflare(...)` / `.Ovh(...)` producing `DomainOpsProviderResource` subtypes.
 - [x] `.Cloudflare(...)` / `.Ovh(...)` register idempotent step `prereq-domain-{providerSlug}` (`cloudflare` | `ovh`) that `docker pull`s the provider image and `DependsOn` `prereq-domain`.
+- [x] Provider fluent API (`Resource` / `Options` / builder methods) is **source-generated** from `octodns-providers.json`; no hand-written Cloudflare/OVH provider types.
+- [x] Catalogue covers official Docker flavors except `octodns` / `etchosts` / `dyn`; build succeeds offline without network access to OctoDNS.
+- [x] `tools/octodns-provider-catalog` can refresh the catalogue from octodns-docker + provider READMEs.
+- [x] Generator unit tests use a fixture catalogue (no network); smoke test covers an additional generated provider (e.g. Route53).
 - [x] `AddDomainOpsProviderCore` registers idempotent step `prereq-domain` that `DependsOn` `provision-{acaEnv.Name}` (dynamic Aspire Bicep step for `AzureContainerAppEnvironmentResource`).
 - [x] Auth options null → Aspire parameters `Parameters__{resourceName}-{param}` (hyphenated; Aspire-valid resource names); credentials never written into generated YAML (`env/VAR` refs only).
 - [x] `WithAzureCustomDomainOps` requires `IResourceBuilder<TProvider>` where `TProvider : DomainOpsProviderResource` (breaking).
@@ -93,6 +105,9 @@ See [`domain-glossary`](domain-glossary.md) (`custom domain ops`, `DomainOps pro
 | Package id | `Neox.Aspire.Hosting.Azure.CustomDomains` |
 | Namespace | `Neox.Aspire.Hosting.Azure` |
 | Extensions | `AddDomainOpsProvider`, `WithAzureCustomDomainOps` |
+| Provider catalogue | `Provider/octodns-providers.json` |
+| Source generator | `src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains.Generators/` |
+| Catalogue refresh | `tools/octodns-provider-catalog/` |
 | ARM client | `ArmAzureContainerAppClient` (`IAzureContainerAppClient`) |
 | Unit tests | `tests/azure-custom-domains/` |
 | Sample AppHost | `tests/azure-custom-domains/sample-apphost/` |
@@ -101,8 +116,8 @@ See [`domain-glossary`](domain-glossary.md) (`custom domain ops`, `DomainOps pro
 
 | Step | Registered by | DependsOn | Exit 0 | Exit ≠ 0 |
 |------|---------------|-----------|--------|----------|
-| `prereq-domain` | `AddDomainOpsProviderCore` (via `.Cloudflare` / `.Ovh`) | `provision-{acaEnv.Name}` | ACA env provisioned; prereq gate ready | Missing ACA env in model / dependency failure |
-| `prereq-domain-{provider}` | `.Cloudflare` / `.Ovh` (`provider` = `cloudflare` \| `ovh`) | `prereq-domain` | `docker pull octodns/{provider}` succeeded | Docker pull failure |
+| `prereq-domain` | `AddDomainOpsProviderCore` (via any generated `.{Provider}`) | `provision-{acaEnv.Name}` | ACA env provisioned; prereq gate ready | Missing ACA env in model / dependency failure |
+| `prereq-domain-{provider}` | generated `.{Provider}` (`provider` = slug, e.g. `cloudflare`) | `prereq-domain` | `docker pull octodns/{provider}` succeeded | Docker pull failure |
 | `domain-verify` | `WithAzureCustomDomainOps` | — | Expected DNS + cert parameter consistent | Drift, missing cert in strict mode, tool failure |
 | `domain-guard` | `WithAzureCustomDomainOps` | — | Cert parameter non-empty when required | Empty/missing cert |
 | `provision-{resource}-domain` | `WithAzureCustomDomainOps` | `prereq-domain-{provider}`; `provision-{resource}-containerapp` (wired via `PipelineConfigurationAnnotation` after `prepare-azure-container-apps` materializes the deployment target — not a static `DependsOnSteps` string) | Config + upserted zone YAML, OctoDNS dump/dry-run/apply (Creates/Updates only), managed cert bound via ARM, GH var updated | Azure ARM/Docker/gh/DNS poll failure; OctoDNS plan with Deletes |

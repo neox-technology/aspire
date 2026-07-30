@@ -12,11 +12,12 @@ namespace Neox.Aspire.Hosting.Azure;
 
 /// <summary>
 /// Extension methods that register OctoDNS DomainOps provider resources.
+/// Fluent provider selectors are source-generated from <c>octodns-providers.json</c>.
 /// </summary>
-public static class DomainOpsProviderExtensions
+public static partial class DomainOpsProviderExtensions
 {
     /// <summary>
-    /// Starts configuring a DomainOps DNS provider resource (select Cloudflare or OVH next).
+    /// Starts configuring a DomainOps DNS provider resource (select a generated provider next).
     /// </summary>
     public static IDomainOpsProviderBuilder AddDomainOpsProvider(
         this IDistributedApplicationBuilder builder,
@@ -43,12 +44,12 @@ public static class DomainOpsProviderExtensions
         PipelineStepFactoryContext factoryContext,
         IDistributedApplicationBuilder applicationBuilder)
     {
-        var resources = factoryContext.PipelineContext.Model.Resources;
-        var acaEnv = resources.OfType<AzureContainerAppEnvironmentResource>().FirstOrDefault()
-            ?? applicationBuilder.Resources.OfType<AzureContainerAppEnvironmentResource>().FirstOrDefault()
+        var acaEnv = applicationBuilder.Resources
+            .OfType<AzureContainerAppEnvironmentResource>()
+            .FirstOrDefault()
             ?? throw new InvalidOperationException(
-                "DomainOps requires an Azure Container Apps environment in the application model. " +
-                "Call AddAzureContainerAppEnvironment(...) on the AppHost (the environment is only added in publish/deploy mode).");
+                "DomainOps requires an Azure Container Apps environment. " +
+                "Call AddAzureContainerAppEnvironment(...) on the AppHost before running pipeline steps.");
 
         return new PipelineStep
         {
@@ -107,39 +108,10 @@ public static class DomainOpsProviderExtensions
         }
     }
 
-    private sealed class DomainOpsProviderBuilder(
+    private sealed partial class DomainOpsProviderBuilder(
         IDistributedApplicationBuilder applicationBuilder,
         string name) : IDomainOpsProviderBuilder
     {
-        public IResourceBuilder<CloudflareDomainOpsProviderResource> Cloudflare(
-            CloudflareDomainOpsProviderOptions? options = null)
-        {
-            options ??= new CloudflareDomainOpsProviderOptions();
-            var resource = new CloudflareDomainOpsProviderResource(name);
-
-            BindSecret(resource, "token", options.Token, secret: true);
-            if (options.AccountId is not null)
-            {
-                resource.BindAuthParameter("account_id", options.AccountId.Resource);
-            }
-
-            return AddProviderResource(resource);
-        }
-
-        public IResourceBuilder<OvhDomainOpsProviderResource> Ovh(
-            OvhDomainOpsProviderOptions? options = null)
-        {
-            options ??= new OvhDomainOpsProviderOptions();
-            var resource = new OvhDomainOpsProviderResource(name);
-
-            resource.SetLiteral("endpoint", string.IsNullOrWhiteSpace(options.Endpoint) ? "ovh-eu" : options.Endpoint);
-            BindSecret(resource, "application_key", options.ApplicationKey, secret: true);
-            BindSecret(resource, "application_secret", options.ApplicationSecret, secret: true);
-            BindSecret(resource, "consumer_key", options.ConsumerKey, secret: true);
-
-            return AddProviderResource(resource);
-        }
-
         private void BindSecret(
             DomainOpsProviderResource resource,
             string yamlPropertyName,
