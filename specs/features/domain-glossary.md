@@ -28,7 +28,7 @@ Terminology authority for Neox Aspire packages in this **public** repository (`a
 | **provision-domain-{zone}** | Runs OctoDNS sync for a zone (dry-run + Deletes=0 guard internal, then `--doit`); waits for DNS internally. |
 | **plan-{env}-certificates** | Inventories managed certificates already on the ACA environment. |
 | **provision-{env}-domains** | Gate that depends on all `provision-{resource}-domain-{dom}` steps for an ACA environment (no ARM). |
-| **provision-{env}-certificates** | Creates missing managed certificates on the ACA environment (long wait); requires hostnames already on apps. |
+| **provision-{env}-certificates** | Creates missing managed certificates on the ACA environment in parallel (long wait); requires hostnames already on apps. |
 | **plan-{resource}-domain-{dom}** | Prepares/validates the per-resource domain model (hostname, HTTP validation, expected cert name) without ARM calls. `{dom}` is the hostname slug (`.` → `-`). |
 | **provision-{resource}-domain-{dom}** | Adds the custom hostname to the Container App without a certificate (`BindingType.Disabled`); no-op if the hostname already exists (does not detach an existing cert). |
 | **deploy-{resource}-domain-{dom}** | Binds an existing managed certificate to the Container App hostname (SNI); rebinds if a different cert is already linked. |
