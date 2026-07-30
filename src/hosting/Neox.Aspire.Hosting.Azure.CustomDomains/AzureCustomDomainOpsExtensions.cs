@@ -232,6 +232,53 @@ public static partial class AzureCustomDomainOpsExtensions
     }
 
     /// <summary>
+    /// Registers DomainOps steps using <paramref name="customDomain"/> and a certificate parameter named
+    /// <c>{domain.Name}-certificate</c> (GetOrAdd).
+    /// </summary>
+    public static IResourceBuilder<T> WithAzureCustomDomainOps<T, TProvider>(
+        this IResourceBuilder<T> builder,
+        IResourceBuilder<ParameterResource> customDomain,
+        IResourceBuilder<TProvider> provider,
+        Action<AzureCustomDomainOpsOptions>? configure = null)
+        where T : IResource
+        where TProvider : DomainOpsProviderResource
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(customDomain);
+        ArgumentNullException.ThrowIfNull(provider);
+
+        var certificateName = EnsureAzureCustomDomainCertificateParameter(
+            builder.ApplicationBuilder,
+            customDomain);
+
+        return builder.WithAzureCustomDomainOps(customDomain, certificateName, provider, configure);
+    }
+
+    /// <summary>
+    /// Registers DomainOps steps with parameters named <c>{resource}-domain</c> /
+    /// <c>{resource}-certificate</c> (GetOrAdd). <paramref name="hostname"/> is the domain parameter default.
+    /// </summary>
+    public static IResourceBuilder<T> WithAzureCustomDomainOps<T, TProvider>(
+        this IResourceBuilder<T> builder,
+        string hostname,
+        IResourceBuilder<TProvider> provider,
+        Action<AzureCustomDomainOpsOptions>? configure = null)
+        where T : IResource
+        where TProvider : DomainOpsProviderResource
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentException.ThrowIfNullOrWhiteSpace(hostname);
+        ArgumentNullException.ThrowIfNull(provider);
+
+        var (customDomain, certificateName) = EnsureAzureCustomDomainParameters(
+            builder.ApplicationBuilder,
+            builder.Resource.Name,
+            hostname);
+
+        return builder.WithAzureCustomDomainOps(customDomain, certificateName, provider, configure);
+    }
+
+    /// <summary>
     /// Chains <c>provision|deploy-{resource}-domain-*</c> steps for one compute resource in ordinal name order
     /// so concurrent Container App patches cannot race.
     /// </summary>
