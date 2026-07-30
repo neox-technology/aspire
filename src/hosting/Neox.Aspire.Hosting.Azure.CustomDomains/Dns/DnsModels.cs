@@ -11,8 +11,9 @@ public enum HostnameKind
 
 /// <summary>
 /// A planned DNS record for OctoDNS / provider sync.
+/// TTL <c>0</c> means provider / domain default.
 /// </summary>
-public sealed record DnsRecord(string Type, string Name, string Value, int Ttl = 300);
+public sealed record DnsRecord(string Type, string Name, string Value, int Ttl = 0);
 
 /// <summary>
 /// Inputs required to plan ACA custom domain DNS records.
@@ -21,7 +22,8 @@ public sealed record DnsPlanInput(
     string CustomHostname,
     string ContainerAppFqdn,
     string EnvironmentStaticIp,
-    string CustomDomainVerificationId);
+    string CustomDomainVerificationId,
+    int Ttl = 0);
 
 /// <summary>
 /// Result of DNS planning for a single hostname.

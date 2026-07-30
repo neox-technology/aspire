@@ -45,6 +45,7 @@ builder.AddProject<Projects.Api>("api")
         options.DnsZoneName = "example.com"; // recommended for step naming / multi-app aggregation
         options.OctoDnsConfigPath = "dns/octodns.yaml";
         options.OctoDnsZoneDirectory = "dns/zones";
+        // options.Ttl = 300; // optional; default 0 = provider / domain default TTL
         // Bootstrap first deploy: options.RequireCertificateName = false;
     });
 #pragma warning restore ASPIREACADOMAINS001

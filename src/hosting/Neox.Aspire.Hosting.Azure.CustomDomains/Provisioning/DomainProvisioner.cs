@@ -94,7 +94,8 @@ public sealed class DomainProvisioner
                 binding.Hostname,
                 targets.Fqdn,
                 targets.StaticIp,
-                targets.CustomDomainVerificationId);
+                targets.CustomDomainVerificationId,
+                options.Ttl ?? 0);
 
             var plan = _planner.Plan(planInput);
             if (!string.Equals(plan.ZoneName, zoneName, StringComparison.OrdinalIgnoreCase))
