@@ -4,7 +4,7 @@
 |-------|-------|
 | Slug | `domain-glossary` |
 | Status | draft |
-| Last code review | 2026-07-29 |
+| Last code review | 2026-07-30 |
 
 ## Summary
 
@@ -20,7 +20,6 @@ Terminology authority for Neox Aspire packages in this **public** repository (`a
 | **migration worker** | Reusable non-hosting DI helper (`Neox.Aspire.EntityFrameworkCore.MigrationWorker`) that runs EF Core `MigrateAsync` in a one-shot `BackgroundService`, then stops the host via `AddEfCoreMigrationService<TDbContext>()`. |
 | **custom domain ops** | Hosting helpers (`Neox.Aspire.Hosting.Azure.CustomDomains`) that orchestrate ACA custom domain DNS, managed certificates, and GitHub variable updates via `aspire do` pipeline steps. |
 | **DomainOps provider** | Aspire resource (`DomainOpsProviderResource` and subtypes such as Cloudflare/OVH) that selects an OctoDNS DNS **provider**, holds auth parameter bindings, and drives generated `octodns.yaml` + Docker image choice. Aligns with octoDNS terminology (**provider**, not provisioner). |
-| **DomainOps provider commands** | Local Aspire dashboard resource commands (`WithCommand`) on a DomainOps provider — Verify / Guard / Deploy — that invoke the same orchestrator as `aspire do domain-*`. Deploy maps to `domain-provision`. Each provider only acts on bindings that reference it. Results return as Markdown command payloads in the dashboard notification center / CLI. |
 | **domain-provision** | Pipeline step that reads ACA ingress targets via Azure Resource Manager (`ITokenCredentialProvider`), generates OctoDNS YAML (no secrets on disk), syncs DNS via `docker run` + `octodns-sync`, binds a managed certificate via ARM, and sets the GitHub Actions certificate variable. Depends on Aspire `create-provisioning-context`. |
 | **domain-verify** | Pipeline step that checks DNS and certificate parameter consistency before a steady-state deploy; fails closed on drift or missing cert in strict mode. |
 | **domain-guard** | Pipeline step that fails when a certificate name is required and empty (steady-state fail-fast). |
