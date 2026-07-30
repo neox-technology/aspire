@@ -1,25 +1,28 @@
 # Neox.Aspire.Hosting.Azure.CustomDomains
 
-Aspire hosting helpers that automate **Azure Container Apps** custom domains: multi-provider DNS via [OctoDNS](https://github.com/octodns/octodns) (config generated in-process; sync via **Docker**), and **managed certificates** (inventory → create → bind).
+Aspire hosting helpers for **Azure Container Apps** custom domains: DNS via [OctoDNS](https://github.com/octodns/octodns) (config generated in-process; sync via **Docker**), and **managed certificates** (inventory → create → bind).
 
-Fluent DNS provider APIs (`.Cloudflare()`, `.Ovh()`, `.Route53()`, …) are **source-generated** from the versioned catalogue [`Provider/octodns-providers.json`](Provider/octodns-providers.json) (official `octodns/{flavor}` Docker images, excluding `octodns` all / `etchosts` / `dyn`).
+## Naming
 
-## Prerequisites (consumer / CI)
+| Prefix | What it is |
+|--------|------------|
+| `AzureCustomDomainOps*` | Binding API on the compute resource (`WithAzureCustomDomainOps`, options, annotation) |
+| `DomainOps*` | DNS provider + pipeline (`AddDomainOpsProvider`, step names like `plan-domain-*`) |
 
-- [Aspire CLI](https://aspire.dev/) and Azure authentication for `aspire deploy` / DomainOps
-- Aspire Azure credential via `ITokenCredentialProvider` (local: typically `az login` or another `Azure__CredentialSource`; CI: OIDC / service principal). The Azure CLI **binary is not required** for DomainOps ARM calls.
-- [Docker](https://docs.docker.com/) with access to pull the provider image (e.g. `octodns/cloudflare`, `octodns/ovh`, `octodns/route53`)
+## Prerequisites
 
-### Secrets / tokens
+- [Aspire CLI](https://aspire.dev/)
+- Azure auth for deploy / DomainOps (`ITokenCredentialProvider`; local: `az login` or `Azure__CredentialSource`; CI: OIDC / SP). The Azure CLI **binary is not required** for DomainOps ARM calls.
+- [Docker](https://docs.docker.com/) to pull the provider image (e.g. `octodns/cloudflare`, `octodns/ovh`)
 
 | Need | Typical source |
 |------|----------------|
-| Azure | OIDC / service principal (`Azure__SubscriptionId`, `Azure__Location`, `Azure__ResourceGroup`) + Aspire credential |
-| Provider auth | `Parameters__{providerName}-{setting}` from the generated Options (e.g. Cloudflare `Parameters__dns-token`; OVH `Parameters__dns-application-key` / `-application-secret` / `-consumer-key`) |
+| Azure | `Azure__SubscriptionId`, `Azure__Location`, `Azure__ResourceGroup` + Aspire credential |
+| Provider auth | `Parameters__{providerName}-{setting}` (e.g. Cloudflare `Parameters__dns-token`) |
 
-Credentials are **never** written into generated `octodns.yaml` (only `env/VAR` refs). Values are injected as container env vars when running `docker run`. DomainOps reads Container Apps and manages certificates/hostnames via **Azure Resource Manager** (`Azure.ResourceManager.AppContainers`), using the same token scope as Aspire deploy (`https://management.azure.com/.default`).
+Credentials are never written into generated `octodns.yaml` (only `env/VAR` refs).
 
-> **DigiCert / managed certificates:** DomainOps plans an **A** record to the Container Apps environment static IP (apex and subdomains) plus `asuid` TXT ownership records, and creates managed certificates with **HTTP** validation. Do **not** put a Cloudflare orange-cloud proxy or other intermediary in front of the hostname while HTTP validation runs — issuance and renewal will fail.
+> **DigiCert:** DomainOps plans an **A** record to the ACA environment static IP plus `asuid` TXT, and creates managed certs with **HTTP** validation. Do not put an orange-cloud proxy in front of the hostname during issuance/renewal.
 
 ## Usage
 
@@ -42,105 +45,53 @@ builder.AddProject<Projects.Api>("api")
     .WithAzureCustomDomainOps(customDomain, certificateName, dns, options =>
     {
         options.ContainerAppResourceName = "api";
-        options.DnsZoneName = "example.com"; // recommended for step naming / multi-app aggregation
+        options.DnsZoneName = "example.com";
         options.OctoDnsConfigPath = "dns/octodns.yaml";
         options.OctoDnsZoneDirectory = "dns/zones";
-        // options.Ttl = 300; // optional; default 0 = provider / domain default TTL
-        // Bootstrap first deploy: options.RequireCertificateName = false;
+        // options.RequireCertificateName = false; // bootstrap first deploy
     });
 #pragma warning restore ASPIREACADOMAINS001
 ```
 
-The same provider resource can be passed to multiple `WithAzureCustomDomainOps` bindings (including multiple hostnames on one compute resource). Multiple apps in the **same DNS zone** share one `plan-domain-{zone}` / `provision-domain-{zone}` pair. Per-resource steps are disambiguated with a hostname slug (`plan-{resource}-domain-{dom}`).
+Same provider can serve multiple bindings. Apps in the **same DNS zone** share one `plan-domain-{zone}` / `provision-domain-{zone}` pair. List steps with `aspire do --list-steps`.
 
-### Generated providers
-
-Methods on `IDomainOpsProviderBuilder` mirror catalogue entries (Docker flavors). Refresh the catalogue after OctoDNS adds flavors:
+Fluent provider APIs are **source-generated** from [`Provider/octodns-providers.json`](Provider/octodns-providers.json). Refresh:
 
 ```bash
 dotnet run --project tools/octodns-provider-catalog
 ```
 
-### Pipeline steps
+## Pipeline steps
 
-| Step | Command | Depends on |
-|------|---------|------------|
-| Shared DomainOps gate | (via deploy graph) `prereq-domain` | `provision-{acaEnv}` |
-| Provider image pull | `prereq-domain-{slug}` | `prereq-domain` |
-| Plan OctoDNS config | `aspire do plan-domain-{slug}` | `prereq-domain-{slug}` |
-| Plan zone YAML | `aspire do plan-domain-{zone}` | `plan-domain-{slug}`; `provision-{resource}-containerapp` (when materialized) |
-| Provision zone (OctoDNS sync) | `aspire do provision-domain-{zone}` | `plan-domain-{zone}` |
-| Plan env certificates | `aspire do plan-{env}-certificates` | `provision-{acaEnv}` |
-| Plan resource domain (model) | `aspire do plan-{resource}-domain-{dom}` | `provision-domain-{zone}` |
-| Add resource hostname (no cert) | `aspire do provision-{resource}-domain-{dom}` | `plan-{resource}-domain-{dom}`; zone provision; `provision-{resource}-containerapp` |
-| Env domains gate | `aspire do provision-{env}-domains` | all `provision-{resource}-domain-{dom}` for the env |
-| Provision env certificates | `aspire do provision-{env}-certificates` | `plan-{env}-certificates`; `provision-{env}-domains` |
-| Bind resource domain | `aspire do deploy-{resource}-domain-{dom}` | `provision-{env}-certificates`; `provision-{resource}-containerapp`; previous sibling bind on same resource (ordinal slug) |
-| Deploy domains gate | `aspire do deploy-domains` | all `deploy-{resource}-domain-{dom}`; required by Aspire `deploy` |
+| Step | Command |
+|------|---------|
+| Shared gate | `prereq-domain` |
+| Provider image | `prereq-domain-{slug}` |
+| Plan OctoDNS config | `aspire do plan-domain-{slug}` |
+| Plan zone YAML | `aspire do plan-domain-{zone}` |
+| Sync zone | `aspire do provision-domain-{zone}` |
+| Plan env certs | `aspire do plan-{env}-certificates` |
+| Plan resource domain | `aspire do plan-{resource}-domain-{dom}` |
+| Add hostname (no cert) | `aspire do provision-{resource}-domain-{dom}` |
+| Env domains gate | `aspire do provision-{env}-domains` |
+| Create missing certs | `aspire do provision-{env}-certificates` |
+| Bind cert | `aspire do deploy-{resource}-domain-{dom}` |
+| Deploy domains gate | `aspire do deploy-domains` (required by Aspire `deploy`) |
 
-Zone / hostname slug: DNS name with `.` → `-` (e.g. `example.com` → `plan-domain-example-com`; `www.example.com` → `plan-api-domain-www-example-com`). Hostname for `{dom}` must be known at registration (parameter default or `Parameters:{name}`).
+Zone / hostname slug: `.` → `-` (e.g. `example.com` → `example-com`). DependsOn / exit contracts: feature spec [`azure-custom-domains`](../../../specs/features/azure-custom-domains.md).
 
-`provision-domain-{zone}` dumps the live zone and dry-runs OctoDNS **internally** (upsert-only; refuses Deletes), then applies. Named dump/dry-run steps are deferred to V2.
+DNS DomainOps is **upsert-only**. Unresolved parameters open Aspire’s Set parameter modal for interactive `aspire do`; CI must supply `Parameters__*`.
 
-DNS DomainOps is **upsert-only**: planned A/`asuid` TXT records are merged into the existing zone; a conflicting CNAME at the same name is replaced by A. Other records are left untouched.
+## CI flows
 
-Unresolved parameters open Aspire's **Set parameter** modal for interactive `aspire do` before `GetValueAsync`; non-interactive CI must supply `Parameters__*`.
+Pass `Parameters__*` and `Azure__*` non-interactively. GitHub variable automation (`gh variable set`) is **out of scope for V1** — set `Parameters__certificateName` yourself for the Bicep redeploy.
 
-## GitHub Actions flows
+**Bootstrap** (empty cert): `aspire deploy` → run DomainOps provision/bind steps (see `aspire do --list-steps`) → `aspire deploy` with certificate name set.
 
-Pass Aspire parameters non-interactively (`Parameters__customDomain`, `Parameters__certificateName`, provider auth) plus Azure settings. GitHub variable automation (`gh variable set`) is **out of scope for V1** — supply `Parameters__certificateName` yourself for the Bicep redeploy.
-
-### Bootstrap (`CERTIFICATE_NAME` / cert parameter empty)
-
-```yaml
-- name: Bootstrap deploy (empty certificate)
-  env:
-    Azure__SubscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-    Azure__Location: ${{ vars.AZURE_LOCATION }}
-    Azure__ResourceGroup: ${{ vars.AZURE_RESOURCE_GROUP }}
-    Parameters__customDomain: ${{ vars.CUSTOM_DOMAIN }}
-    Parameters__certificateName: ""
-  run: aspire deploy --non-interactive --environment production
-
-- name: Provision DNS + hostnames + managed certs + bind
-  env:
-    Azure__ResourceGroup: ${{ vars.AZURE_RESOURCE_GROUP }}
-    Parameters__customDomain: ${{ vars.CUSTOM_DOMAIN }}
-    Parameters__certificateName: ""
-    Parameters__dns-token: ${{ secrets.CLOUDFLARE_TOKEN }}
-  run: |
-    aspire do provision-domain-example-com --non-interactive --environment production
-    aspire do provision-api-domain-www-example-com --non-interactive --environment production
-    aspire do provision-env-certificates --non-interactive --environment production
-    aspire do deploy-api-domain-www-example-com --non-interactive --environment production
-
-- name: Redeploy with certificate binding
-  env:
-    Azure__SubscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-    Azure__Location: ${{ vars.AZURE_LOCATION }}
-    Azure__ResourceGroup: ${{ vars.AZURE_RESOURCE_GROUP }}
-    Parameters__customDomain: ${{ vars.CUSTOM_DOMAIN }}
-    Parameters__certificateName: ${{ vars.CERTIFICATE_NAME }}
-  run: aspire deploy --non-interactive --environment production
-```
-
-### Steady-state
-
-```yaml
-- name: Deploy
-  env:
-    Azure__SubscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-    Azure__Location: ${{ vars.AZURE_LOCATION }}
-    Azure__ResourceGroup: ${{ vars.AZURE_RESOURCE_GROUP }}
-    Parameters__customDomain: ${{ vars.CUSTOM_DOMAIN }}
-    Parameters__certificateName: ${{ vars.CERTIFICATE_NAME }}
-  run: aspire deploy --non-interactive --environment production
-```
+**Steady-state:** `aspire deploy --non-interactive` with all parameters populated.
 
 ## Package
 
 ```bash
 dotnet add package Neox.Aspire.Hosting.Azure.CustomDomains
 ```
-
-Feature spec: [`azure-custom-domains`](../../../specs/features/azure-custom-domains.md).

@@ -11,7 +11,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\hosting\Neox.Aspire.Hosting.Azure.CustomDomains\Neox.Aspire.Hosting.Azure.CustomDomains.csproj" />
-    <ProjectReference Include="..\..\src\hosting\Neox.Aspire.Hosting.Azure.CustomDomains.Generators\Neox.Aspire.Hosting.Azure.CustomDomains.Generators.csproj" />
+    <ProjectReference Include="..\..\src\hosting\Neox.Aspire.Hosting.Azure.CustomDomains.Generators.Internal\Neox.Aspire.Hosting.Azure.CustomDomains.Generators.Internal.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,47 +1,4 @@
-using Neox.Aspire.Hosting.Azure.Dns;
-
 namespace Neox.Aspire.Hosting.Azure.Provisioning;
-
-/// <summary>
-/// Targets discovered from a deployed Azure Container App.
-/// </summary>
-public sealed record AzureContainerAppTargets(
-    string ContainerAppName,
-    string ResourceGroup,
-    string EnvironmentName,
-    string Fqdn,
-    string StaticIp,
-    string CustomDomainVerificationId);
-
-/// <summary>
-/// A managed certificate on a Container Apps environment.
-/// </summary>
-public sealed record AzureManagedCertificateInfo(
-    string Name,
-    string? SubjectName,
-    string Id);
-
-/// <summary>
-/// Planned custom-domain binding for a compute resource (no ARM side effects).
-/// </summary>
-public sealed record DomainBindingPlan(
-    string TargetResourceName,
-    string Hostname,
-    string CertificateName,
-    string ValidationMethod,
-    HostnameKind Kind);
-
-/// <summary>
-/// Reads ACA ingress / environment properties required for DNS and certificate binding.
-/// </summary>
-public interface IAzureContainerAppReader
-{
-    Task<AzureContainerAppTargets> GetTargetsAsync(
-        string containerAppName,
-        string? resourceGroup,
-        string? environmentName,
-        CancellationToken cancellationToken);
-}
 
 /// <summary>
 /// Azure Resource Manager operations for Container App custom-domain provisioning.

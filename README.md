@@ -3,30 +3,29 @@
 [![CI](https://github.com/neox-technology/aspire/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/neox-technology/aspire/actions/workflows/ci.yml)
 [![NuGet](https://img.shields.io/nuget/vpre/Neox.Aspire.EntityFrameworkCore.MigrationWorker.svg?label=MigrationWorker)](https://www.nuget.org/packages/Neox.Aspire.EntityFrameworkCore.MigrationWorker)
 [![NuGet](https://img.shields.io/nuget/vpre/Neox.Aspire.Hosting.Azure.CustomDomains.svg?label=CustomDomains)](https://www.nuget.org/packages/Neox.Aspire.Hosting.Azure.CustomDomains)
-[![NuGet Downloads](https://img.shields.io/nuget/dt/Neox.Aspire.EntityFrameworkCore.MigrationWorker.svg)](https://www.nuget.org/packages/Neox.Aspire.EntityFrameworkCore.MigrationWorker)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/Neox.Aspire.EntityFrameworkCore.MigrationWorker.svg?label=MigrationWorker%20downloads)](https://www.nuget.org/packages/Neox.Aspire.EntityFrameworkCore.MigrationWorker)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/Neox.Aspire.Hosting.Azure.CustomDomains.svg?label=CustomDomains%20downloads)](https://www.nuget.org/packages/Neox.Aspire.Hosting.Azure.CustomDomains)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ## What is Neox Aspire?
 
 Neox Aspire is a set of shared [Aspire](https://aspire.dev/) NuGet packages under the `Neox.Aspire.*` namespace for Neox projects — hosting helpers and other reusable libraries.
 
-This repository is **public**. It is not an AppHost and does not run Aspire orchestration itself; packages are published to [nuget.org](https://www.nuget.org/packages/Neox.Aspire.EntityFrameworkCore.MigrationWorker).
+This repository is **public**. It is not an AppHost and does not run Aspire orchestration itself; packages are published to [nuget.org](https://www.nuget.org/profiles/neox-technology).
 
 ## Getting started
 
-Install a package from nuget.org:
+Pick a package and install from nuget.org:
 
 ```bash
 dotnet add package Neox.Aspire.EntityFrameworkCore.MigrationWorker
+dotnet add package Neox.Aspire.Hosting.Azure.CustomDomains
 ```
 
-Or add a `PackageReference`:
-
-```xml
-<PackageReference Include="Neox.Aspire.EntityFrameworkCore.MigrationWorker" Version="1.0.0-preview.*" />
-```
-
-See the [package README](src/Neox.Aspire.EntityFrameworkCore.MigrationWorker/README.md) for usage.
+| Package | Usage |
+|---------|-------|
+| [MigrationWorker](src/Neox.Aspire.EntityFrameworkCore.MigrationWorker/README.md) | `AddEfCoreMigrationService<TDbContext>()` |
+| [CustomDomains](src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains/README.md) | `AddDomainOpsProvider` + `WithAzureCustomDomainOps` |
 
 > [!NOTE]
 > .NET SDK **10.0.110** is pinned in [`global.json`](global.json). Arcade installs a local copy via `eng/common` when needed.
@@ -34,6 +33,7 @@ See the [package README](src/Neox.Aspire.EntityFrameworkCore.MigrationWorker/REA
 ## Useful links
 
 - [NuGet: Neox.Aspire.EntityFrameworkCore.MigrationWorker](https://www.nuget.org/packages/Neox.Aspire.EntityFrameworkCore.MigrationWorker)
+- [NuGet: Neox.Aspire.Hosting.Azure.CustomDomains](https://www.nuget.org/packages/Neox.Aspire.Hosting.Azure.CustomDomains)
 - [Aspire documentation](https://aspire.dev/docs/)
 - [microsoft/aspire](https://github.com/microsoft/aspire)
 - [Feature specs](specs/README.md)
@@ -42,14 +42,14 @@ See the [package README](src/Neox.Aspire.EntityFrameworkCore.MigrationWorker/REA
 
 ## What is in this repo?
 
-Packable libraries live under `src/`. Hosting packages (when present) use the `Neox.Aspire.Hosting.*` namespace under `src/hosting/`.
+Packable libraries live under `src/`. Hosting packages use the `Neox.Aspire.Hosting.*` namespace under `src/hosting/`.
 
 | Package | Role |
 |---------|------|
 | [`Neox.Aspire.EntityFrameworkCore.MigrationWorker`](src/Neox.Aspire.EntityFrameworkCore.MigrationWorker) | One-shot EF Core migration `BackgroundService` via `AddEfCoreMigrationService<TDbContext>()` |
-| [`Neox.Aspire.Hosting.Azure.CustomDomains`](src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains) | ACA custom domain ops (`WithAzureCustomDomainOps`, OctoDNS / managed cert / GitHub vars via `aspire do`) |
+| [`Neox.Aspire.Hosting.Azure.CustomDomains`](src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains) | ACA custom domain ops (`WithAzureCustomDomainOps`, OctoDNS / managed certs via `aspire do`) |
 
-Integration tests (Aspire xUnit harnesses, Docker required) live under [`tests/efcore-migration-worker/`](tests/efcore-migration-worker/). Specs: [`specs/`](specs/README.md).
+Tests: [`tests/efcore-migration-worker/`](tests/efcore-migration-worker/) (Aspire harnesses, Docker) and [`tests/azure-custom-domains/`](tests/azure-custom-domains/) (unit + sample AppHost). Specs: [`specs/`](specs/README.md).
 
 ### Build
 
@@ -65,7 +65,7 @@ Unix: `./build.sh --configuration Release`. Pack:
 
 Shipping packages land under `artifacts/packages/Release/Shipping/`.
 
-Run tests (Docker required):
+Run tests (Docker required for EF Core harnesses):
 
 ```cmd
 Build.cmd -configuration Release -test
