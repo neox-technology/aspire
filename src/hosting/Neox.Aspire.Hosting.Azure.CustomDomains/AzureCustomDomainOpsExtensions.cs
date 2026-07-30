@@ -48,6 +48,15 @@ public static class AzureCustomDomainOpsExtensions
     }
 
     /// <summary>
+    /// Builds the env domains gate step name (<c>provision-{env}-domains</c>).
+    /// </summary>
+    public static string GetProvisionEnvDomainsStepName(string environmentName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(environmentName);
+        return $"provision-{environmentName}-domains";
+    }
+
+    /// <summary>
     /// Builds the env certificate inventory step name (<c>plan-{env}-certificates</c>).
     /// </summary>
     public static string GetPlanEnvCertificatesStepName(string environmentName)
@@ -75,13 +84,27 @@ public static class AzureCustomDomainOpsExtensions
     }
 
     /// <summary>
-    /// Builds the per-compute DomainOps bind step name (<c>provision-{resource}-domain</c>).
+    /// Builds the per-compute hostname-add step name (<c>provision-{resource}-domain</c>).
     /// </summary>
     public static string GetDomainProvisionStepName(string resourceName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceName);
         return $"provision-{resourceName}-domain";
     }
+
+    /// <summary>
+    /// Builds the per-compute DomainOps bind step name (<c>deploy-{resource}-domain</c>).
+    /// </summary>
+    public static string GetDomainDeployStepName(string resourceName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(resourceName);
+        return $"deploy-{resourceName}-domain";
+    }
+
+    /// <summary>
+    /// Shared gate that aggregates all <c>deploy-{resource}-domain</c> steps (<c>deploy-domains</c>).
+    /// </summary>
+    public const string DeployDomainsStepName = "deploy-domains";
 
     /// <summary>
     /// Builds the provider-specific DomainOps prereq step name (<c>prereq-domain-{providerSlug}</c>).
@@ -154,9 +177,9 @@ public static class AzureCustomDomainOpsExtensions
         // Steps that depend on out-of-model containerapp provision or late resource plans.
         var targetResource = builder.Resource;
         var planZoneStepName = GetDomainPlanZoneStepName(zoneName);
-        var zoneProvisionStepName = GetDomainProvisionZoneStepName(zoneName);
-        var bindStepName = GetDomainProvisionStepName(targetResource.Name);
-        var planResourceStepName = GetDomainPlanResourceStepName(targetResource.Name);
+        var provisionResourceStepName = GetDomainProvisionStepName(targetResource.Name);
+        var deployStepName = GetDomainDeployStepName(targetResource.Name);
+        var envDomainsStepName = GetProvisionEnvDomainsStepName(envName);
         var envProvisionStepName = GetProvisionEnvCertificatesStepName(envName);
 
         domainOps.WithPipelineConfiguration(context =>
@@ -171,17 +194,29 @@ public static class AzureCustomDomainOpsExtensions
                     .DependsOn(infraSteps);
 
                 context.GetSteps(domainOps.Resource)
-                    .Where(s => string.Equals(s.Name, bindStepName, StringComparison.Ordinal))
+                    .Where(s =>
+                        string.Equals(s.Name, provisionResourceStepName, StringComparison.Ordinal)
+                        || string.Equals(s.Name, deployStepName, StringComparison.Ordinal))
                     .DependsOn(infraSteps);
             }
+
+            context.GetSteps(domainOps.Resource)
+                .Where(s => string.Equals(s.Name, envDomainsStepName, StringComparison.Ordinal))
+                .DependsOn(
+                    context.GetSteps(domainOps.Resource)
+                        .Where(s => string.Equals(s.Name, provisionResourceStepName, StringComparison.Ordinal)));
 
             context.GetSteps(domainOps.Resource)
                 .Where(s => string.Equals(s.Name, envProvisionStepName, StringComparison.Ordinal))
                 .DependsOn(
                     context.GetSteps(domainOps.Resource)
-                        .Where(s =>
-                            string.Equals(s.Name, planResourceStepName, StringComparison.Ordinal)
-                            || string.Equals(s.Name, zoneProvisionStepName, StringComparison.Ordinal)));
+                        .Where(s => string.Equals(s.Name, envDomainsStepName, StringComparison.Ordinal)));
+
+            context.GetSteps(domainOps.Resource)
+                .Where(s => string.Equals(s.Name, DeployDomainsStepName, StringComparison.Ordinal))
+                .DependsOn(
+                    context.GetSteps(domainOps.Resource)
+                        .Where(s => string.Equals(s.Name, deployStepName, StringComparison.Ordinal)));
         });
 
         return builder;
@@ -266,7 +301,9 @@ public static class AzureCustomDomainOpsExtensions
     {
         EnsurePlanProviderStep(domainOps, applicationBuilder, provider, options);
         EnsureZoneSteps(domainOps, applicationBuilder, provider, options, zoneName);
+        EnsureEnvDomainsGate(domainOps, environmentName);
         EnsureEnvCertificateSteps(domainOps, applicationBuilder, environmentName);
+        EnsureDeployDomainsGate(domainOps);
         EnsureResourceSteps(
             domainOps,
             targetResource,
@@ -276,6 +313,49 @@ public static class AzureCustomDomainOpsExtensions
             options,
             zoneName,
             environmentName);
+    }
+
+    private static void EnsureEnvDomainsGate(
+        IResourceBuilder<AzureCustomDomainOpsResource> domainOps,
+        string environmentName)
+    {
+        var stepName = GetProvisionEnvDomainsStepName(environmentName);
+        if (domainOps.Resource.Annotations.OfType<DomainOpsNamedStepAnnotation>()
+            .Any(a => string.Equals(a.StepName, stepName, StringComparison.Ordinal)))
+        {
+            return;
+        }
+
+        domainOps.WithAnnotation(new DomainOpsNamedStepAnnotation(stepName));
+        domainOps.WithPipelineStepFactory(factoryContext => new PipelineStep
+        {
+            Name = stepName,
+            Description = $"Gate: all resource hostnames registered for ACA environment '{environmentName}'.",
+            Tags = ["domain-ops"],
+            Resource = factoryContext.Resource,
+            Action = _ => Task.CompletedTask
+        });
+    }
+
+    private static void EnsureDeployDomainsGate(
+        IResourceBuilder<AzureCustomDomainOpsResource> domainOps)
+    {
+        if (domainOps.Resource.Annotations.OfType<DomainOpsNamedStepAnnotation>()
+            .Any(a => string.Equals(a.StepName, DeployDomainsStepName, StringComparison.Ordinal)))
+        {
+            return;
+        }
+
+        domainOps.WithAnnotation(new DomainOpsNamedStepAnnotation(DeployDomainsStepName));
+        domainOps.WithPipelineStepFactory(factoryContext => new PipelineStep
+        {
+            Name = DeployDomainsStepName,
+            Description = "Gate: all resource domain certificate binds complete.",
+            Tags = ["domain-ops"],
+            Resource = factoryContext.Resource,
+            RequiredBySteps = [WellKnownPipelineSteps.Deploy],
+            Action = _ => Task.CompletedTask
+        });
     }
 
     private static void EnsurePlanProviderStep(
@@ -600,7 +680,8 @@ public static class AzureCustomDomainOpsExtensions
         string environmentName)
     {
         var planStepName = GetDomainPlanResourceStepName(targetResource.Name);
-        var bindStepName = GetDomainProvisionStepName(targetResource.Name);
+        var provisionStepName = GetDomainProvisionStepName(targetResource.Name);
+        var deployStepName = GetDomainDeployStepName(targetResource.Name);
         var zoneProvisionStepName = GetDomainProvisionZoneStepName(zoneName);
         var envProvisionStepName = GetProvisionEnvCertificatesStepName(environmentName);
 
@@ -611,7 +692,8 @@ public static class AzureCustomDomainOpsExtensions
         }
 
         domainOps.WithAnnotation(new DomainOpsNamedStepAnnotation(planStepName));
-        domainOps.WithAnnotation(new DomainOpsNamedStepAnnotation(bindStepName));
+        domainOps.WithAnnotation(new DomainOpsNamedStepAnnotation(provisionStepName));
+        domainOps.WithAnnotation(new DomainOpsNamedStepAnnotation(deployStepName));
 
         var capturedOptions = options;
 
@@ -651,14 +733,55 @@ public static class AzureCustomDomainOpsExtensions
 
         domainOps.WithPipelineStepFactory(_ => new PipelineStep
         {
-            Name = bindStepName,
+            Name = provisionStepName,
+            Description = $"Add custom hostname to '{targetResource.Name}' without certificate.",
+            Tags = ["domain-ops"],
+            Resource = domainOps.Resource,
+            DependsOnSteps = [planStepName, zoneProvisionStepName],
+            Action = async context =>
+            {
+                var logger = context.Services.GetRequiredService<ILoggerFactory>().CreateLogger(provisionStepName);
+                var runner = context.Services.GetService<IProcessRunner>() ?? new ProcessRunner();
+                await DomainOpsParameterPrompt.EnsureReadyAsync(
+                        context.Services,
+                        DomainOpsParameterPrompt.CollectRequired(
+                            DomainOpsActionKind.ProvisionResourceDomain,
+                            customDomain,
+                            certificateName,
+                            provider,
+                            capturedOptions),
+                        context.CancellationToken)
+                    .ConfigureAwait(false);
+
+                var hostname = await customDomain.GetValueAsync(context.CancellationToken).ConfigureAwait(false);
+                if (string.IsNullOrWhiteSpace(hostname))
+                {
+                    throw new InvalidOperationException("Custom domain parameter is empty. Set Parameters__customDomain.");
+                }
+
+                var certParam = await certificateName.GetValueAsync(context.CancellationToken).ConfigureAwait(false);
+                var orchestrator = new DomainOpsOrchestrator(runner, logger, context.Services);
+                var plan = orchestrator.PlanResourceDomain(targetResource, hostname, capturedOptions, certParam);
+                await orchestrator.ProvisionResourceDomainAsync(
+                        targetResource,
+                        plan,
+                        capturedOptions,
+                        context.CancellationToken)
+                    .ConfigureAwait(false);
+            }
+        });
+
+        domainOps.WithPipelineStepFactory(_ => new PipelineStep
+        {
+            Name = deployStepName,
             Description = $"Bind managed certificate to custom domain on '{targetResource.Name}'.",
             Tags = ["domain-ops"],
             Resource = domainOps.Resource,
-            DependsOnSteps = [envProvisionStepName, planStepName],
+            DependsOnSteps = [envProvisionStepName],
+            RequiredBySteps = [DeployDomainsStepName],
             Action = async context =>
             {
-                var logger = context.Services.GetRequiredService<ILoggerFactory>().CreateLogger(bindStepName);
+                var logger = context.Services.GetRequiredService<ILoggerFactory>().CreateLogger(deployStepName);
                 var runner = context.Services.GetService<IProcessRunner>() ?? new ProcessRunner();
                 await DomainOpsParameterPrompt.EnsureReadyAsync(
                         context.Services,

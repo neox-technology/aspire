@@ -194,6 +194,48 @@ public sealed class DomainOpsOrchestrator
             bindingPlans.Count);
     }
 
+    public async Task<bool> ProvisionResourceDomainAsync(
+        IResource targetResource,
+        DomainBindingPlan plan,
+        AzureCustomDomainOpsOptions options,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(targetResource);
+        ArgumentNullException.ThrowIfNull(plan);
+        ArgumentNullException.ThrowIfNull(options);
+
+        var azure = GetAzureClient();
+        var provisioner = GetProvisioner();
+        var appName = options.ContainerAppResourceName ?? targetResource.Name;
+
+        var targets = await azure.GetTargetsAsync(
+                appName,
+                resourceGroup: Environment.GetEnvironmentVariable("Azure__ResourceGroup"),
+                environmentName: options.ContainerAppEnvironmentName,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        var added = await provisioner.EnsureResourceHostnameAsync(targets, plan, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (added)
+        {
+            _logger.LogInformation(
+                "provision-{Resource}-domain: added hostname {Hostname} without certificate.",
+                targetResource.Name,
+                plan.Hostname);
+        }
+        else
+        {
+            _logger.LogInformation(
+                "provision-{Resource}-domain: hostname {Hostname} already present (left unchanged).",
+                targetResource.Name,
+                plan.Hostname);
+        }
+
+        return added;
+    }
+
     public async Task BindResourceDomainAsync(
         IResource targetResource,
         DomainBindingPlan plan,
@@ -219,7 +261,7 @@ public sealed class DomainOpsOrchestrator
         await provisioner.BindResourceDomainAsync(targets, plan, certs, cancellationToken).ConfigureAwait(false);
 
         _logger.LogInformation(
-            "provision-{Resource}-domain: bound {Hostname} to certificate '{Certificate}'.",
+            "deploy-{Resource}-domain: bound {Hostname} to certificate '{Certificate}'.",
             targetResource.Name,
             plan.Hostname,
             plan.CertificateName);

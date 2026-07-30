@@ -12,6 +12,7 @@ internal enum DomainOpsActionKind
     ProvisionZone,
     PlanCertificates,
     PlanResourceDomain,
+    ProvisionResourceDomain,
     ProvisionCertificates,
     BindResourceDomain
 }
@@ -39,6 +40,7 @@ internal static class DomainOpsParameterPrompt
             case DomainOpsActionKind.PlanZone:
             case DomainOpsActionKind.ProvisionZone:
             case DomainOpsActionKind.PlanResourceDomain:
+            case DomainOpsActionKind.ProvisionResourceDomain:
             case DomainOpsActionKind.BindResourceDomain:
                 yield return customDomain;
                 break;

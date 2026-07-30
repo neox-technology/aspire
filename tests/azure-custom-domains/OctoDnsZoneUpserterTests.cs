@@ -58,7 +58,7 @@ public sealed class OctoDnsZoneUpserterTests
 
         Assert.Contains("type: CNAME", yaml, StringComparison.Ordinal);
         Assert.Contains("asuid.www", yaml, StringComparison.Ordinal);
-        Assert.Contains("app.example.azurecontainerapps.io", yaml, StringComparison.Ordinal);
+        Assert.Contains("app.example.azurecontainerapps.io.", yaml, StringComparison.Ordinal);
     }
 
     [Fact]
