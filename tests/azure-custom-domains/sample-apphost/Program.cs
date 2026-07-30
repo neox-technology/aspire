@@ -16,10 +16,6 @@ builder.AddContainer("api", "mcr.microsoft.com/dotnet/samples:aspnetapp")
     .WithHttpEndpoint(targetPort: 8080)
     .WithExternalHttpEndpoints()
     .PublishAsAzureContainerApp((_, _) => { })
-    .WithAzureCustomDomainOps(customDomain, certificateName, dns, options =>
-    {
-        options.RequireCertificateName = false;
-        options.OctoDnsConfigPath = "octodns.yaml";
-    });
+    .WithAzureCustomDomainOps(customDomain, certificateName, dns);
 
 builder.Build().Run();

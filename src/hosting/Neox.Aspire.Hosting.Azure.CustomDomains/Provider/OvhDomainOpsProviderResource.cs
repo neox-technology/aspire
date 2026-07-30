@@ -13,4 +13,6 @@ public sealed class OvhDomainOpsProviderResource : DomainOpsProviderResource
     public override string ProviderClass => "octodns_ovh.OvhProvider";
 
     public override string DefaultDockerImage => "octodns/ovh";
+
+    public override string ProviderSlug => "ovh";
 }

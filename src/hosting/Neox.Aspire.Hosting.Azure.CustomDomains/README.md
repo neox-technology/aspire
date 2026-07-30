@@ -55,13 +55,17 @@ The same provider resource can be passed to multiple `WithAzureCustomDomainOps` 
 
 ### Pipeline steps
 
-| Step | Command |
-|------|---------|
-| Verify | `aspire do domain-verify --non-interactive --environment production` |
-| Provision | `aspire do domain-provision --non-interactive --environment production` |
-| Guard | `aspire do domain-guard --non-interactive --environment production` |
+| Step | Command | Depends on |
+|------|---------|------------|
+| Shared DomainOps gate | (usually via deploy graph) `prereq-domain` | `provision-{acaEnv}` (e.g. `provision-env`) |
+| Provider image pull | `prereq-domain-cloudflare` / `prereq-domain-ovh` | `prereq-domain` |
+| Verify | `aspire do domain-verify --non-interactive --environment production` | — |
+| Provision | `aspire do provision-api-domain --non-interactive --environment production` | `prereq-domain-{provider}`; plus `provision-api-containerapp` when Aspire has materialized the deployment target (via pipeline configuration) |
+| Guard | `aspire do domain-guard --non-interactive --environment production` | — |
 
-`domain-provision` depends on Aspire's `create-provisioning-context` step (which itself depends on `validate-azure-login`), then **dumps** the live zone, **upserts** ACA DNS records (create/update only — DomainOps never deletes), dry-runs OctoDNS and applies only when the plan has no Deletes, and binds the managed certificate through ARM — it does not shell out to `az`.
+`AddDomainOpsProvider(...).Cloudflare()` / `.Ovh()` registers the prereq steps (idempotent per provider slug). `WithAzureCustomDomainOps` registers `provision-{resource}-domain` plus verify/guard.
+
+`provision-{resource}-domain` waits for the Container App Bicep provision step and the provider image pull, then **dumps** the live zone, **upserts** ACA DNS records (create/update only — DomainOps never deletes), dry-runs OctoDNS and applies only when the plan has no Deletes, and binds the managed certificate through ARM — it does not shell out to `az`.
 
 DNS DomainOps is **upsert-only**: planned A/CNAME/`asuid` TXT records are merged into the existing zone; other records are left untouched. There is no delete/purge/replace-zone path.
 
@@ -92,7 +96,7 @@ Pass Aspire parameters non-interactively (`Parameters__customDomain`, `Parameter
     Parameters__certificateName: ""
     Parameters__dns-token: ${{ secrets.CLOUDFLARE_TOKEN }}
     GITHUB_TOKEN: ${{ secrets.GH_VARIABLES_PAT }}
-  run: aspire do domain-provision --non-interactive --environment production
+  run: aspire do provision-api-domain --non-interactive --environment production
 
 - name: Redeploy with certificate binding
   env:
