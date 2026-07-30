@@ -5,18 +5,6 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Neox.Aspire.Hosting.Azure;
 
-internal enum DomainOpsActionKind
-{
-    PlanProvider,
-    PlanZone,
-    ProvisionZone,
-    PlanCertificates,
-    PlanResourceDomain,
-    ProvisionResourceDomain,
-    ProvisionCertificates,
-    BindResourceDomain
-}
-
 /// <summary>
 /// Ensures unresolved Aspire parameters are prompted before <c>GetValueAsync</c> waits forever.
 /// </summary>

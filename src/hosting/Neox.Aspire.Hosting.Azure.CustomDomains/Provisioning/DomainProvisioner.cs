@@ -501,8 +501,3 @@ public sealed class DomainProvisioner
         return string.IsNullOrWhiteSpace(sanitized) ? "aca-managed-cert" : sanitized;
     }
 }
-
-/// <summary>
-/// One hostname binding participating in a zone plan.
-/// </summary>
-public sealed record ZoneBindingInput(string Hostname, string ContainerAppResourceName);

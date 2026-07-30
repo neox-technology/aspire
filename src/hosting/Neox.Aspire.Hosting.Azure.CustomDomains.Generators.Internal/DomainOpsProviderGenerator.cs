@@ -2,7 +2,7 @@ using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
 
-namespace Neox.Aspire.Hosting.Azure.CustomDomains.Generators;
+namespace Neox.Aspire.Hosting.Azure.CustomDomains.Generators.Internal;
 
 [Generator]
 public sealed class DomainOpsProviderGenerator : IIncrementalGenerator

@@ -1,4 +1,4 @@
-using Neox.Aspire.Hosting.Azure.CustomDomains.Generators;
+using Neox.Aspire.Hosting.Azure.CustomDomains.Generators.Internal;
 using Xunit;
 
 namespace Neox.Aspire.Hosting.Azure.CustomDomains.Tests;
