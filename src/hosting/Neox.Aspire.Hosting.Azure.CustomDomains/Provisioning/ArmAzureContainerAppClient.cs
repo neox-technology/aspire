@@ -221,6 +221,14 @@ public sealed class ArmAzureContainerAppClient : IAzureContainerAppClient
 
         var certificateResourceId = new ResourceIdentifier(certificateId);
 
+        if (IsAlreadyBoundToCertificate(
+                app.Data.Configuration?.Ingress?.CustomDomains,
+                hostname,
+                certificateResourceId))
+        {
+            return;
+        }
+
         var domains = new List<ContainerAppCustomDomain>();
         if (app.Data.Configuration?.Ingress?.CustomDomains is { } existing)
         {
@@ -241,11 +249,43 @@ public sealed class ArmAzureContainerAppClient : IAzureContainerAppClient
         await PatchCustomDomainsAsync(app, domains, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Returns <see langword="true"/> when <paramref name="hostname"/> is already SNI-bound to
+    /// <paramref name="certificateId"/>.
+    /// </summary>
+    internal static bool IsAlreadyBoundToCertificate(
+        IEnumerable<ContainerAppCustomDomain>? domains,
+        string hostname,
+        ResourceIdentifier certificateId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(hostname);
+        ArgumentNullException.ThrowIfNull(certificateId);
+
+        if (domains is null)
+        {
+            return false;
+        }
+
+        foreach (var domain in domains)
+        {
+            if (!string.Equals(domain.Name, hostname, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            return domain.BindingType == ContainerAppCustomDomainBindingType.SniEnabled
+                   && domain.CertificateId == certificateId;
+        }
+
+        return false;
+    }
+
     private static async Task PatchCustomDomainsAsync(
         ContainerAppResource app,
         IReadOnlyList<ContainerAppCustomDomain> domains,
         CancellationToken cancellationToken)
     {
+        // Omit Configuration.Secrets: GET responses strip secret values; echoing them breaks PATCH.
         var patch = new ContainerAppData(app.Data.Location)
         {
             Configuration = new ContainerAppConfiguration
@@ -276,14 +316,6 @@ public sealed class ArmAzureContainerAppClient : IAzureContainerAppClient
                 {
                     patch.Configuration.Ingress.Traffic.Add(weight);
                 }
-            }
-        }
-
-        if (app.Data.Configuration?.Secrets is { } secrets)
-        {
-            foreach (var secret in secrets)
-            {
-                patch.Configuration.Secrets.Add(secret);
             }
         }
 

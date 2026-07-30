@@ -66,6 +66,43 @@ public sealed class ArmAzureContainerAppClientTests
         Assert.Throws<ArgumentException>(() => ArmAzureContainerAppClient.ResolveDomainControlValidation("TXT"));
     }
 
+    [Fact]
+    public void IsAlreadyBoundToCertificate_TrueWhenSniMatches()
+    {
+        var certId = new ResourceIdentifier(
+            "/subscriptions/x/resourceGroups/rg/providers/Microsoft.App/managedEnvironments/env/managedCertificates/www-contoso-com");
+        var domain = new ContainerAppCustomDomain("www.contoso.com", certId)
+        {
+            BindingType = ContainerAppCustomDomainBindingType.SniEnabled
+        };
+
+        Assert.True(ArmAzureContainerAppClient.IsAlreadyBoundToCertificate([domain], "www.contoso.com", certId));
+        Assert.True(ArmAzureContainerAppClient.IsAlreadyBoundToCertificate([domain], "WWW.CONTOSO.COM", certId));
+    }
+
+    [Fact]
+    public void IsAlreadyBoundToCertificate_FalseWhenDisabledOrDifferentCert()
+    {
+        var certId = new ResourceIdentifier(
+            "/subscriptions/x/resourceGroups/rg/providers/Microsoft.App/managedEnvironments/env/managedCertificates/www-contoso-com");
+        var otherCertId = new ResourceIdentifier(
+            "/subscriptions/x/resourceGroups/rg/providers/Microsoft.App/managedEnvironments/env/managedCertificates/other");
+
+        var disabled = new ContainerAppCustomDomain("www.contoso.com")
+        {
+            BindingType = ContainerAppCustomDomainBindingType.Disabled
+        };
+        var wrongCert = new ContainerAppCustomDomain("www.contoso.com", otherCertId)
+        {
+            BindingType = ContainerAppCustomDomainBindingType.SniEnabled
+        };
+
+        Assert.False(ArmAzureContainerAppClient.IsAlreadyBoundToCertificate([disabled], "www.contoso.com", certId));
+        Assert.False(ArmAzureContainerAppClient.IsAlreadyBoundToCertificate([wrongCert], "www.contoso.com", certId));
+        Assert.False(ArmAzureContainerAppClient.IsAlreadyBoundToCertificate([], "www.contoso.com", certId));
+        Assert.False(ArmAzureContainerAppClient.IsAlreadyBoundToCertificate(null, "www.contoso.com", certId));
+    }
+
     private sealed class StubCredential : TokenCredential
     {
         public override AccessToken GetToken(TokenRequestContext requestContext, CancellationToken cancellationToken)

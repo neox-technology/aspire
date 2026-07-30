@@ -75,7 +75,7 @@ dotnet run --project tools/octodns-provider-catalog
 | Add resource hostname (no cert) | `aspire do provision-{resource}-domain-{dom}` | `plan-{resource}-domain-{dom}`; zone provision; `provision-{resource}-containerapp` |
 | Env domains gate | `aspire do provision-{env}-domains` | all `provision-{resource}-domain-{dom}` for the env |
 | Provision env certificates | `aspire do provision-{env}-certificates` | `plan-{env}-certificates`; `provision-{env}-domains` |
-| Bind resource domain | `aspire do deploy-{resource}-domain-{dom}` | `provision-{env}-certificates`; `provision-{resource}-containerapp` |
+| Bind resource domain | `aspire do deploy-{resource}-domain-{dom}` | `provision-{env}-certificates`; `provision-{resource}-containerapp`; previous sibling bind on same resource (ordinal slug) |
 | Deploy domains gate | `aspire do deploy-domains` | all `deploy-{resource}-domain-{dom}`; required by Aspire `deploy` |
 
 Zone / hostname slug: DNS name with `.` → `-` (e.g. `example.com` → `plan-domain-example-com`; `www.example.com` → `plan-api-domain-www-example-com`). Hostname for `{dom}` must be known at registration (parameter default or `Parameters:{name}`).
