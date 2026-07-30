@@ -374,3 +374,7 @@ FodyWeavers.xsd
 
 # Generated css
 **/wwwroot/app.css
+
+# OctoDNS .yaml files
+octodns.yaml
+**/zones/*.yaml
