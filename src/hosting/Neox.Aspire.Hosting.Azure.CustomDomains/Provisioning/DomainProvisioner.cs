@@ -1,17 +1,23 @@
+using System.Globalization;
+using System.Text.RegularExpressions;
 using Neox.Aspire.Hosting.Azure.Dns;
 using Neox.Aspire.Hosting.Azure.Processes;
 
 namespace Neox.Aspire.Hosting.Azure.Provisioning;
 
 /// <summary>
-/// Provisions DNS (OctoDNS via Docker), ACA managed certificate binding, and GitHub Actions variables.
+/// Provisions DNS (OctoDNS via Docker, upsert-only), ACA managed certificate binding, and GitHub Actions variables.
 /// </summary>
 public sealed class DomainProvisioner
 {
+    private static readonly Regex DeletesCount = new(
+        @"Deletes=(\d+)",
+        RegexOptions.CultureInvariant | RegexOptions.Compiled);
+
     private readonly IProcessRunner _processRunner;
     private readonly IAzureContainerAppClient _azureClient;
     private readonly DnsRecordPlanner _planner;
-    private readonly OctoDnsZoneWriter _zoneWriter;
+    private readonly OctoDnsZoneUpserter _zoneUpserter;
     private readonly OctoDnsConfigWriter _configWriter;
     private readonly Func<TimeSpan, CancellationToken, Task>? _delayAsync;
 
@@ -19,14 +25,14 @@ public sealed class DomainProvisioner
         IProcessRunner processRunner,
         IAzureContainerAppClient azureClient,
         DnsRecordPlanner? planner = null,
-        OctoDnsZoneWriter? zoneWriter = null,
+        OctoDnsZoneUpserter? zoneUpserter = null,
         OctoDnsConfigWriter? configWriter = null,
         Func<TimeSpan, CancellationToken, Task>? delayAsync = null)
     {
         _processRunner = processRunner ?? throw new ArgumentNullException(nameof(processRunner));
         _azureClient = azureClient ?? throw new ArgumentNullException(nameof(azureClient));
         _planner = planner ?? new DnsRecordPlanner();
-        _zoneWriter = zoneWriter ?? new OctoDnsZoneWriter();
+        _zoneUpserter = zoneUpserter ?? new OctoDnsZoneUpserter();
         _configWriter = configWriter ?? new OctoDnsConfigWriter();
         _delayAsync = delayAsync;
     }
@@ -57,7 +63,6 @@ public sealed class DomainProvisioner
             targets.CustomDomainVerificationId);
 
         var plan = _planner.Plan(planInput);
-        _zoneWriter.WriteToDirectory(plan, options.OctoDnsZoneDirectory);
 
         var (mountRoot, configInContainer, zonesRelative) = ResolveDockerMount(
             options.OctoDnsConfigPath,
@@ -69,7 +74,41 @@ public sealed class DomainProvisioner
             Path.GetFullPath(options.OctoDnsConfigPath),
             zonesRelative);
 
-        await RunOctoDnsDockerAsync(provider, options, mountRoot, configInContainer, cancellationToken)
+        // Best-effort dump of the live zone so upsert starts from existing records (greenfield OK if dump fails).
+        await TryDumpZoneAsync(provider, options, mountRoot, configInContainer, zonesRelative, plan.ZoneName, cancellationToken)
+            .ConfigureAwait(false);
+
+        _zoneUpserter.UpsertToDirectory(plan, options.OctoDnsZoneDirectory);
+
+        var dryRun = await RunOctoDnsDockerAsync(
+                provider,
+                options,
+                mountRoot,
+                [
+                    "octodns-sync",
+                    "--config-file",
+                    configInContainer
+                ],
+                required: true,
+                operationName: "OctoDNS docker sync dry-run",
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        EnsureUpsertOnlyPlan(dryRun.StandardOutput + Environment.NewLine + dryRun.StandardError);
+
+        await RunOctoDnsDockerAsync(
+                provider,
+                options,
+                mountRoot,
+                [
+                    "octodns-sync",
+                    "--config-file",
+                    configInContainer,
+                    "--doit"
+                ],
+                required: true,
+                operationName: "OctoDNS docker sync apply",
+                cancellationToken)
             .ConfigureAwait(false);
 
         await WaitForDnsAsync(plan, options, cancellationToken).ConfigureAwait(false);
@@ -100,11 +139,71 @@ public sealed class DomainProvisioner
         return certificateName;
     }
 
-    private async Task RunOctoDnsDockerAsync(
+    /// <summary>
+    /// Ensures the OctoDNS plan contains no Deletes (DomainOps upsert-only invariant).
+    /// </summary>
+    internal static void EnsureUpsertOnlyPlan(string syncOutput)
+    {
+        var matches = DeletesCount.Matches(syncOutput);
+        foreach (Match match in matches)
+        {
+            var deletes = int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture);
+            if (deletes > 0)
+            {
+                throw new InvalidOperationException(
+                    "OctoDNS plan includes Deletes, which violates the DomainOps upsert-only invariant. " +
+                    "Refusing to apply." + Environment.NewLine + syncOutput);
+            }
+        }
+
+        if (matches.Count == 0 &&
+            !syncOutput.Contains("No changes were planned", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "Could not verify OctoDNS upsert-only plan (missing Deletes summary). " +
+                "Refusing to apply." + Environment.NewLine + syncOutput);
+        }
+    }
+
+    private async Task TryDumpZoneAsync(
         DomainOpsProviderResource provider,
         AzureCustomDomainOpsOptions options,
         string mountRoot,
         string configInContainer,
+        string zonesRelative,
+        string zoneName,
+        CancellationToken cancellationToken)
+    {
+        var zoneFqdn = zoneName.Trim().TrimEnd('.') + ".";
+
+        // Dump failures (missing zone, auth edge cases) leave an empty base; upsert still creates ACA records.
+        await RunOctoDnsDockerAsync(
+                provider,
+                options,
+                mountRoot,
+                [
+                    "octodns-dump",
+                    "--config-file",
+                    configInContainer,
+                    "--output-dir",
+                    zonesRelative,
+                    zoneFqdn,
+                    provider.Name,
+                    "--lenient"
+                ],
+                required: false,
+                operationName: "OctoDNS docker dump",
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private async Task<ProcessResult> RunOctoDnsDockerAsync(
+        DomainOpsProviderResource provider,
+        AzureCustomDomainOpsOptions options,
+        string mountRoot,
+        IReadOnlyList<string> octodnsArgs,
+        bool required,
+        string operationName,
         CancellationToken cancellationToken)
     {
         var image = string.IsNullOrWhiteSpace(options.OctoDnsDockerImage)
@@ -140,13 +239,18 @@ public sealed class DomainProvisioner
         }
 
         args.Add(image);
-        args.Add("octodns-sync");
-        args.Add("--config-file");
-        args.Add(configInContainer);
-        args.Add("--doit");
+        args.AddRange(octodnsArgs);
 
-        await RunRequiredAsync("docker", args, cancellationToken, "OctoDNS docker sync", env)
+        var result = await _processRunner.RunAsync("docker", args, cancellationToken, environment: env)
             .ConfigureAwait(false);
+
+        if (required && !result.Succeeded)
+        {
+            throw new InvalidOperationException(
+                $"{operationName} failed ({result.ExitCode}): {result.StandardError}{Environment.NewLine}{result.StandardOutput}");
+        }
+
+        return result;
     }
 
     /// <summary>

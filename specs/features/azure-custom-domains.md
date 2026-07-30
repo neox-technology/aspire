@@ -23,7 +23,8 @@ V1 supports **one hostname per binding** (apex **or** subdomain, auto-detected).
 - A contributor packs `Neox.Aspire.Hosting.Azure.CustomDomains` as a Shipping nupkg from this repo.
 - A consumer AppHost wires `AddDomainOpsProvider` + `ConfigureCustomDomain` + `WithAzureCustomDomainOps(provider)`, and runs CI with `Parameters__*` / `Azure__*` / `--non-interactive`.
 - Provider auth without explicit options resolves from `Parameters__{providerResourceName}-{param}` (e.g. `Parameters__dns-token`; Aspire also accepts underscore env fallback).
-- **Bootstrap**: `aspire deploy` (empty cert) → `aspire do domain-provision` (generate OctoDNS YAML without secrets, `docker run` sync with `-e` credentials, ARM hostname bind, `gh variable set`) → `aspire deploy` (cert name set).
+- **Bootstrap**: `aspire deploy` (empty cert) → `aspire do domain-provision` (dump live zone, **upsert** ACA records into zone YAML, dry-run assert Creates/Updates only, `docker run` sync `--doit` with `-e` credentials, ARM hostname bind, `gh variable set`) → `aspire deploy` (cert name set).
+- DNS DomainOps is **upsert-only**: create or update planned ACA records; **delete is not a feature** (no purge/replace-zone path).
 - **Steady-state**: `aspire do domain-verify` → `aspire deploy` with `Parameters__certificateName` from the GitHub variable; `domain-guard` fails if the cert is required and empty.
 - Contributors run xUnit unit tests (no live Azure) covering DNS planning, YAML generation (no secrets on disk), verify/guard, and provision orchestration with Docker/`gh` process fakes and ARM client fakes (no `az` process).
 
@@ -62,7 +63,8 @@ None — invocation is via `aspire do` pipeline steps only.
 - [x] Auth options null → Aspire parameters `Parameters__{resourceName}-{param}` (hyphenated; Aspire-valid resource names); credentials never written into generated YAML (`env/VAR` refs only).
 - [x] `WithAzureCustomDomainOps` requires `IResourceBuilder<TProvider>` where `TProvider : DomainOpsProviderResource` (breaking).
 - [x] One provider resource may be referenced by multiple `WithAzureCustomDomainOps` bindings.
-- [x] `domain-provision` generates zone YAML + `octodns.yaml`, runs `docker run … octodns-sync --doit` with `-e` secrets, binds managed hostname, updates GitHub variable.
+- [x] `domain-provision` generates `octodns.yaml`, dumps the live zone (`octodns-dump`), **upserts** planned ACA records into zone YAML (preserving all non-targeted records), dry-runs `octodns-sync` and aborts if the plan contains Deletes, then applies with `--doit`, binds managed hostname, updates GitHub variable.
+- [x] DomainOps DNS is **upsert-only**: no delete/purge/replace-zone API or apply path; a plan with `Deletes > 0` is an invariant violation and must not be applied.
 - [x] `domain-provision` reads ACA targets and binds managed hostname via ARM (`ITokenCredentialProvider` + `Azure.ResourceManager.AppContainers`); does not invoke the `az` process.
 - [x] `domain-provision` pipeline step `DependsOnSteps` includes `create-provisioning-context` (which depends on `validate-azure-login`).
 - [x] Docker images default to `octodns/cloudflare` / `octodns/ovh` (overridable).
@@ -98,7 +100,7 @@ See [`domain-glossary`](domain-glossary.md) (`custom domain ops`, `DomainOps pro
 |------|--------|----------|
 | `domain-verify` | Expected DNS + cert parameter consistent | Drift, missing cert in strict mode, tool failure |
 | `domain-guard` | Cert parameter non-empty when required | Empty/missing cert |
-| `domain-provision` | YAML generated, Docker OctoDNS sync, managed cert bound via ARM, GH var updated | Azure ARM/Docker/gh/DNS poll failure |
+| `domain-provision` | Config + upserted zone YAML, OctoDNS dump/dry-run/apply (Creates/Updates only), managed cert bound via ARM, GH var updated | Azure ARM/Docker/gh/DNS poll failure; OctoDNS plan with Deletes |
 
 `domain-provision` depends on Aspire step `create-provisioning-context` (after `validate-azure-login`; same ARM token credential as deploy).
 
