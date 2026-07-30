@@ -222,9 +222,39 @@ public static class AzureCustomDomainOpsExtensions
                 .DependsOn(
                     context.GetSteps(domainOps.Resource)
                         .Where(s => string.Equals(s.Name, deployStepName, StringComparison.Ordinal)));
+
+            // Serialize ARM-mutating per-hostname steps on the same compute resource
+            // (parallel GET+PATCH races corrupt Container App LROs).
+            SerializeSameResourceDomainArmSteps(context.GetSteps(domainOps.Resource), targetResource.Name);
         });
 
         return builder;
+    }
+
+    /// <summary>
+    /// Chains <c>provision|deploy-{resource}-domain-*</c> steps for one compute resource in ordinal name order
+    /// so concurrent Container App patches cannot race.
+    /// </summary>
+    internal static void SerializeSameResourceDomainArmSteps(IEnumerable<PipelineStep> steps, string resourceName)
+    {
+        ArgumentNullException.ThrowIfNull(steps);
+        ArgumentException.ThrowIfNullOrWhiteSpace(resourceName);
+
+        ChainSiblingStepsByPrefix(steps, $"provision-{resourceName}-domain-");
+        ChainSiblingStepsByPrefix(steps, $"deploy-{resourceName}-domain-");
+    }
+
+    private static void ChainSiblingStepsByPrefix(IEnumerable<PipelineStep> steps, string prefix)
+    {
+        var ordered = steps
+            .Where(s => s.Name.StartsWith(prefix, StringComparison.Ordinal))
+            .OrderBy(s => s.Name, StringComparer.Ordinal)
+            .ToList();
+
+        for (var i = 1; i < ordered.Count; i++)
+        {
+            ordered[i].DependsOn(ordered[i - 1]);
+        }
     }
 
     internal static IResourceBuilder<AzureCustomDomainOpsResource> EnsureDomainOpsResource(
