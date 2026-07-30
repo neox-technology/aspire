@@ -49,8 +49,6 @@ public static class AzureCustomDomainOpsExtensions
 
         builder.WithAnnotation(new AzureCustomDomainOpsAnnotation(customDomain, certificateName, provider.Resource, options));
 
-        DomainOpsProviderCommandExtensions.EnsureProviderCommands(provider);
-
         EnsureDomainOpsResource(builder.ApplicationBuilder)
             .WithPipelineStepFactory(factoryContext =>
                 CreateSteps(factoryContext, builder.Resource, customDomain, certificateName, provider.Resource, options));
