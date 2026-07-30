@@ -22,6 +22,12 @@ public sealed class AzureCustomDomainOpsOptions
     public string? DnsZoneName { get; set; }
 
     /// <summary>
+    /// Optional TTL (seconds) for planned ACA DNS records.
+    /// When null, uses <c>0</c> (provider / domain default TTL).
+    /// </summary>
+    public int? Ttl { get; set; }
+
+    /// <summary>
     /// Path where the generated OctoDNS config YAML is written (secrets use <c>env/VAR</c> refs only).
     /// </summary>
     public string OctoDnsConfigPath { get; set; } = "octodns.yaml";

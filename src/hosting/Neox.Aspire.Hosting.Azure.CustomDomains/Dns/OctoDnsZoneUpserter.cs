@@ -269,7 +269,7 @@ public sealed class OctoDnsZoneUpserter
             return false;
         }
 
-        simple = (ttl ?? 300, type, value);
+        simple = (ttl ?? 0, type, value);
         return true;
     }
 
