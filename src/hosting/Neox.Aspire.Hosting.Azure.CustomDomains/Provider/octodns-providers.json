@@ -1,0 +1,695 @@
+{
+  "generatedAt": "2026-07-30T08:14:21.2291182\u002B00:00",
+  "source": {
+    "dockerReadme": "https://raw.githubusercontent.com/octodns/octodns-docker/main/README.md",
+    "docs": "https://octodns.readthedocs.io/en/latest/"
+  },
+  "providers": [
+    {
+      "slug": "azure",
+      "methodName": "Azure",
+      "providerClass": "octodns_azure.AzureProvider",
+      "dockerImage": "octodns/azure",
+      "module": "octodns_azure",
+      "repoUrl": "https://github.com/octodns/octodns-azure",
+      "settings": [
+        {
+          "yamlName": "client_credential_method",
+          "kind": "literal",
+          "required": true,
+          "defaultValue": "client_secret",
+          "propertyName": "ClientCredentialMethod"
+        },
+        {
+          "yamlName": "client_id",
+          "kind": "secret",
+          "required": true,
+          "propertyName": "ClientId"
+        },
+        {
+          "yamlName": "key",
+          "kind": "secret",
+          "required": true,
+          "propertyName": "Key"
+        },
+        {
+          "yamlName": "directory_id",
+          "kind": "secret",
+          "required": true,
+          "propertyName": "DirectoryId"
+        },
+        {
+          "yamlName": "sub_id",
+          "kind": "secret",
+          "required": true,
+          "propertyName": "SubId"
+        },
+        {
+          "yamlName": "resource_group",
+          "kind": "literal",
+          "required": true,
+          "defaultValue": "TestResource1",
+          "propertyName": "ResourceGroup"
+        }
+      ]
+    },
+    {
+      "slug": "bind",
+      "methodName": "Bind",
+      "providerClass": "octodns_bind.Rfc2136Provider",
+      "dockerImage": "octodns/bind",
+      "module": "octodns_bind",
+      "repoUrl": "https://github.com/octodns/octodns-bind",
+      "settings": [
+        {
+          "yamlName": "host",
+          "kind": "literal",
+          "required": true,
+          "defaultValue": "ns1.example.com",
+          "propertyName": "Host"
+        },
+        {
+          "yamlName": "port",
+          "kind": "literal",
+          "required": false,
+          "defaultValue": "53",
+          "propertyName": "Port"
+        },
+        {
+          "yamlName": "ipv6",
+          "kind": "literal",
+          "required": false,
+          "defaultValue": "False",
+          "propertyName": "Ipv6"
+        },
+        {
+          "yamlName": "timeout",
+          "kind": "literal",
+          "required": false,
+          "defaultValue": "15",
+          "propertyName": "Timeout"
+        },
+        {
+          "yamlName": "key_name",
+          "kind": "secret",
+          "required": false,
+          "propertyName": "KeyName"
+        },
+        {
+          "yamlName": "key_secret",
+          "kind": "secret",
+          "required": false,
+          "propertyName": "KeySecret"
+        },
+        {
+          "yamlName": "key_algorithm",
+          "kind": "literal",
+          "required": false,
+          "defaultValue": "hmac-sha1",
+          "propertyName": "KeyAlgorithm"
+        }
+      ]
+    },
+    {
+      "slug": "cloudflare",
+      "methodName": "Cloudflare",
+      "providerClass": "octodns_cloudflare.CloudflareProvider",
+      "dockerImage": "octodns/cloudflare",
+      "module": "octodns_cloudflare",
+      "repoUrl": "https://github.com/octodns/octodns-cloudflare",
+      "settings": [
+        {
+          "yamlName": "email",
+          "kind": "secret",
+          "required": false,
+          "propertyName": "Email"
+        },
+        {
+          "yamlName": "token",
+          "kind": "secret",
+          "required": true,
+          "propertyName": "Token"
+        },
+        {
+          "yamlName": "account_id",
+          "kind": "secret",
+          "required": false,
+          "propertyName": "AccountId"
+        }
+      ]
+    },
+    {
+      "slug": "constellix",
+      "methodName": "Constellix",
+      "providerClass": "octodns_constellix.ConstellixProvider",
+      "dockerImage": "octodns/constellix",
+      "module": "octodns_constellix",
+      "repoUrl": "https://github.com/octodns/octodns-constellix",
+      "settings": [
+        {
+          "yamlName": "api_key",
+          "kind": "secret",
+          "required": true,
+          "propertyName": "ApiKey"
+        },
+        {
+          "yamlName": "secret_key",
+          "kind": "secret",
+          "required": true,
+          "propertyName": "SecretKey"
+        },
+        {
+          "yamlName": "ratelimit_delay",
+          "kind": "literal",
+          "required": false,
+          "defaultValue": "0.0",
+          "propertyName": "RatelimitDelay"
+        }
+      ]
+    },
+    {
+      "slug": "digitalocean",
+      "methodName": "Digitalocean",
+      "providerClass": "octodns_digitalocean.DigitalOceanProvider",
+      "dockerImage": "octodns/digitalocean",
+      "module": "octodns_digitalocean",
+      "repoUrl": "https://github.com/octodns/octodns-digitalocean",
+      "settings": [
+        {
+          "yamlName": "token",
+          "kind": "secret",
+          "required": true,
+          "propertyName": "Token"
+        }
+      ]
+    },
+    {
+      "slug": "dnsimple",
+      "methodName": "Dnsimple",
+      "providerClass": "octodns_dnsimple.DnsimpleProvider",
+      "dockerImage": "octodns/dnsimple",
+      "module": "octodns_dnsimple",
+      "repoUrl": "https://github.com/octodns/octodns-dnsimple",
+      "settings": [
+        {
+          "yamlName": "token",
+          "kind": "literal",
+          "required": true,
+          "defaultValue": "letmein",
+          "propertyName": "Token"
+        },
+        {
+          "yamlName": "account",
+          "kind": "literal",
+          "required": true,
+          "defaultValue": "42",
+          "propertyName": "Account"
+        },
+        {
+          "yamlName": "sandbox",
+          "kind": "literal",
+          "required": false,
+          "defaultValue": "false",
+          "propertyName": "Sandbox"
+        }
+      ]
+    },
+    {
+      "slug": "dnsmadeeasy",
+      "methodName": "Dnsmadeeasy",
+      "providerClass": "octodns_dnsmadeeasy.DnsMadeEasyProvider",
+      "dockerImage": "octodns/dnsmadeeasy",
+      "module": "octodns_dnsmadeeasy",
+      "repoUrl": "https://github.com/octodns/octodns-dnsmadeeasy",
+      "settings": [
+        {
+          "yamlName": "api_key",
+          "kind": "secret",
+          "required": true,
+          "propertyName": "ApiKey"
+        },
+        {
+          "yamlName": "secret_key",
+          "kind": "secret",
+          "required": true,
+          "propertyName": "SecretKey"
+        }
+      ]
+    },
+    {
+      "slug": "easydns",
+      "methodName": "Easydns",
+      "providerClass": "octodns_easydns.EasyDnsProvider",
+      "dockerImage": "octodns/easydns",
+      "module": "octodns_easydns",
+      "repoUrl": "https://github.com/octodns/octodns-easydns",
+      "settings": [
+        {
+          "yamlName": "token",
+          "kind": "secret",
+          "required": true,
+          "propertyName": "Token"
+        },
+        {
+          "yamlName": "api_key",
+          "kind": "secret",
+          "required": true,
+          "propertyName": "ApiKey"
+        },
+        {
+          "yamlName": "portfolio",
+          "kind": "secret",
+          "required": true,
+          "propertyName": "Portfolio"
+        }
+      ]
+    },
+    {
+      "slug": "edgecenter",
+      "methodName": "Edgecenter",
+      "providerClass": "octodns_edgecenter.EdgeCenterProvider",
+      "dockerImage": "octodns/edgecenter",
+      "module": "octodns_edgecenter",
+      "repoUrl": "https://github.com/octodns/octodns-edgecenter",
+      "settings": [
+        {
+          "yamlName": "token",
+          "kind": "secret",
+          "required": true,
+          "propertyName": "Token"
+        },
+        {
+          "yamlName": "token_type",
+          "kind": "literal",
+          "required": true,
+          "defaultValue": "APIKey",
+          "propertyName": "TokenType"
+        },
+        {
+          "yamlName": "login",
+          "kind": "secret",
+          "required": false,
+          "propertyName": "Login"
+        },
+        {
+          "yamlName": "password",
+          "kind": "secret",
+          "required": false,
+          "propertyName": "Password"
+        }
+      ]
+    },
+    {
+      "slug": "edgedns",
+      "methodName": "Edgedns",
+      "providerClass": "octodns_edgedns.AkamaiProvider",
+      "dockerImage": "octodns/edgedns",
+      "module": "octodns_edgedns",
+      "repoUrl": "https://github.com/octodns/octodns-edgedns",
+      "settings": [
+        {
+          "yamlName": "client_secret",
+          "kind": "secret",
+          "required": true,
+          "propertyName": "ClientSecret"
+        },
+        {
+          "yamlName": "host",
+          "kind": "secret",
+          "required": true,
+          "propertyName": "Host"
+        },
+        {
+          "yamlName": "access_token",
+          "kind": "secret",
+          "required": true,
+          "propertyName": "AccessToken"
+        },
+        {
+          "yamlName": "client_token",
+          "kind": "secret",
+          "required": true,
+          "propertyName": "ClientToken"
+        },
+        {
+          "yamlName": "contract_id",
+          "kind": "secret",
+          "required": false,
+          "propertyName": "ContractId"
+        }
+      ]
+    },
+    {
+      "slug": "gandi",
+      "methodName": "Gandi",
+      "providerClass": "octodns_gandi.GandiProvider",
+      "dockerImage": "octodns/gandi",
+      "module": "octodns_gandi",
+      "repoUrl": "https://github.com/octodns/octodns-gandi",
+      "settings": [
+        {
+          "yamlName": "token",
+          "kind": "secret",
+          "required": true,
+          "propertyName": "Token"
+        }
+      ]
+    },
+    {
+      "slug": "gcore",
+      "methodName": "Gcore",
+      "providerClass": "octodns_gcore.GCoreProvider",
+      "dockerImage": "octodns/gcore",
+      "module": "octodns_gcore",
+      "repoUrl": "https://github.com/octodns/octodns-gcore",
+      "settings": [
+        {
+          "yamlName": "token",
+          "kind": "secret",
+          "required": true,
+          "propertyName": "Token"
+        },
+        {
+          "yamlName": "token_type",
+          "kind": "literal",
+          "required": true,
+          "defaultValue": "APIKey",
+          "propertyName": "TokenType"
+        },
+        {
+          "yamlName": "login",
+          "kind": "secret",
+          "required": false,
+          "propertyName": "Login"
+        },
+        {
+          "yamlName": "password",
+          "kind": "secret",
+          "required": false,
+          "propertyName": "Password"
+        }
+      ]
+    },
+    {
+      "slug": "googlecloud",
+      "methodName": "Googlecloud",
+      "providerClass": "octodns_googlecloud.GoogleCloudProvider",
+      "dockerImage": "octodns/googlecloud",
+      "module": "octodns_googlecloud",
+      "repoUrl": "https://github.com/octodns/octodns-googlecloud",
+      "settings": []
+    },
+    {
+      "slug": "hetzner",
+      "methodName": "Hetzner",
+      "providerClass": "octodns_hetzner.HetznerProvider",
+      "dockerImage": "octodns/hetzner",
+      "module": "octodns_hetzner",
+      "repoUrl": "https://github.com/octodns/octodns-hetzner",
+      "settings": [
+        {
+          "yamlName": "token",
+          "kind": "secret",
+          "required": true,
+          "propertyName": "Token"
+        },
+        {
+          "yamlName": "backend",
+          "kind": "literal",
+          "required": true,
+          "defaultValue": "dnsapi",
+          "propertyName": "Backend"
+        }
+      ]
+    },
+    {
+      "slug": "mythicbeasts",
+      "methodName": "Mythicbeasts",
+      "providerClass": "octodns_mythicbeasts.MythicBeastsProvider",
+      "dockerImage": "octodns/mythicbeasts",
+      "module": "octodns_mythicbeasts",
+      "repoUrl": "https://github.com/octodns/octodns-mythicbeasts",
+      "settings": []
+    },
+    {
+      "slug": "ns1",
+      "methodName": "Ns1",
+      "providerClass": "octodns_ns1.Ns1Provider",
+      "dockerImage": "octodns/ns1",
+      "module": "octodns_ns1",
+      "repoUrl": "https://github.com/octodns/octodns-ns1",
+      "settings": [
+        {
+          "yamlName": "api_key",
+          "kind": "secret",
+          "required": true,
+          "propertyName": "ApiKey"
+        },
+        {
+          "yamlName": "shared_notifylist",
+          "kind": "literal",
+          "required": true,
+          "defaultValue": "false",
+          "propertyName": "SharedNotifylist"
+        },
+        {
+          "yamlName": "parallelism",
+          "kind": "literal",
+          "required": false,
+          "defaultValue": "11",
+          "propertyName": "Parallelism"
+        },
+        {
+          "yamlName": "retry_count",
+          "kind": "literal",
+          "required": false,
+          "defaultValue": "4",
+          "propertyName": "RetryCount"
+        },
+        {
+          "yamlName": "endpoint",
+          "kind": "literal",
+          "required": true,
+          "defaultValue": "my.nsone.endpoint # Default: api.nsone.net",
+          "propertyName": "Endpoint"
+        },
+        {
+          "yamlName": "follow_pagination",
+          "kind": "literal",
+          "required": true,
+          "defaultValue": "false    # Default: true",
+          "propertyName": "FollowPagination"
+        },
+        {
+          "yamlName": "use_http_monitors",
+          "kind": "literal",
+          "required": false,
+          "defaultValue": "false",
+          "propertyName": "UseHttpMonitors"
+        },
+        {
+          "yamlName": "default_healthcheck_http_version",
+          "kind": "literal",
+          "required": false,
+          "defaultValue": "HTTP/1.0",
+          "propertyName": "DefaultHealthcheckHttpVersion"
+        }
+      ]
+    },
+    {
+      "slug": "ovh",
+      "methodName": "Ovh",
+      "providerClass": "octodns_ovh.OvhProvider",
+      "dockerImage": "octodns/ovh",
+      "module": "octodns_ovh",
+      "repoUrl": "https://github.com/octodns/octodns-ovh",
+      "settings": [
+        {
+          "yamlName": "endpoint",
+          "kind": "literal",
+          "required": true,
+          "defaultValue": "ovh-eu",
+          "propertyName": "Endpoint"
+        },
+        {
+          "yamlName": "application_key",
+          "kind": "secret",
+          "required": true,
+          "propertyName": "ApplicationKey"
+        },
+        {
+          "yamlName": "application_secret",
+          "kind": "secret",
+          "required": true,
+          "propertyName": "ApplicationSecret"
+        },
+        {
+          "yamlName": "consumer_key",
+          "kind": "secret",
+          "required": true,
+          "propertyName": "ConsumerKey"
+        }
+      ]
+    },
+    {
+      "slug": "powerdns",
+      "methodName": "Powerdns",
+      "providerClass": "octodns_powerdns.PowerDnsProvider",
+      "dockerImage": "octodns/powerdns",
+      "module": "octodns_powerdns",
+      "repoUrl": "https://github.com/octodns/octodns-powerdns",
+      "settings": [
+        {
+          "yamlName": "host",
+          "kind": "literal",
+          "required": true,
+          "defaultValue": "fqdn",
+          "propertyName": "Host"
+        },
+        {
+          "yamlName": "port",
+          "kind": "literal",
+          "required": false,
+          "defaultValue": "8081",
+          "propertyName": "Port"
+        },
+        {
+          "yamlName": "api_key",
+          "kind": "secret",
+          "required": true,
+          "propertyName": "ApiKey"
+        }
+      ]
+    },
+    {
+      "slug": "rackspace",
+      "methodName": "Rackspace",
+      "providerClass": "octodns_rackspace.RackspaceProvider",
+      "dockerImage": "octodns/rackspace",
+      "module": "octodns_rackspace",
+      "repoUrl": "https://github.com/octodns/octodns-rackspace",
+      "settings": [
+        {
+          "yamlName": "username",
+          "kind": "secret",
+          "required": true,
+          "propertyName": "Username"
+        },
+        {
+          "yamlName": "api_key",
+          "kind": "secret",
+          "required": true,
+          "propertyName": "ApiKey"
+        },
+        {
+          "yamlName": "timeout",
+          "kind": "literal",
+          "required": false,
+          "defaultValue": "15",
+          "propertyName": "Timeout"
+        }
+      ]
+    },
+    {
+      "slug": "route53",
+      "methodName": "Route53",
+      "providerClass": "octodns_route53.Route53Provider",
+      "dockerImage": "octodns/route53",
+      "module": "octodns_route53",
+      "repoUrl": "https://github.com/octodns/octodns-route53",
+      "settings": [
+        {
+          "yamlName": "access_key_id",
+          "kind": "secret",
+          "required": true,
+          "propertyName": "AccessKeyId"
+        },
+        {
+          "yamlName": "secret_access_key",
+          "kind": "secret",
+          "required": true,
+          "propertyName": "SecretAccessKey"
+        },
+        {
+          "yamlName": "session_token",
+          "kind": "secret",
+          "required": false,
+          "propertyName": "SessionToken"
+        }
+      ]
+    },
+    {
+      "slug": "selectel",
+      "methodName": "Selectel",
+      "providerClass": "octodns_selectel.SelectelProvider",
+      "dockerImage": "octodns/selectel",
+      "module": "octodns_selectel",
+      "repoUrl": "https://github.com/octodns/octodns-selectel",
+      "settings": [
+        {
+          "yamlName": "token",
+          "kind": "secret",
+          "required": true,
+          "propertyName": "Token"
+        }
+      ]
+    },
+    {
+      "slug": "transip",
+      "methodName": "Transip",
+      "providerClass": "octodns_transip.TransipProvider",
+      "dockerImage": "octodns/transip",
+      "module": "octodns_transip",
+      "repoUrl": "https://github.com/octodns/octodns-transip",
+      "settings": [
+        {
+          "yamlName": "account",
+          "kind": "secret",
+          "required": true,
+          "propertyName": "Account"
+        },
+        {
+          "yamlName": "key_file",
+          "kind": "literal",
+          "required": true,
+          "defaultValue": "/path/to/file",
+          "propertyName": "KeyFile"
+        },
+        {
+          "yamlName": "key",
+          "kind": "secret",
+          "required": false,
+          "propertyName": "Key"
+        }
+      ]
+    },
+    {
+      "slug": "ultra",
+      "methodName": "Ultra",
+      "providerClass": "octodns_ultra.UltraProvider",
+      "dockerImage": "octodns/ultra",
+      "module": "octodns_ultra",
+      "repoUrl": "https://github.com/octodns/octodns-ultra",
+      "settings": [
+        {
+          "yamlName": "account",
+          "kind": "secret",
+          "required": true,
+          "propertyName": "Account"
+        },
+        {
+          "yamlName": "username",
+          "kind": "secret",
+          "required": true,
+          "propertyName": "Username"
+        },
+        {
+          "yamlName": "password",
+          "kind": "secret",
+          "required": true,
+          "propertyName": "Password"
+        }
+      ]
+    }
+  ]
+}
