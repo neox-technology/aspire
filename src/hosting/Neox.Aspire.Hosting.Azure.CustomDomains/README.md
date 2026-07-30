@@ -26,12 +26,51 @@ Credentials are never written into generated `octodns.yaml` (only `env/VAR` refs
 
 ## Usage
 
+### Shorthand (dash parameter names)
+
+```csharp
+var dns = builder.AddDomainOpsProvider("dns")
+    .Cloudflare(); // or .Ovh(), .Route53(), … — auth from Parameters__dns-* when options are omitted
+
+builder.AddAzureContainerAppEnvironment("env");
+
+// Optional: same params for consumer-owned ConfigureCustomDomain
+var (customDomain, certificateName) = AzureCustomDomainOpsExtensions.EnsureAzureCustomDomainParameters(
+    builder, "api", "www.example.com");
+// → Parameters__api-domain / Parameters__api-certificate
+
+#pragma warning disable ASPIREACADOMAINS001
+builder.AddProject<Projects.Api>("api")
+    .WithExternalHttpEndpoints()
+    .PublishAsAzureContainerApp((infrastructure, app) =>
+    {
+        app.ConfigureCustomDomain(customDomain, certificateName);
+    })
+    .WithAzureCustomDomainOps("www.example.com", dns, options =>
+    {
+        options.DnsZoneName = "example.com";
+        options.OctoDnsConfigPath = "dns/octodns.yaml";
+        options.OctoDnsZoneDirectory = "dns/zones";
+    });
+#pragma warning restore ASPIREACADOMAINS001
+```
+
+| Overload | Parameters |
+|----------|------------|
+| `(domain, cert, provider)` | Explicit pair |
+| `(domain, provider)` | Cert GetOrAdd `{domain.Name}-certificate` |
+| `(hostname, provider)` | GetOrAdd `{resource}-domain` / `{resource}-certificate`; string = hostname default |
+
+Additional hostnames on the same resource need distinct domain parameter names (string overload is primary-only).
+
+### Explicit parameters
+
 ```csharp
 var customDomain = builder.AddParameter("customDomain");
 var certificateName = builder.AddParameter("certificateName");
 
 var dns = builder.AddDomainOpsProvider("dns")
-    .Cloudflare(); // or .Ovh(), .Route53(), … — auth from Parameters__dns-* when options are omitted
+    .Cloudflare();
 
 builder.AddAzureContainerAppEnvironment("env");
 
@@ -84,7 +123,7 @@ DNS DomainOps is **upsert-only**. Unresolved parameters open Aspire’s Set para
 
 ## CI flows
 
-Pass `Parameters__*` and `Azure__*` non-interactively. GitHub variable automation (`gh variable set`) is **out of scope for V1** — set `Parameters__certificateName` yourself for the Bicep redeploy.
+Pass `Parameters__*` and `Azure__*` non-interactively. GitHub variable automation (`gh variable set`) is **out of scope for V1** — set the certificate parameter yourself for the Bicep redeploy (e.g. `Parameters__api-certificate` or `Parameters__certificateName`).
 
 **Bootstrap** (empty cert): `aspire deploy` → run DomainOps provision/bind steps (see `aspire do --list-steps`) → `aspire deploy` with certificate name set.
 
