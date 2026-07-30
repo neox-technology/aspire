@@ -61,7 +61,9 @@ The same provider resource can be passed to multiple `WithAzureCustomDomainOps` 
 | Provision | `aspire do domain-provision --non-interactive --environment production` |
 | Guard | `aspire do domain-guard --non-interactive --environment production` |
 
-`domain-provision` depends on Aspire's `create-provisioning-context` step (which itself depends on `validate-azure-login`), then syncs DNS with Docker and binds the managed certificate through ARM — it does not shell out to `az`.
+`domain-provision` depends on Aspire's `create-provisioning-context` step (which itself depends on `validate-azure-login`), then **dumps** the live zone, **upserts** ACA DNS records (create/update only — DomainOps never deletes), dry-runs OctoDNS and applies only when the plan has no Deletes, and binds the managed certificate through ARM — it does not shell out to `az`.
+
+DNS DomainOps is **upsert-only**: planned A/CNAME/`asuid` TXT records are merged into the existing zone; other records are left untouched. There is no delete/purge/replace-zone path.
 
 Optional env for verify DNS planning without re-querying Azure: `NEOX_ACA_FQDN`, `NEOX_ACA_STATIC_IP`, `NEOX_ACA_ASUID`.
 

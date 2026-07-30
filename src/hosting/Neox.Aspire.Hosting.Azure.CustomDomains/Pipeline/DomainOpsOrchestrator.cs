@@ -167,7 +167,7 @@ public sealed class DomainOpsOrchestrator
                 _processRunner,
                 azureClient,
                 _planner,
-                _zoneWriter,
+                zoneUpserter: null,
                 _configWriter);
 
         var certName = await provisioner.ProvisionAsync(hostname, provider, options, cancellationToken)
