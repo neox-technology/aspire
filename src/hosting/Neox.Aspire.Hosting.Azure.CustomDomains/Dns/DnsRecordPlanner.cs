@@ -1,12 +1,13 @@
 namespace Neox.Aspire.Hosting.Azure.Dns;
 
 /// <summary>
-/// Plans A/CNAME + TXT ownership records for Azure Container Apps custom domains.
+/// Plans A + TXT ownership records for Azure Container Apps custom domains.
+/// Every hostname (apex and subdomain) uses an A record to the environment static IP.
 /// </summary>
 public sealed class DnsRecordPlanner
 {
     /// <summary>
-    /// Builds the DNS records required for managed certificate validation.
+    /// Builds the DNS records required for managed certificate validation (A + asuid TXT).
     /// </summary>
     public DnsPlan Plan(DnsPlanInput input)
     {
@@ -20,20 +21,13 @@ public sealed class DnsRecordPlanner
         var kind = DetectKind(hostname);
         var (zoneName, relativeHost) = SplitZone(hostname, kind);
         var verificationId = input.CustomDomainVerificationId.Trim();
+        var asuidName = string.IsNullOrEmpty(relativeHost) ? "asuid" : $"asuid.{relativeHost}";
 
-        var records = new List<DnsRecord>();
-
-        if (kind == HostnameKind.Apex)
+        var records = new List<DnsRecord>
         {
-            records.Add(new DnsRecord("A", "", input.EnvironmentStaticIp.Trim()));
-            records.Add(new DnsRecord("TXT", "asuid", verificationId));
-        }
-        else
-        {
-            // OctoDNS / zone files treat values without a trailing '.' as relative to the zone.
-            records.Add(new DnsRecord("CNAME", relativeHost, ToAbsoluteFqdn(input.ContainerAppFqdn)));
-            records.Add(new DnsRecord("TXT", $"asuid.{relativeHost}", verificationId));
-        }
+            new("A", relativeHost, input.EnvironmentStaticIp.Trim()),
+            new("TXT", asuidName, verificationId)
+        };
 
         return new DnsPlan(kind, zoneName, relativeHost, records);
     }

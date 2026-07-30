@@ -93,6 +93,16 @@ public sealed class OctoDnsZoneUpserter
     private static void UpsertRecord(Dictionary<string, object?> root, string nameKey, DnsRecord record)
     {
         var records = GetRecordList(root, nameKey);
+
+        // A and CNAME cannot coexist at the same name; drop the opposite type when upserting either.
+        if (IsAddressOrAliasType(record.Type))
+        {
+            records.RemoveAll(existing =>
+                TryGetRecordType(existing, out var existingType)
+                && IsAddressOrAliasType(existingType)
+                && !string.Equals(existingType, record.Type, StringComparison.OrdinalIgnoreCase));
+        }
+
         var upserted = new Dictionary<string, object?>(StringComparer.Ordinal)
         {
             ["ttl"] = record.Ttl,
@@ -125,6 +135,10 @@ public sealed class OctoDnsZoneUpserter
 
         root[nameKey] = records;
     }
+
+    private static bool IsAddressOrAliasType(string type)
+        => string.Equals(type, "A", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(type, "CNAME", StringComparison.OrdinalIgnoreCase);
 
     private static List<object?> GetRecordList(Dictionary<string, object?> root, string nameKey)
     {

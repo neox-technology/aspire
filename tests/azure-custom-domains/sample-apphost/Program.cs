@@ -3,7 +3,9 @@ using Neox.Aspire.Hosting.Azure;
 var builder = DistributedApplication.CreateBuilder(args);
 
 var customDomain = builder.AddParameter("customDomain", "www.sokomwatt.com");
-var certificateName = builder.AddParameter("certificateName");
+var customApexDomain = builder.AddParameter("customApexDomain", "sokomwatt.com");
+var certificateName = builder.AddParameter("certificateName", string.Empty, publishValueAsDefault: true);
+var certificateApexName = builder.AddParameter("certificateApexName", string.Empty, publishValueAsDefault: true);
 
 var dns = builder.AddDomainOpsProvider("dns")
     .Ovh();
@@ -16,8 +18,10 @@ builder.AddContainer("api", "mcr.microsoft.com/dotnet/samples:aspnetapp")
     .WithHttpEndpoint(targetPort: 8080)
     .WithExternalHttpEndpoints()
     .PublishAsAzureContainerApp((_, _) => { })
-    .WithAzureCustomDomainOps(customDomain, certificateName, dns, options =>
-    {
+    .WithAzureCustomDomainOps(customDomain, certificateName, dns, options => {
+        options.DnsZoneName = "sokomwatt.com";
+    })
+    .WithAzureCustomDomainOps(customApexDomain, certificateApexName, dns, options => {
         options.DnsZoneName = "sokomwatt.com";
     });
 

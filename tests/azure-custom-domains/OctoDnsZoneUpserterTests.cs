@@ -56,9 +56,39 @@ public sealed class OctoDnsZoneUpserterTests
 
         var yaml = new OctoDnsZoneUpserter().UpsertIntoZoneYaml("---\n", plan);
 
-        Assert.Contains("type: CNAME", yaml, StringComparison.Ordinal);
+        Assert.Contains("type: A", yaml, StringComparison.Ordinal);
+        Assert.Contains("1.2.3.4", yaml, StringComparison.Ordinal);
         Assert.Contains("asuid.www", yaml, StringComparison.Ordinal);
-        Assert.Contains("app.example.azurecontainerapps.io.", yaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("type: CNAME", yaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void UpsertIntoZoneYaml_ReplacesConflictingCnameWithA()
+    {
+        const string existing = """
+            ---
+            www:
+              - ttl: 300
+                type: CNAME
+                value: app.example.azurecontainerapps.io.
+              - ttl: 300
+                type: TXT
+                value: keep-txt
+            """;
+
+        var plan = new DnsRecordPlanner().Plan(new DnsPlanInput(
+            "www.contoso.com",
+            "app.example.azurecontainerapps.io",
+            "1.2.3.4",
+            "asuid-value"));
+
+        var yaml = new OctoDnsZoneUpserter().UpsertIntoZoneYaml(existing, plan);
+
+        Assert.Contains("type: A", yaml, StringComparison.Ordinal);
+        Assert.Contains("1.2.3.4", yaml, StringComparison.Ordinal);
+        Assert.Contains("keep-txt", yaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("type: CNAME", yaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("app.example.azurecontainerapps.io.", yaml, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -88,7 +118,8 @@ public sealed class OctoDnsZoneUpserterTests
             Assert.Equal(zonePath, path);
             var yaml = File.ReadAllText(path);
             Assert.Contains("type: MX", yaml, StringComparison.Ordinal);
-            Assert.Contains("type: CNAME", yaml, StringComparison.Ordinal);
+            Assert.Contains("type: A", yaml, StringComparison.Ordinal);
+            Assert.DoesNotContain("type: CNAME", yaml, StringComparison.Ordinal);
         }
         finally
         {
