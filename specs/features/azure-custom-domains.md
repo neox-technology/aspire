@@ -32,6 +32,7 @@ V1 supports **one hostname per binding** (apex **or** subdomain, auto-detected).
 - Provider auth without explicit options resolves from `Parameters__{providerResourceName}-{param}` (e.g. `Parameters__dns-token`; Aspire also accepts underscore env fallback).
 - **Bootstrap**: `aspire deploy` (empty cert) → DomainOps graph (`plan-domain-*` → `provision-domain-{zone}` → `plan-{resource}-domain-{dom}` → `provision-{resource}-domain-{dom}` → `provision-{env}-domains` → `provision-{env}-certificates` → `deploy-{resource}-domain-{dom}` → `deploy-domains`) → `aspire deploy` with `Parameters__certificateName` set by the consumer.
 - DNS DomainOps is **upsert-only**: create or update planned ACA records; **delete is not a feature** (no purge/replace-zone path). Dump live zone, dry-run, and Deletes=0 guard run **internally** (named pipeline steps deferred to V2).
+- Planned ACA DNS records use **TTL `0`** (provider / domain default) unless `AzureCustomDomainOpsOptions.Ttl` is set.
 - Contributors run xUnit unit tests (no live Azure) covering DNS planning, YAML generation (no secrets on disk), and provision orchestration with Docker process fakes and ARM client fakes (no `az` / no `gh` in V1).
 
 ## Routes (if UI)

@@ -42,7 +42,7 @@ public sealed class OctoDnsZoneUpserterTests
         Assert.DoesNotContain("1.1.1.1", yaml, StringComparison.Ordinal);
         Assert.Contains("asuid:", yaml, StringComparison.Ordinal);
         Assert.Contains("asuid-value", yaml, StringComparison.Ordinal);
-        Assert.Matches(@"(?s)- ttl: \d+\s+type: A\s+value:", yaml);
+        Assert.Matches(@"(?s)- ttl: 0\s+type: A\s+value:", yaml);
     }
 
     [Fact]

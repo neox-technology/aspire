@@ -25,8 +25,8 @@ public sealed class DnsRecordPlanner
 
         var records = new List<DnsRecord>
         {
-            new("A", relativeHost, input.EnvironmentStaticIp.Trim()),
-            new("TXT", asuidName, verificationId)
+            new("A", relativeHost, input.EnvironmentStaticIp.Trim(), input.Ttl),
+            new("TXT", asuidName, verificationId, input.Ttl)
         };
 
         return new DnsPlan(kind, zoneName, relativeHost, records);

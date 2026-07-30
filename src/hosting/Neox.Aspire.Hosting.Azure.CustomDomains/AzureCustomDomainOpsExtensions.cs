@@ -592,7 +592,8 @@ public static class AzureCustomDomainOpsExtensions
                     hostname,
                     targets.Fqdn,
                     targets.StaticIp,
-                    targets.CustomDomainVerificationId));
+                    targets.CustomDomainVerificationId,
+                    capturedOptions.Ttl ?? 0));
 
                 var orchestrator = new DomainOpsOrchestrator(runner, logger, context.Services);
                 await orchestrator.ProvisionZoneAsync(

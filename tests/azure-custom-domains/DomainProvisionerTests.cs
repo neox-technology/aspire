@@ -113,6 +113,7 @@ public sealed class DomainProvisionerTests
             Assert.Contains("keep-me", zoneYaml, StringComparison.Ordinal);
             Assert.Contains("type: A", zoneYaml, StringComparison.Ordinal);
             Assert.DoesNotContain("type: CNAME", zoneYaml, StringComparison.Ordinal);
+            Assert.Matches(@"(?s)- ttl: 0\s+type: A\s+value:", zoneYaml);
 
             var configYaml = await File.ReadAllTextAsync(configPath);
             Assert.Contains("env/DNS_TOKEN", configYaml, StringComparison.Ordinal);
