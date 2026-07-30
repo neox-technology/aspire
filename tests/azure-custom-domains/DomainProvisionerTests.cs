@@ -111,7 +111,8 @@ public sealed class DomainProvisionerTests
             var zoneYaml = await File.ReadAllTextAsync(Path.Combine(zoneDir, "contoso.com.yaml"));
             Assert.Contains("type: MX", zoneYaml, StringComparison.Ordinal);
             Assert.Contains("keep-me", zoneYaml, StringComparison.Ordinal);
-            Assert.Contains("type: CNAME", zoneYaml, StringComparison.Ordinal);
+            Assert.Contains("type: A", zoneYaml, StringComparison.Ordinal);
+            Assert.DoesNotContain("type: CNAME", zoneYaml, StringComparison.Ordinal);
 
             var configYaml = await File.ReadAllTextAsync(configPath);
             Assert.Contains("env/DNS_TOKEN", configYaml, StringComparison.Ordinal);
@@ -145,7 +146,7 @@ public sealed class DomainProvisionerTests
             new AzureCustomDomainOpsOptions { ManagedCertificateName = "www-contoso-com" },
             certificateNameParameter: null);
 
-        Assert.Equal("CNAME", plan.ValidationMethod);
+        Assert.Equal("HTTP", plan.ValidationMethod);
 
         await provisioner.ProvisionEnvCertificatesAsync(
             azure.Targets,

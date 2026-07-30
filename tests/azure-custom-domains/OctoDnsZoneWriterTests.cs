@@ -16,12 +16,13 @@ public sealed class OctoDnsZoneWriterTests
 
         var yaml = new OctoDnsZoneWriter().WriteZoneYaml(plan);
 
-        Assert.Contains("type: CNAME", yaml, StringComparison.Ordinal);
+        Assert.Contains("type: A", yaml, StringComparison.Ordinal);
         Assert.Contains("type: TXT", yaml, StringComparison.Ordinal);
         Assert.Contains("asuid.www", yaml, StringComparison.Ordinal);
-        Assert.Contains("app.example.azurecontainerapps.io.", yaml, StringComparison.Ordinal);
+        Assert.Contains("1.2.3.4", yaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("type: CNAME", yaml, StringComparison.Ordinal);
         // OctoDNS enforce_order: ttl before type before value within each record mapping.
-        Assert.Matches(@"(?s)- ttl: \d+\s+type: CNAME\s+value:", yaml);
+        Assert.Matches(@"(?s)- ttl: \d+\s+type: A\s+value:", yaml);
     }
 
     [Fact]

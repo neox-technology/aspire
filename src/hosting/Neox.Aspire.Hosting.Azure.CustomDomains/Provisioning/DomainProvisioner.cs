@@ -211,7 +211,8 @@ public sealed class DomainProvisioner
         ArgumentNullException.ThrowIfNull(options);
 
         var kind = DnsRecordPlanner.DetectKind(hostname);
-        var validationMethod = kind == HostnameKind.Apex ? "HTTP" : "CNAME";
+        // DomainOps always plans A records to the env static IP; DigiCert uses HTTP validation.
+        const string validationMethod = "HTTP";
         var certificateName = !string.IsNullOrWhiteSpace(options.ManagedCertificateName)
             ? options.ManagedCertificateName!
             : !string.IsNullOrWhiteSpace(certificateNameParameter)

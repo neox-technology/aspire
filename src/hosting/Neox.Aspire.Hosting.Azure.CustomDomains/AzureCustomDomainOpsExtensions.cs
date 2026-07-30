@@ -75,34 +75,37 @@ public static class AzureCustomDomainOpsExtensions
     }
 
     /// <summary>
-    /// Builds the per-compute domain plan step name (<c>plan-{resource}-domain</c>).
+    /// Builds the per-compute domain plan step name (<c>plan-{resource}-domain-{domslug}</c>).
     /// </summary>
-    public static string GetDomainPlanResourceStepName(string resourceName)
+    public static string GetDomainPlanResourceStepName(string resourceName, string domainSlug)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceName);
-        return $"plan-{resourceName}-domain";
+        ArgumentException.ThrowIfNullOrWhiteSpace(domainSlug);
+        return $"plan-{resourceName}-domain-{domainSlug}";
     }
 
     /// <summary>
-    /// Builds the per-compute hostname-add step name (<c>provision-{resource}-domain</c>).
+    /// Builds the per-compute hostname-add step name (<c>provision-{resource}-domain-{domslug}</c>).
     /// </summary>
-    public static string GetDomainProvisionStepName(string resourceName)
+    public static string GetDomainProvisionStepName(string resourceName, string domainSlug)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceName);
-        return $"provision-{resourceName}-domain";
+        ArgumentException.ThrowIfNullOrWhiteSpace(domainSlug);
+        return $"provision-{resourceName}-domain-{domainSlug}";
     }
 
     /// <summary>
-    /// Builds the per-compute DomainOps bind step name (<c>deploy-{resource}-domain</c>).
+    /// Builds the per-compute DomainOps bind step name (<c>deploy-{resource}-domain-{domslug}</c>).
     /// </summary>
-    public static string GetDomainDeployStepName(string resourceName)
+    public static string GetDomainDeployStepName(string resourceName, string domainSlug)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceName);
-        return $"deploy-{resourceName}-domain";
+        ArgumentException.ThrowIfNullOrWhiteSpace(domainSlug);
+        return $"deploy-{resourceName}-domain-{domainSlug}";
     }
 
     /// <summary>
-    /// Shared gate that aggregates all <c>deploy-{resource}-domain</c> steps (<c>deploy-domains</c>).
+    /// Shared gate that aggregates all <c>deploy-{resource}-domain-{domslug}</c> steps (<c>deploy-domains</c>).
     /// </summary>
     public const string DeployDomainsStepName = "deploy-domains";
 
@@ -157,6 +160,7 @@ public static class AzureCustomDomainOpsExtensions
         configure?.Invoke(options);
 
         var zoneName = ResolveZoneName(builder.ApplicationBuilder, customDomain.Resource, options);
+        var domainSlug = ResolveDomainSlug(builder.ApplicationBuilder, customDomain.Resource);
         var acaEnv = RequireAcaEnvironment(builder.ApplicationBuilder);
         var envName = options.ContainerAppEnvironmentName ?? acaEnv.Name;
 
@@ -172,13 +176,14 @@ public static class AzureCustomDomainOpsExtensions
             provider.Resource,
             options,
             zoneName,
-            envName);
+            envName,
+            domainSlug);
 
         // Steps that depend on out-of-model containerapp provision or late resource plans.
         var targetResource = builder.Resource;
         var planZoneStepName = GetDomainPlanZoneStepName(zoneName);
-        var provisionResourceStepName = GetDomainProvisionStepName(targetResource.Name);
-        var deployStepName = GetDomainDeployStepName(targetResource.Name);
+        var provisionResourceStepName = GetDomainProvisionStepName(targetResource.Name, domainSlug);
+        var deployStepName = GetDomainDeployStepName(targetResource.Name, domainSlug);
         var envDomainsStepName = GetProvisionEnvDomainsStepName(envName);
         var envProvisionStepName = GetProvisionEnvCertificatesStepName(envName);
 
@@ -265,6 +270,21 @@ public static class AzureCustomDomainOpsExtensions
         return DnsRecordPlanner.GetZoneName(hostname);
     }
 
+    internal static string ResolveDomainSlug(
+        IDistributedApplicationBuilder applicationBuilder,
+        ParameterResource customDomain)
+    {
+        var hostname = TryPeekHostname(applicationBuilder, customDomain);
+        if (string.IsNullOrWhiteSpace(hostname))
+        {
+            throw new InvalidOperationException(
+                $"Cannot resolve domain slug for DomainOps step names. Provide a default for parameter '{customDomain.Name}' " +
+                $"(e.g. AddParameter(\"{customDomain.Name}\", \"www.example.com\")) or set Parameters:{customDomain.Name}.");
+        }
+
+        return ToZoneSlug(DnsRecordPlanner.NormalizeHostname(hostname));
+    }
+
     internal static string? TryPeekHostname(
         IDistributedApplicationBuilder applicationBuilder,
         ParameterResource customDomain)
@@ -276,7 +296,46 @@ public static class AzureCustomDomainOpsExtensions
         }
 
         fromConfig = applicationBuilder.Configuration[$"Parameters__{customDomain.Name}"];
-        return string.IsNullOrWhiteSpace(fromConfig) ? null : fromConfig;
+        if (!string.IsNullOrWhiteSpace(fromConfig))
+        {
+            return fromConfig;
+        }
+
+        // Prefer AddParameter constant defaults; skip generated/user-secrets defaults that fail at design time.
+        if (customDomain.Default is not null)
+        {
+            try
+            {
+                var fromDefault = customDomain.Default.GetDefaultValue();
+                if (!string.IsNullOrWhiteSpace(fromDefault))
+                {
+                    return fromDefault;
+                }
+            }
+            catch
+            {
+                // Ignore non-constant defaults (e.g. generated secrets) at registration time.
+            }
+        }
+
+        // AddParameter(name, value) may expose the constant via obsolete Value when Default is null
+        // (e.g. under --publisher manifest).
+#pragma warning disable CS0618
+        try
+        {
+            var fromValue = customDomain.Value;
+            if (!string.IsNullOrWhiteSpace(fromValue))
+            {
+                return fromValue;
+            }
+        }
+        catch
+        {
+            // Value throws when the parameter has no default and is unresolved.
+        }
+#pragma warning restore CS0618
+
+        return null;
     }
 
     private static AzureContainerAppEnvironmentResource RequireAcaEnvironment(
@@ -297,7 +356,8 @@ public static class AzureCustomDomainOpsExtensions
         DomainOpsProviderResource provider,
         AzureCustomDomainOpsOptions options,
         string zoneName,
-        string environmentName)
+        string environmentName,
+        string domainSlug)
     {
         EnsurePlanProviderStep(domainOps, applicationBuilder, provider, options);
         EnsureZoneSteps(domainOps, applicationBuilder, provider, options, zoneName);
@@ -312,7 +372,8 @@ public static class AzureCustomDomainOpsExtensions
             provider,
             options,
             zoneName,
-            environmentName);
+            environmentName,
+            domainSlug);
     }
 
     private static void EnsureEnvDomainsGate(
@@ -677,11 +738,12 @@ public static class AzureCustomDomainOpsExtensions
         DomainOpsProviderResource provider,
         AzureCustomDomainOpsOptions options,
         string zoneName,
-        string environmentName)
+        string environmentName,
+        string domainSlug)
     {
-        var planStepName = GetDomainPlanResourceStepName(targetResource.Name);
-        var provisionStepName = GetDomainProvisionStepName(targetResource.Name);
-        var deployStepName = GetDomainDeployStepName(targetResource.Name);
+        var planStepName = GetDomainPlanResourceStepName(targetResource.Name, domainSlug);
+        var provisionStepName = GetDomainProvisionStepName(targetResource.Name, domainSlug);
+        var deployStepName = GetDomainDeployStepName(targetResource.Name, domainSlug);
         var zoneProvisionStepName = GetDomainProvisionZoneStepName(zoneName);
         var envProvisionStepName = GetProvisionEnvCertificatesStepName(environmentName);
 
@@ -700,7 +762,7 @@ public static class AzureCustomDomainOpsExtensions
         domainOps.WithPipelineStepFactory(_ => new PipelineStep
         {
             Name = planStepName,
-            Description = $"Prepare domain binding model for '{targetResource.Name}' (no ARM).",
+            Description = $"Prepare domain binding model for '{targetResource.Name}' / '{domainSlug}' (no ARM).",
             Tags = ["domain-ops"],
             Resource = domainOps.Resource,
             DependsOnSteps = [zoneProvisionStepName],
@@ -734,7 +796,7 @@ public static class AzureCustomDomainOpsExtensions
         domainOps.WithPipelineStepFactory(_ => new PipelineStep
         {
             Name = provisionStepName,
-            Description = $"Add custom hostname to '{targetResource.Name}' without certificate.",
+            Description = $"Add custom hostname '{domainSlug}' to '{targetResource.Name}' without certificate.",
             Tags = ["domain-ops"],
             Resource = domainOps.Resource,
             DependsOnSteps = [planStepName, zoneProvisionStepName],
@@ -774,7 +836,7 @@ public static class AzureCustomDomainOpsExtensions
         domainOps.WithPipelineStepFactory(_ => new PipelineStep
         {
             Name = deployStepName,
-            Description = $"Bind managed certificate to custom domain on '{targetResource.Name}'.",
+            Description = $"Bind managed certificate to '{domainSlug}' on '{targetResource.Name}'.",
             Tags = ["domain-ops"],
             Resource = domainOps.Resource,
             DependsOnSteps = [envProvisionStepName],

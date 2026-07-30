@@ -25,7 +25,7 @@ public sealed class DomainOpsOrchestratorTests
         Assert.Equal("api", plan.TargetResourceName);
         Assert.Equal("www.contoso.com", plan.Hostname);
         Assert.Equal("www-contoso-com", plan.CertificateName);
-        Assert.Equal("CNAME", plan.ValidationMethod);
+        Assert.Equal("HTTP", plan.ValidationMethod);
         Assert.Equal(HostnameKind.Subdomain, plan.Kind);
     }
 
