@@ -2,11 +2,13 @@
 
 Aspire hosting helpers that automate **Azure Container Apps** custom domains: multi-provider DNS via [OctoDNS](https://github.com/octodns/octodns) (config generated in-process; sync via **Docker**), **managed certificates**, and GitHub Actions variable updates.
 
+Fluent DNS provider APIs (`.Cloudflare()`, `.Ovh()`, `.Route53()`, …) are **source-generated** from the versioned catalogue [`Provider/octodns-providers.json`](Provider/octodns-providers.json) (official `octodns/{flavor}` Docker images, excluding `octodns` all / `etchosts` / `dyn`).
+
 ## Prerequisites (consumer / CI)
 
 - [Aspire CLI](https://aspire.dev/) and Azure authentication for `aspire deploy` / DomainOps
 - Aspire Azure credential via `ITokenCredentialProvider` (local: typically `az login` or another `Azure__CredentialSource`; CI: OIDC / service principal). The Azure CLI **binary is not required** for DomainOps ARM calls.
-- [Docker](https://docs.docker.com/) with access to pull `octodns/cloudflare` or `octodns/ovh`
+- [Docker](https://docs.docker.com/) with access to pull the provider image (e.g. `octodns/cloudflare`, `octodns/ovh`, `octodns/route53`)
 - [GitHub CLI](https://cli.github.com/) (`gh`) with permission to set Actions variables
 
 ### Secrets / tokens
@@ -14,8 +16,7 @@ Aspire hosting helpers that automate **Azure Container Apps** custom domains: mu
 | Need | Typical source |
 |------|----------------|
 | Azure | OIDC / service principal (`Azure__SubscriptionId`, `Azure__Location`, `Azure__ResourceGroup`) + Aspire credential |
-| Cloudflare | `Parameters__{providerName}-token` (e.g. `Parameters__dns-token`; env fallback `Parameters__dns_token`) |
-| OVH | `Parameters__{providerName}-application-key`, `-application-secret`, `-consumer-key` |
+| Provider auth | `Parameters__{providerName}-{setting}` from the generated Options (e.g. Cloudflare `Parameters__dns-token`; OVH `Parameters__dns-application-key` / `-application-secret` / `-consumer-key`) |
 | GitHub variables | PAT or GitHub App token that can write repository Actions variables (`gh variable set`) |
 
 Credentials are **never** written into generated `octodns.yaml` (only `env/VAR` refs). Values are injected as container env vars when running `docker run`. DomainOps reads Container Apps and binds managed hostnames via **Azure Resource Manager** (`Azure.ResourceManager.AppContainers`), using the same token scope as Aspire deploy (`https://management.azure.com/.default`).
@@ -29,7 +30,7 @@ var customDomain = builder.AddParameter("customDomain");
 var certificateName = builder.AddParameter("certificateName");
 
 var dns = builder.AddDomainOpsProvider("dns")
-    .Cloudflare(); // or .Ovh(); auth from Parameters__dns-* when options are omitted
+    .Cloudflare(); // or .Ovh(), .Route53(), … — auth from Parameters__dns-* when options are omitted
 
 builder.AddAzureContainerAppEnvironment("env");
 
@@ -53,17 +54,27 @@ builder.AddProject<Projects.Api>("api")
 
 The same provider resource can be passed to multiple `WithAzureCustomDomainOps` bindings.
 
+### Generated providers
+
+Methods on `IDomainOpsProviderBuilder` mirror catalogue entries (Docker flavors). Refresh the catalogue after OctoDNS adds flavors:
+
+```bash
+dotnet run --project tools/octodns-provider-catalog
+```
+
+This scrapes the [octodns-docker](https://github.com/octodns/octodns-docker) README and each provider README Configuration YAML, then updates `Provider/octodns-providers.json`. Builds stay offline and deterministic.
+
 ### Pipeline steps
 
 | Step | Command | Depends on |
 |------|---------|------------|
 | Shared DomainOps gate | (usually via deploy graph) `prereq-domain` | `provision-{acaEnv}` (e.g. `provision-env`) |
-| Provider image pull | `prereq-domain-cloudflare` / `prereq-domain-ovh` | `prereq-domain` |
+| Provider image pull | `prereq-domain-{slug}` (e.g. `prereq-domain-cloudflare`) | `prereq-domain` |
 | Verify | `aspire do domain-verify --non-interactive --environment production` | — |
 | Provision | `aspire do provision-api-domain --non-interactive --environment production` | `prereq-domain-{provider}`; plus `provision-api-containerapp` when Aspire has materialized the deployment target (via pipeline configuration) |
 | Guard | `aspire do domain-guard --non-interactive --environment production` | — |
 
-`AddDomainOpsProvider(...).Cloudflare()` / `.Ovh()` registers the prereq steps (idempotent per provider slug). `WithAzureCustomDomainOps` registers `provision-{resource}-domain` plus verify/guard.
+`AddDomainOpsProvider(...).{Provider}()` registers the prereq steps (idempotent per provider slug). `WithAzureCustomDomainOps` registers `provision-{resource}-domain` plus verify/guard.
 
 `provision-{resource}-domain` waits for the Container App Bicep provision step and the provider image pull, then **dumps** the live zone, **upserts** ACA DNS records (create/update only — DomainOps never deletes), dry-runs OctoDNS and applies only when the plan has no Deletes, and binds the managed certificate through ARM — it does not shell out to `az`.
 

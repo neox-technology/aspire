@@ -4,6 +4,7 @@
   </Folder>
   <Folder Name="/src/hosting/">
     <Project Path="src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains/Neox.Aspire.Hosting.Azure.CustomDomains.csproj" />
+    <Project Path="src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains.Generators/Neox.Aspire.Hosting.Azure.CustomDomains.Generators.csproj" />
   </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/azure-custom-domains/">
@@ -38,5 +39,8 @@
     <Project Path="tests/efcore-migration-worker/oracle/service-defaults/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.Oracle.ServiceDefaults.csproj" />
     <Project Path="tests/efcore-migration-worker/oracle/data/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.Oracle.Data.csproj" />
     <Project Path="tests/efcore-migration-worker/oracle/tests/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.Oracle.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/octodns-provider-catalog/octodns-provider-catalog.csproj" />
   </Folder>
 </Solution>
