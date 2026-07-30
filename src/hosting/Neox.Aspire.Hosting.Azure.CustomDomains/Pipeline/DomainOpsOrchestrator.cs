@@ -7,14 +7,13 @@ using Neox.Aspire.Hosting.Azure.Provisioning;
 namespace Neox.Aspire.Hosting.Azure.Pipeline;
 
 /// <summary>
-/// Coordinates custom domain verify / guard / provision pipeline actions.
+/// Coordinates DomainOps plan / provision pipeline actions.
 /// </summary>
 public sealed class DomainOpsOrchestrator
 {
     private readonly IProcessRunner _processRunner;
     private readonly ILogger _logger;
     private readonly DnsRecordPlanner _planner;
-    private readonly DnsRecordVerifier _verifier;
     private readonly OctoDnsZoneWriter _zoneWriter;
     private readonly OctoDnsConfigWriter _configWriter;
     private readonly IAzureContainerAppClient? _azureClient;
@@ -26,7 +25,6 @@ public sealed class DomainOpsOrchestrator
             processRunner,
             logger,
             new DnsRecordPlanner(),
-            new DnsRecordVerifier(),
             new OctoDnsZoneWriter(),
             new OctoDnsConfigWriter(),
             azureClient: null,
@@ -39,7 +37,6 @@ public sealed class DomainOpsOrchestrator
         IProcessRunner processRunner,
         ILogger logger,
         DnsRecordPlanner planner,
-        DnsRecordVerifier verifier,
         OctoDnsZoneWriter zoneWriter,
         OctoDnsConfigWriter? configWriter = null,
         IAzureContainerAppClient? azureClient = null,
@@ -49,7 +46,6 @@ public sealed class DomainOpsOrchestrator
         _processRunner = processRunner ?? throw new ArgumentNullException(nameof(processRunner));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _planner = planner ?? throw new ArgumentNullException(nameof(planner));
-        _verifier = verifier ?? throw new ArgumentNullException(nameof(verifier));
         _zoneWriter = zoneWriter ?? throw new ArgumentNullException(nameof(zoneWriter));
         _configWriter = configWriter ?? new OctoDnsConfigWriter();
         _azureClient = azureClient;
@@ -57,136 +53,180 @@ public sealed class DomainOpsOrchestrator
         _services = services;
     }
 
-    public async Task<DomainOpsVerifyOutcome> VerifyAsync(
-        IResource targetResource,
-        ParameterResource customDomain,
-        ParameterResource certificateName,
-        AzureCustomDomainOpsOptions options,
-        CancellationToken cancellationToken,
-        IReadOnlyList<DnsRecord>? observedRecords = null,
-        DnsPlanInput? planInput = null)
+    public DomainOpsPlanProviderOutcome PlanProvider(
+        DomainOpsProviderResource provider,
+        IReadOnlyList<string> zoneNames,
+        AzureCustomDomainOpsOptions options)
     {
-        ArgumentNullException.ThrowIfNull(targetResource);
-        ArgumentNullException.ThrowIfNull(customDomain);
-        ArgumentNullException.ThrowIfNull(certificateName);
+        ArgumentNullException.ThrowIfNull(provider);
+        ArgumentNullException.ThrowIfNull(zoneNames);
         ArgumentNullException.ThrowIfNull(options);
 
-        var hostname = await customDomain.GetValueAsync(cancellationToken).ConfigureAwait(false);
-        if (string.IsNullOrWhiteSpace(hostname))
-        {
-            throw new InvalidOperationException("Custom domain parameter is empty. Set Parameters__customDomain.");
-        }
-
-        await GuardCoreAsync(certificateName, options, cancellationToken).ConfigureAwait(false);
-
-        if (planInput is null)
-        {
-            planInput = TryBuildPlanInputFromEnvironment(hostname);
-        }
-
-        if (planInput is null)
-        {
-            _logger.LogInformation(
-                "domain-verify: certificate/domain parameters OK for {Resource}; skipping DNS drift check (no ACA plan input).",
-                targetResource.Name);
-            return new DomainOpsVerifyOutcome(
-                targetResource.Name,
-                hostname,
-                DomainOpsDnsCheckStatus.SkippedNoPlanInput);
-        }
-
-        var plan = _planner.Plan(planInput);
+        var provisioner = GetProvisioner();
+        var path = provisioner.PlanProviderConfig(provider, zoneNames, options);
         _logger.LogInformation(
-            "domain-verify: planned {Count} DNS records for {Hostname} ({Kind}).",
-            plan.Records.Count,
-            hostname,
-            plan.Kind);
+            "plan-domain-{Provider}: wrote OctoDNS config {Path} for zones [{Zones}].",
+            provider.ProviderSlug,
+            path,
+            string.Join(", ", zoneNames));
 
-        if (observedRecords is null)
-        {
-            return new DomainOpsVerifyOutcome(
-                targetResource.Name,
-                hostname,
-                DomainOpsDnsCheckStatus.PlannedOnly,
-                plan.Kind,
-                plan.Records.Count);
-        }
-
-        var drift = _verifier.FindDrift(plan.Records, observedRecords);
-        if (drift.Count > 0)
-        {
-            throw new InvalidOperationException(
-                "DNS drift detected:" + Environment.NewLine + string.Join(Environment.NewLine, drift));
-        }
-
-        _logger.LogInformation("domain-verify: DNS records match expected plan.");
-        return new DomainOpsVerifyOutcome(
-            targetResource.Name,
-            hostname,
-            DomainOpsDnsCheckStatus.Matched,
-            plan.Kind,
-            plan.Records.Count);
+        return new DomainOpsPlanProviderOutcome(provider.ProviderSlug, path, zoneNames);
     }
 
-    public Task<DomainOpsGuardOutcome> GuardAsync(
-        ParameterResource certificateName,
-        AzureCustomDomainOpsOptions options,
-        CancellationToken cancellationToken)
-        => GuardCoreAsync(certificateName, options, cancellationToken);
-
-    public async Task<DomainOpsProvisionOutcome> ProvisionAsync(
-        IResource targetResource,
-        ParameterResource customDomain,
-        ParameterResource certificateName,
+    public async Task<DomainOpsPlanZoneOutcome> PlanZoneAsync(
+        string zoneName,
+        IReadOnlyList<ZoneBindingInput> bindings,
         DomainOpsProviderResource provider,
         AzureCustomDomainOpsOptions options,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(targetResource);
-        ArgumentNullException.ThrowIfNull(customDomain);
-        ArgumentNullException.ThrowIfNull(certificateName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(zoneName);
+        ArgumentNullException.ThrowIfNull(bindings);
         ArgumentNullException.ThrowIfNull(provider);
         ArgumentNullException.ThrowIfNull(options);
 
-        var hostname = await customDomain.GetValueAsync(cancellationToken).ConfigureAwait(false);
-        if (string.IsNullOrWhiteSpace(hostname))
-        {
-            throw new InvalidOperationException("Custom domain parameter is empty. Set Parameters__customDomain.");
-        }
-
-        options.ContainerAppResourceName ??= targetResource.Name;
-
-        var azureClient = _azureClient
-            ?? (_services is not null
-                ? ArmAzureContainerAppClient.Create(_services)
-                : throw new InvalidOperationException(
-                    "IAzureContainerAppClient is required. Pass an ARM client or IServiceProvider with ITokenCredentialProvider."));
-
-        var provisioner = _provisioner
-            ?? new DomainProvisioner(
-                _processRunner,
-                azureClient,
-                _planner,
-                zoneUpserter: null,
-                _configWriter);
-
-        var certName = await provisioner.ProvisionAsync(hostname, provider, options, cancellationToken)
+        var provisioner = GetProvisioner();
+        await provisioner.PlanZoneAsync(zoneName, bindings, provider, options, cancellationToken)
             .ConfigureAwait(false);
-        _logger.LogInformation(
-            "provision-domain completed for {Hostname}; certificate '{Certificate}' (GitHub variable {Variable}).",
-            hostname,
-            certName,
-            options.CertificateGitHubVariableName);
 
-        return new DomainOpsProvisionOutcome(
+        _logger.LogInformation(
+            "plan-domain-{Zone}: upserted {Count} hostname binding(s).",
+            zoneName,
+            bindings.Count);
+
+        return new DomainOpsPlanZoneOutcome(zoneName, bindings.Count);
+    }
+
+    public async Task ProvisionZoneAsync(
+        string zoneName,
+        DomainOpsProviderResource provider,
+        AzureCustomDomainOpsOptions options,
+        DnsPlan? waitPlan,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(zoneName);
+        ArgumentNullException.ThrowIfNull(provider);
+        ArgumentNullException.ThrowIfNull(options);
+
+        var provisioner = GetProvisioner();
+        await provisioner.ProvisionZoneAsync(zoneName, provider, options, waitPlan, cancellationToken)
+            .ConfigureAwait(false);
+
+        _logger.LogInformation("provision-domain-{Zone}: OctoDNS sync applied.", zoneName);
+    }
+
+    public async Task<DomainOpsPlanCertificatesOutcome> PlanEnvCertificatesAsync(
+        string environmentName,
+        string containerAppResourceName,
+        AzureCustomDomainOpsOptions options,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(environmentName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(containerAppResourceName);
+        ArgumentNullException.ThrowIfNull(options);
+
+        var provisioner = GetProvisioner();
+        var azure = GetAzureClient();
+        var targets = await azure.GetTargetsAsync(
+                containerAppResourceName,
+                resourceGroup: Environment.GetEnvironmentVariable("Azure__ResourceGroup"),
+                environmentName: null,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        var certs = await provisioner.PlanEnvCertificatesAsync(targets, cancellationToken).ConfigureAwait(false);
+        _logger.LogInformation(
+            "plan-{Env}-certificates: inventoried {Count} managed certificate(s).",
+            environmentName,
+            certs.Count);
+
+        return new DomainOpsPlanCertificatesOutcome(environmentName, targets, certs);
+    }
+
+    public DomainBindingPlan PlanResourceDomain(
+        IResource targetResource,
+        string hostname,
+        AzureCustomDomainOpsOptions options,
+        string? certificateNameParameter)
+    {
+        ArgumentNullException.ThrowIfNull(targetResource);
+        ArgumentException.ThrowIfNullOrWhiteSpace(hostname);
+        ArgumentNullException.ThrowIfNull(options);
+
+        var provisioner = GetProvisioner();
+        var plan = provisioner.PlanResourceDomain(
             targetResource.Name,
             hostname,
-            certName,
-            options.CertificateGitHubVariableName);
+            options,
+            certificateNameParameter);
+
+        _logger.LogInformation(
+            "plan-{Resource}-domain: hostname={Hostname}, cert={Certificate}, validation={Validation}.",
+            targetResource.Name,
+            plan.Hostname,
+            plan.CertificateName,
+            plan.ValidationMethod);
+
+        return plan;
+    }
+
+    public async Task ProvisionEnvCertificatesAsync(
+        AzureContainerAppTargets targets,
+        IReadOnlyList<DomainBindingPlan> bindingPlans,
+        IReadOnlyList<AzureManagedCertificateInfo> existingCertificates,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(targets);
+        ArgumentNullException.ThrowIfNull(bindingPlans);
+        ArgumentNullException.ThrowIfNull(existingCertificates);
+
+        var provisioner = GetProvisioner();
+        await provisioner.ProvisionEnvCertificatesAsync(
+                targets,
+                bindingPlans,
+                existingCertificates,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        _logger.LogInformation(
+            "provision-{Env}-certificates: ensured {Count} domain certificate(s).",
+            targets.EnvironmentName,
+            bindingPlans.Count);
+    }
+
+    public async Task BindResourceDomainAsync(
+        IResource targetResource,
+        DomainBindingPlan plan,
+        AzureCustomDomainOpsOptions options,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(targetResource);
+        ArgumentNullException.ThrowIfNull(plan);
+        ArgumentNullException.ThrowIfNull(options);
+
+        var azure = GetAzureClient();
+        var provisioner = GetProvisioner();
+        var appName = options.ContainerAppResourceName ?? targetResource.Name;
+
+        var targets = await azure.GetTargetsAsync(
+                appName,
+                resourceGroup: Environment.GetEnvironmentVariable("Azure__ResourceGroup"),
+                environmentName: options.ContainerAppEnvironmentName,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        var certs = await azure.ListManagedCertificatesAsync(targets, cancellationToken).ConfigureAwait(false);
+        await provisioner.BindResourceDomainAsync(targets, plan, certs, cancellationToken).ConfigureAwait(false);
+
+        _logger.LogInformation(
+            "provision-{Resource}-domain: bound {Hostname} to certificate '{Certificate}'.",
+            targetResource.Name,
+            plan.Hostname,
+            plan.CertificateName);
     }
 
     /// <summary>
-    /// Plans records and writes OctoDNS zone YAML (used by provision and tests).
+    /// Plans records and writes OctoDNS zone YAML (used by tests).
     /// </summary>
     public string WritePlannedZone(DnsPlanInput input, string zoneDirectory)
     {
@@ -194,41 +234,26 @@ public sealed class DomainOpsOrchestrator
         return _zoneWriter.WriteToDirectory(plan, zoneDirectory);
     }
 
-    private async Task<DomainOpsGuardOutcome> GuardCoreAsync(
-        ParameterResource certificateName,
-        AzureCustomDomainOpsOptions options,
-        CancellationToken cancellationToken)
+    private DomainProvisioner GetProvisioner()
     {
-        if (!options.RequireCertificateName)
+        if (_provisioner is not null)
         {
-            _logger.LogInformation("domain-guard skipped because RequireCertificateName is false.");
-            return new DomainOpsGuardOutcome(Skipped: true);
+            return _provisioner;
         }
 
-        var value = await certificateName.GetValueAsync(cancellationToken).ConfigureAwait(false);
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            throw new InvalidOperationException(
-                "Certificate name parameter is empty. Set Parameters__certificateName (or disable RequireCertificateName for bootstrap).");
-        }
-
-        _logger.LogInformation("domain-guard passed for certificate parameter.");
-        return new DomainOpsGuardOutcome(Skipped: false, CertificateName: value);
+        var azure = GetAzureClient();
+        return new DomainProvisioner(
+            _processRunner,
+            azure,
+            _planner,
+            zoneUpserter: null,
+            _configWriter);
     }
 
-    private static DnsPlanInput? TryBuildPlanInputFromEnvironment(string hostname)
-    {
-        var fqdn = Environment.GetEnvironmentVariable("NEOX_ACA_FQDN");
-        var staticIp = Environment.GetEnvironmentVariable("NEOX_ACA_STATIC_IP");
-        var asuid = Environment.GetEnvironmentVariable("NEOX_ACA_ASUID");
-
-        if (string.IsNullOrWhiteSpace(fqdn) ||
-            string.IsNullOrWhiteSpace(staticIp) ||
-            string.IsNullOrWhiteSpace(asuid))
-        {
-            return null;
-        }
-
-        return new DnsPlanInput(hostname, fqdn, staticIp, asuid);
-    }
+    private IAzureContainerAppClient GetAzureClient()
+        => _azureClient
+           ?? (_services is not null
+               ? ArmAzureContainerAppClient.Create(_services)
+               : throw new InvalidOperationException(
+                   "IAzureContainerAppClient is required. Pass an ARM client or IServiceProvider with ITokenCredentialProvider."));
 }

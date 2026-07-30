@@ -7,9 +7,13 @@ namespace Neox.Aspire.Hosting.Azure;
 
 internal enum DomainOpsActionKind
 {
-    Verify,
-    Guard,
-    Provision
+    PlanProvider,
+    PlanZone,
+    ProvisionZone,
+    PlanCertificates,
+    PlanResourceDomain,
+    ProvisionCertificates,
+    BindResourceDomain
 }
 
 /// <summary>
@@ -31,32 +35,33 @@ internal static class DomainOpsParameterPrompt
 
         switch (kind)
         {
-            case DomainOpsActionKind.Verify:
+            case DomainOpsActionKind.PlanProvider:
+            case DomainOpsActionKind.PlanZone:
+            case DomainOpsActionKind.ProvisionZone:
+            case DomainOpsActionKind.PlanResourceDomain:
+            case DomainOpsActionKind.BindResourceDomain:
+                yield return customDomain;
+                break;
+            case DomainOpsActionKind.PlanCertificates:
+                break;
+            case DomainOpsActionKind.ProvisionCertificates:
                 yield return customDomain;
                 if (options.RequireCertificateName)
                 {
                     yield return certificateName;
-                }
-
-                break;
-            case DomainOpsActionKind.Guard:
-                if (options.RequireCertificateName)
-                {
-                    yield return certificateName;
-                }
-
-                break;
-            case DomainOpsActionKind.Provision:
-                yield return customDomain;
-                yield return certificateName;
-                foreach (var auth in provider.AuthParameters.Values)
-                {
-                    yield return auth;
                 }
 
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(kind), kind, null);
+        }
+
+        if (kind is DomainOpsActionKind.PlanZone or DomainOpsActionKind.ProvisionZone)
+        {
+            foreach (var auth in provider.AuthParameters.Values)
+            {
+                yield return auth;
+            }
         }
     }
 
@@ -64,8 +69,6 @@ internal static class DomainOpsParameterPrompt
     /// <summary>
     /// Prompts for any parameters whose <c>WaitForValueTcs</c> is still incomplete.
     /// </summary>
-    /// <exception cref="InvalidOperationException">Interaction/processor unavailable while parameters are unresolved.</exception>
-    /// <exception cref="OperationCanceledException">User dismissed a parameter prompt.</exception>
     public static async Task EnsureReadyAsync(
         IServiceProvider services,
         IEnumerable<ParameterResource> parameters,

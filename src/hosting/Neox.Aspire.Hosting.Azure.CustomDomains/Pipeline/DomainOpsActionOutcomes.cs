@@ -1,44 +1,27 @@
 using Neox.Aspire.Hosting.Azure.Dns;
+using Neox.Aspire.Hosting.Azure.Provisioning;
 
 namespace Neox.Aspire.Hosting.Azure.Pipeline;
 
 /// <summary>
-/// How far DNS verification progressed for a binding.
+/// Outcome of planning an OctoDNS provider config file.
 /// </summary>
-public enum DomainOpsDnsCheckStatus
-{
-    /// <summary>No ACA plan input (env or explicit); DNS drift was not evaluated.</summary>
-    SkippedNoPlanInput,
-
-    /// <summary>Records were planned but no observed records were supplied.</summary>
-    PlannedOnly,
-
-    /// <summary>Observed DNS records matched the plan.</summary>
-    Matched
-}
+public sealed record DomainOpsPlanProviderOutcome(
+    string ProviderSlug,
+    string ConfigPath,
+    IReadOnlyList<string> ZoneNames);
 
 /// <summary>
-/// Outcome of <see cref="DomainOpsOrchestrator.VerifyAsync"/>.
+/// Outcome of planning a DNS zone YAML.
 /// </summary>
-public sealed record DomainOpsVerifyOutcome(
-    string TargetResourceName,
-    string Hostname,
-    DomainOpsDnsCheckStatus DnsStatus,
-    HostnameKind? Kind = null,
-    int? PlannedRecordCount = null);
+public sealed record DomainOpsPlanZoneOutcome(
+    string ZoneName,
+    int BindingCount);
 
 /// <summary>
-/// Outcome of <see cref="DomainOpsOrchestrator.GuardAsync"/>.
+/// Outcome of inventoring managed certificates on an ACA environment.
 /// </summary>
-public sealed record DomainOpsGuardOutcome(
-    bool Skipped,
-    string? CertificateName = null);
-
-/// <summary>
-/// Outcome of <see cref="DomainOpsOrchestrator.ProvisionAsync"/>.
-/// </summary>
-public sealed record DomainOpsProvisionOutcome(
-    string TargetResourceName,
-    string Hostname,
-    string CertificateName,
-    string GitHubVariableName);
+public sealed record DomainOpsPlanCertificatesOutcome(
+    string EnvironmentName,
+    AzureContainerAppTargets Targets,
+    IReadOnlyList<AzureManagedCertificateInfo> Certificates);

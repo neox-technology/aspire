@@ -6,7 +6,7 @@ namespace Neox.Aspire.Hosting.Azure;
 public sealed class AzureCustomDomainOpsOptions
 {
     /// <summary>
-    /// Aspire resource name of the Container App (used with Azure CLI queries).
+    /// Aspire resource name of the Container App (used with Azure ARM queries).
     /// </summary>
     public string? ContainerAppResourceName { get; set; }
 
@@ -14,6 +14,12 @@ public sealed class AzureCustomDomainOpsOptions
     /// Azure Container Apps environment name. When null, inferred from deploy context / Azure settings.
     /// </summary>
     public string? ContainerAppEnvironmentName { get; set; }
+
+    /// <summary>
+    /// Optional DNS zone override for pipeline step naming / aggregation.
+    /// When null, derived from the custom domain hostname (parameter default or configuration).
+    /// </summary>
+    public string? DnsZoneName { get; set; }
 
     /// <summary>
     /// Path where the generated OctoDNS config YAML is written (secrets use <c>env/VAR</c> refs only).
@@ -31,12 +37,12 @@ public sealed class AzureCustomDomainOpsOptions
     public string? OctoDnsDockerImage { get; set; }
 
     /// <summary>
-    /// GitHub Actions repository variable that stores the managed certificate name.
+    /// Reserved for V2 GitHub Actions variable automation. Unused in DomainOps V1.
     /// </summary>
     public string CertificateGitHubVariableName { get; set; } = "CERTIFICATE_NAME";
 
     /// <summary>
-    /// When true, <c>domain-verify</c> and <c>domain-guard</c> fail if the certificate parameter is empty.
+    /// When true, certificate name parameter is preferred for the planned managed certificate name.
     /// </summary>
     public bool RequireCertificateName { get; set; } = true;
 
@@ -46,7 +52,7 @@ public sealed class AzureCustomDomainOpsOptions
     public string? ManagedCertificateName { get; set; }
 
     /// <summary>
-    /// Maximum time to wait for DNS propagation before hostname bind.
+    /// Maximum time to wait for DNS propagation after zone provision.
     /// </summary>
     public TimeSpan DnsPropagationTimeout { get; set; } = TimeSpan.FromMinutes(10);
 

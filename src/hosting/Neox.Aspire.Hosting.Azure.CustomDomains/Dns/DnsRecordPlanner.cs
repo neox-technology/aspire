@@ -44,7 +44,17 @@ public sealed class DnsRecordPlanner
         return labels.Length <= 2 ? HostnameKind.Apex : HostnameKind.Subdomain;
     }
 
-    internal static string NormalizeHostname(string hostname)
+    /// <summary>
+    /// Resolves the registrable DNS zone name for a custom hostname (apex or subdomain).
+    /// </summary>
+    public static string GetZoneName(string hostname)
+    {
+        var normalized = NormalizeHostname(hostname);
+        var kind = DetectKind(normalized);
+        return SplitZone(normalized, kind).ZoneName;
+    }
+
+    public static string NormalizeHostname(string hostname)
     {
         var value = hostname.Trim().TrimEnd('.').ToLowerInvariant();
         if (value.StartsWith("https://", StringComparison.Ordinal) || value.StartsWith("http://", StringComparison.Ordinal))

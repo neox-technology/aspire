@@ -6,7 +6,7 @@ using Neox.Aspire.Hosting.Azure.Processes;
 namespace Neox.Aspire.Hosting.Azure.Provisioning;
 
 /// <summary>
-/// Provisions DNS (OctoDNS via Docker, upsert-only), ACA managed certificate binding, and GitHub Actions variables.
+/// DomainOps plan/provision helpers: OctoDNS (Docker, upsert-only), managed certificates, hostname bind.
 /// </summary>
 public sealed class DomainProvisioner
 {
@@ -37,48 +37,90 @@ public sealed class DomainProvisioner
         _delayAsync = delayAsync;
     }
 
-    public async Task<string> ProvisionAsync(
-        string customHostname,
+    public string PlanProviderConfig(
+        DomainOpsProviderResource provider,
+        IEnumerable<string> zoneNames,
+        AzureCustomDomainOpsOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(provider);
+        ArgumentNullException.ThrowIfNull(zoneNames);
+        ArgumentNullException.ThrowIfNull(options);
+
+        var (_, _, zonesRelative) = ResolveDockerMount(
+            options.OctoDnsConfigPath,
+            options.OctoDnsZoneDirectory);
+
+        return _configWriter.WriteToFile(
+            provider,
+            zoneNames,
+            Path.GetFullPath(options.OctoDnsConfigPath),
+            zonesRelative);
+    }
+
+    public async Task PlanZoneAsync(
+        string zoneName,
+        IReadOnlyList<ZoneBindingInput> bindings,
         DomainOpsProviderResource provider,
         AzureCustomDomainOpsOptions options,
         CancellationToken cancellationToken)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(customHostname);
+        ArgumentException.ThrowIfNullOrWhiteSpace(zoneName);
+        ArgumentNullException.ThrowIfNull(bindings);
         ArgumentNullException.ThrowIfNull(provider);
         ArgumentNullException.ThrowIfNull(options);
 
-        var appName = options.ContainerAppResourceName
-            ?? throw new InvalidOperationException("ContainerAppResourceName must be set.");
-
-        var targets = await _azureClient.GetTargetsAsync(
-            appName,
-            resourceGroup: Environment.GetEnvironmentVariable("Azure__ResourceGroup"),
-            environmentName: options.ContainerAppEnvironmentName,
-            cancellationToken).ConfigureAwait(false);
-
-        var planInput = new DnsPlanInput(
-            customHostname,
-            targets.Fqdn,
-            targets.StaticIp,
-            targets.CustomDomainVerificationId);
-
-        var plan = _planner.Plan(planInput);
+        if (bindings.Count == 0)
+        {
+            throw new InvalidOperationException($"No bindings registered for zone '{zoneName}'.");
+        }
 
         var (mountRoot, configInContainer, zonesRelative) = ResolveDockerMount(
             options.OctoDnsConfigPath,
             options.OctoDnsZoneDirectory);
 
-        _configWriter.WriteToFile(
-            provider,
-            [plan.ZoneName],
-            Path.GetFullPath(options.OctoDnsConfigPath),
-            zonesRelative);
-
-        // Best-effort dump of the live zone so upsert starts from existing records (greenfield OK if dump fails).
-        await TryDumpZoneAsync(provider, options, mountRoot, configInContainer, zonesRelative, plan.ZoneName, cancellationToken)
+        await TryDumpZoneAsync(provider, options, mountRoot, configInContainer, zonesRelative, zoneName, cancellationToken)
             .ConfigureAwait(false);
 
-        _zoneUpserter.UpsertToDirectory(plan, options.OctoDnsZoneDirectory);
+        foreach (var binding in bindings)
+        {
+            var targets = await _azureClient.GetTargetsAsync(
+                    binding.ContainerAppResourceName,
+                    resourceGroup: Environment.GetEnvironmentVariable("Azure__ResourceGroup"),
+                    environmentName: options.ContainerAppEnvironmentName,
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+            var planInput = new DnsPlanInput(
+                binding.Hostname,
+                targets.Fqdn,
+                targets.StaticIp,
+                targets.CustomDomainVerificationId);
+
+            var plan = _planner.Plan(planInput);
+            if (!string.Equals(plan.ZoneName, zoneName, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    $"Hostname '{binding.Hostname}' resolves to zone '{plan.ZoneName}', expected '{zoneName}'.");
+            }
+
+            _zoneUpserter.UpsertToDirectory(plan, options.OctoDnsZoneDirectory);
+        }
+    }
+
+    public async Task ProvisionZoneAsync(
+        string zoneName,
+        DomainOpsProviderResource provider,
+        AzureCustomDomainOpsOptions options,
+        DnsPlan? waitPlan,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(zoneName);
+        ArgumentNullException.ThrowIfNull(provider);
+        ArgumentNullException.ThrowIfNull(options);
+
+        var (mountRoot, configInContainer, _) = ResolveDockerMount(
+            options.OctoDnsConfigPath,
+            options.OctoDnsZoneDirectory);
 
         var dryRun = await RunOctoDnsDockerAsync(
                 provider,
@@ -111,32 +153,101 @@ public sealed class DomainProvisioner
                 cancellationToken)
             .ConfigureAwait(false);
 
-        await WaitForDnsAsync(plan, options, cancellationToken).ConfigureAwait(false);
+        if (waitPlan is not null)
+        {
+            await WaitForDnsAsync(waitPlan, options, cancellationToken).ConfigureAwait(false);
+        }
+    }
 
-        var certificateName = string.IsNullOrWhiteSpace(options.ManagedCertificateName)
-            ? SanitizeCertificateName(customHostname)
-            : options.ManagedCertificateName!;
+    public async Task<IReadOnlyList<AzureManagedCertificateInfo>> PlanEnvCertificatesAsync(
+        AzureContainerAppTargets targets,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(targets);
+        return await _azureClient.ListManagedCertificatesAsync(targets, cancellationToken).ConfigureAwait(false);
+    }
 
-        var validationMethod = plan.Kind == HostnameKind.Apex ? "HTTP" : "CNAME";
+    public async Task ProvisionEnvCertificatesAsync(
+        AzureContainerAppTargets targets,
+        IReadOnlyList<DomainBindingPlan> bindingPlans,
+        IReadOnlyList<AzureManagedCertificateInfo> existingCertificates,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(targets);
+        ArgumentNullException.ThrowIfNull(bindingPlans);
+        ArgumentNullException.ThrowIfNull(existingCertificates);
 
-        await _azureClient.BindManagedHostnameAsync(
-                targets,
-                customHostname,
-                certificateName,
-                validationMethod,
-                cancellationToken)
+        foreach (var plan in bindingPlans)
+        {
+            var exists = existingCertificates.Any(c =>
+                string.Equals(c.Name, plan.CertificateName, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(c.SubjectName, plan.Hostname, StringComparison.OrdinalIgnoreCase));
+
+            if (exists)
+            {
+                continue;
+            }
+
+            var created = await _azureClient.CreateManagedCertificateAsync(
+                    targets,
+                    plan.Hostname,
+                    plan.CertificateName,
+                    plan.ValidationMethod,
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+            existingCertificates = existingCertificates.Append(created).ToList();
+        }
+    }
+
+    public DomainBindingPlan PlanResourceDomain(
+        string targetResourceName,
+        string hostname,
+        AzureCustomDomainOpsOptions options,
+        string? certificateNameParameter)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(targetResourceName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(hostname);
+        ArgumentNullException.ThrowIfNull(options);
+
+        var kind = DnsRecordPlanner.DetectKind(hostname);
+        var validationMethod = kind == HostnameKind.Apex ? "HTTP" : "CNAME";
+        var certificateName = !string.IsNullOrWhiteSpace(options.ManagedCertificateName)
+            ? options.ManagedCertificateName!
+            : !string.IsNullOrWhiteSpace(certificateNameParameter)
+                ? certificateNameParameter!
+                : SanitizeCertificateName(hostname);
+
+        return new DomainBindingPlan(
+            targetResourceName,
+            DnsRecordPlanner.NormalizeHostname(hostname),
+            certificateName,
+            validationMethod,
+            kind);
+    }
+
+    public async Task BindResourceDomainAsync(
+        AzureContainerAppTargets targets,
+        DomainBindingPlan plan,
+        IReadOnlyList<AzureManagedCertificateInfo> certificates,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(targets);
+        ArgumentNullException.ThrowIfNull(plan);
+        ArgumentNullException.ThrowIfNull(certificates);
+
+        var cert = certificates.FirstOrDefault(c =>
+            string.Equals(c.Name, plan.CertificateName, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(c.SubjectName, plan.Hostname, StringComparison.OrdinalIgnoreCase));
+
+        if (cert is null)
+        {
+            throw new InvalidOperationException(
+                $"Managed certificate '{plan.CertificateName}' for hostname '{plan.Hostname}' was not found on environment '{targets.EnvironmentName}'.");
+        }
+
+        await _azureClient.BindHostnameAsync(targets, plan.Hostname, cert.Id, cancellationToken)
             .ConfigureAwait(false);
-
-        await RunRequiredAsync(
-            "gh",
-            [
-                "variable", "set", options.CertificateGitHubVariableName,
-                "--body", certificateName
-            ],
-            cancellationToken,
-            "gh variable set").ConfigureAwait(false);
-
-        return certificateName;
     }
 
     /// <summary>
@@ -176,7 +287,6 @@ public sealed class DomainProvisioner
     {
         var zoneFqdn = zoneName.Trim().TrimEnd('.') + ".";
 
-        // Dump failures (missing zone, auth edge cases) leave an empty base; upsert still creates ACA records.
         await RunOctoDnsDockerAsync(
                 provider,
                 options,
@@ -232,7 +342,6 @@ public sealed class DomainProvisioner
                     $"Provider auth parameter '{parameter.Name}' is empty. Set Parameters__{parameter.Name}.");
             }
 
-            // Pass name only so the secret is not present on the docker argv; value comes from process env.
             args.Add("-e");
             args.Add(envVar);
             env[envVar] = value;
@@ -295,7 +404,6 @@ public sealed class DomainProvisioner
             return Directory.GetCurrentDirectory();
         }
 
-        // On Windows, first segment may be "C:" — Path.Combine handles it.
         return Path.Combine(common.ToArray());
     }
 
@@ -346,22 +454,6 @@ public sealed class DomainProvisioner
         }
     }
 
-    private async Task RunRequiredAsync(
-        string fileName,
-        IReadOnlyList<string> args,
-        CancellationToken cancellationToken,
-        string operationName,
-        IReadOnlyDictionary<string, string>? environment = null)
-    {
-        var result = await _processRunner.RunAsync(fileName, args, cancellationToken, environment: environment)
-            .ConfigureAwait(false);
-        if (!result.Succeeded)
-        {
-            throw new InvalidOperationException(
-                $"{operationName} failed ({result.ExitCode}): {result.StandardError}{Environment.NewLine}{result.StandardOutput}");
-        }
-    }
-
     private Task DelayAsync(TimeSpan delay, CancellationToken cancellationToken)
         => _delayAsync is not null
             ? _delayAsync(delay, cancellationToken)
@@ -382,3 +474,8 @@ public sealed class DomainProvisioner
         return string.IsNullOrWhiteSpace(sanitized) ? "aca-managed-cert" : sanitized;
     }
 }
+
+/// <summary>
+/// One hostname binding participating in a zone plan.
+/// </summary>
+public sealed record ZoneBindingInput(string Hostname, string ContainerAppResourceName);
