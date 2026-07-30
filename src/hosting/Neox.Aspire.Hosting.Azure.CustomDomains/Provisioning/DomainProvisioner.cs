@@ -251,6 +251,22 @@ public sealed class DomainProvisioner
     }
 
     /// <summary>
+    /// Adds <paramref name="plan"/> hostname to the Container App without a certificate when missing.
+    /// </summary>
+    /// <returns><see langword="true"/> when added; <see langword="false"/> when already present.</returns>
+    public async Task<bool> EnsureResourceHostnameAsync(
+        AzureContainerAppTargets targets,
+        DomainBindingPlan plan,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(targets);
+        ArgumentNullException.ThrowIfNull(plan);
+
+        return await _azureClient.EnsureHostnameAsync(targets, plan.Hostname, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Ensures the OctoDNS plan contains no Deletes (DomainOps upsert-only invariant).
     /// </summary>
     internal static void EnsureUpsertOnlyPlan(string syncOutput)

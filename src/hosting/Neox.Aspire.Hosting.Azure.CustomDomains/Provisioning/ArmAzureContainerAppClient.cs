@@ -174,6 +174,38 @@ public sealed class ArmAzureContainerAppClient : IAzureContainerAppClient
             certificateId.ToString());
     }
 
+    public async Task<bool> EnsureHostnameAsync(
+        AzureContainerAppTargets targets,
+        string hostname,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(targets);
+        ArgumentException.ThrowIfNullOrWhiteSpace(hostname);
+
+        var app = await GetContainerAppAsync(targets.ResourceGroup, targets.ContainerAppName, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (app.Data.Configuration?.Ingress?.CustomDomains is { } existing
+            && existing.Any(d => string.Equals(d.Name, hostname, StringComparison.OrdinalIgnoreCase)))
+        {
+            return false;
+        }
+
+        var domains = new List<ContainerAppCustomDomain>();
+        if (app.Data.Configuration?.Ingress?.CustomDomains is { } current)
+        {
+            domains.AddRange(current);
+        }
+
+        domains.Add(new ContainerAppCustomDomain(hostname)
+        {
+            BindingType = ContainerAppCustomDomainBindingType.Disabled
+        });
+
+        await PatchCustomDomainsAsync(app, domains, cancellationToken).ConfigureAwait(false);
+        return true;
+    }
+
     public async Task BindHostnameAsync(
         AzureContainerAppTargets targets,
         string hostname,
@@ -188,21 +220,6 @@ public sealed class ArmAzureContainerAppClient : IAzureContainerAppClient
             .ConfigureAwait(false);
 
         var certificateResourceId = new ResourceIdentifier(certificateId);
-
-        var patch = new ContainerAppData(app.Data.Location)
-        {
-            Configuration = new ContainerAppConfiguration
-            {
-                Ingress = new ContainerAppIngressConfiguration
-                {
-                    External = app.Data.Configuration?.Ingress?.External ?? true,
-                    TargetPort = app.Data.Configuration?.Ingress?.TargetPort,
-                    Transport = app.Data.Configuration?.Ingress?.Transport,
-                }
-            },
-            EnvironmentId = app.Data.EnvironmentId ?? app.Data.ManagedEnvironmentId,
-            Template = app.Data.Template
-        };
 
         var domains = new List<ContainerAppCustomDomain>();
         if (app.Data.Configuration?.Ingress?.CustomDomains is { } existing)
@@ -220,6 +237,29 @@ public sealed class ArmAzureContainerAppClient : IAzureContainerAppClient
         {
             BindingType = ContainerAppCustomDomainBindingType.SniEnabled
         });
+
+        await PatchCustomDomainsAsync(app, domains, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task PatchCustomDomainsAsync(
+        ContainerAppResource app,
+        IReadOnlyList<ContainerAppCustomDomain> domains,
+        CancellationToken cancellationToken)
+    {
+        var patch = new ContainerAppData(app.Data.Location)
+        {
+            Configuration = new ContainerAppConfiguration
+            {
+                Ingress = new ContainerAppIngressConfiguration
+                {
+                    External = app.Data.Configuration?.Ingress?.External ?? true,
+                    TargetPort = app.Data.Configuration?.Ingress?.TargetPort,
+                    Transport = app.Data.Configuration?.Ingress?.Transport,
+                }
+            },
+            EnvironmentId = app.Data.EnvironmentId ?? app.Data.ManagedEnvironmentId,
+            Template = app.Data.Template
+        };
 
         foreach (var domain in domains)
         {

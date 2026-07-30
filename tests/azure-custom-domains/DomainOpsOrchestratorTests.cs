@@ -138,5 +138,11 @@ public sealed class DomainOpsOrchestratorTests
             string certificateId,
             CancellationToken cancellationToken)
             => Task.CompletedTask;
+
+        public Task<bool> EnsureHostnameAsync(
+            AzureContainerAppTargets targets,
+            string hostname,
+            CancellationToken cancellationToken)
+            => Task.FromResult(true);
     }
 }
