@@ -88,27 +88,54 @@ public sealed class ArmAzureContainerAppClient : IAzureContainerAppClient
         var environmentId = data.EnvironmentId ?? data.ManagedEnvironmentId
             ?? throw new InvalidOperationException("Container App environment id was not found.");
 
-        environmentName ??= environmentId.Name;
-        if (string.IsNullOrWhiteSpace(environmentName))
+        // Container App EnvironmentId is authoritative. Callers often pass the Aspire resource name
+        // (e.g. "aca-env"), which is not the Azure managedEnvironments resource name.
+        _ = environmentName;
+        var resolvedEnvironmentName = environmentId.Name;
+        if (string.IsNullOrWhiteSpace(resolvedEnvironmentName))
         {
             throw new InvalidOperationException("Container App environment name could not be resolved.");
         }
 
         var envRg = environmentId.ResourceGroupName ?? resourceGroup;
-        var env = await GetManagedEnvironmentAsync(envRg, environmentName, cancellationToken).ConfigureAwait(false);
+        var env = await GetManagedEnvironmentAsync(envRg, resolvedEnvironmentName, cancellationToken).ConfigureAwait(false);
         var staticIp = env.Data.StaticIP?.ToString()
             ?? throw new InvalidOperationException("Container Apps environment staticIp was not found.");
 
         return new AzureContainerAppTargets(
             containerAppName,
             resourceGroup,
-            environmentName,
+            resolvedEnvironmentName,
             fqdn,
             staticIp,
             asuid);
     }
 
-    public async Task BindManagedHostnameAsync(
+    public async Task<IReadOnlyList<AzureManagedCertificateInfo>> ListManagedCertificatesAsync(
+        AzureContainerAppTargets targets,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(targets);
+
+        var env = await GetManagedEnvironmentAsync(targets.ResourceGroup, targets.EnvironmentName, cancellationToken)
+            .ConfigureAwait(false);
+        var results = new List<AzureManagedCertificateInfo>();
+
+        await foreach (var cert in env.GetContainerAppManagedCertificates().GetAllAsync(cancellationToken)
+                           .ConfigureAwait(false))
+        {
+            var id = cert.Id?.ToString()
+                ?? throw new InvalidOperationException($"Managed certificate '{cert.Data.Name}' has no resource id.");
+            results.Add(new AzureManagedCertificateInfo(
+                cert.Data.Name,
+                cert.Data.Properties?.SubjectName,
+                id));
+        }
+
+        return results;
+    }
+
+    public async Task<AzureManagedCertificateInfo> CreateManagedCertificateAsync(
         AzureContainerAppTargets targets,
         string hostname,
         string certificateName,
@@ -120,8 +147,6 @@ public sealed class ArmAzureContainerAppClient : IAzureContainerAppClient
         ArgumentException.ThrowIfNullOrWhiteSpace(certificateName);
         ArgumentException.ThrowIfNullOrWhiteSpace(validationMethod);
 
-        var app = await GetContainerAppAsync(targets.ResourceGroup, targets.ContainerAppName, cancellationToken)
-            .ConfigureAwait(false);
         var env = await GetManagedEnvironmentAsync(targets.ResourceGroup, targets.EnvironmentName, cancellationToken)
             .ConfigureAwait(false);
 
@@ -143,6 +168,27 @@ public sealed class ArmAzureContainerAppClient : IAzureContainerAppClient
         var certificateId = certOperation.Value.Id
             ?? throw new InvalidOperationException($"Managed certificate '{certificateName}' was created without a resource id.");
 
+        return new AzureManagedCertificateInfo(
+            certOperation.Value.Data.Name,
+            certOperation.Value.Data.Properties?.SubjectName ?? hostname,
+            certificateId.ToString());
+    }
+
+    public async Task BindHostnameAsync(
+        AzureContainerAppTargets targets,
+        string hostname,
+        string certificateId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(targets);
+        ArgumentException.ThrowIfNullOrWhiteSpace(hostname);
+        ArgumentException.ThrowIfNullOrWhiteSpace(certificateId);
+
+        var app = await GetContainerAppAsync(targets.ResourceGroup, targets.ContainerAppName, cancellationToken)
+            .ConfigureAwait(false);
+
+        var certificateResourceId = new ResourceIdentifier(certificateId);
+
         var patch = new ContainerAppData(app.Data.Location)
         {
             Configuration = new ContainerAppConfiguration
@@ -158,7 +204,6 @@ public sealed class ArmAzureContainerAppClient : IAzureContainerAppClient
             Template = app.Data.Template
         };
 
-        // Preserve existing custom domains and upsert the bound hostname.
         var domains = new List<ContainerAppCustomDomain>();
         if (app.Data.Configuration?.Ingress?.CustomDomains is { } existing)
         {
@@ -171,7 +216,7 @@ public sealed class ArmAzureContainerAppClient : IAzureContainerAppClient
             }
         }
 
-        domains.Add(new ContainerAppCustomDomain(hostname, certificateId)
+        domains.Add(new ContainerAppCustomDomain(hostname, certificateResourceId)
         {
             BindingType = ContainerAppCustomDomainBindingType.SniEnabled
         });
@@ -181,7 +226,6 @@ public sealed class ArmAzureContainerAppClient : IAzureContainerAppClient
             patch.Configuration.Ingress.CustomDomains.Add(domain);
         }
 
-        // Copy other ingress settings that CreateOrUpdate may require.
         if (app.Data.Configuration?.Ingress is { } ingress)
         {
             patch.Configuration.Ingress.AllowInsecure = ingress.AllowInsecure;

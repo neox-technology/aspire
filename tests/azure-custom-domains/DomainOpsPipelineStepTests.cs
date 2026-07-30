@@ -18,19 +18,26 @@ public sealed class DomainOpsPipelineStepTests
         Assert.Equal("prereq-domain", AzureCustomDomainOpsExtensions.DomainPrereqStepName);
         Assert.Equal("prereq-domain-ovh", AzureCustomDomainOpsExtensions.GetDomainPrereqProviderStepName("ovh"));
         Assert.Equal("prereq-domain-cloudflare", AzureCustomDomainOpsExtensions.GetDomainPrereqProviderStepName("cloudflare"));
+        Assert.Equal("plan-domain-cloudflare", AzureCustomDomainOpsExtensions.GetDomainPlanProviderStepName("cloudflare"));
+        Assert.Equal("plan-domain-contoso-com", AzureCustomDomainOpsExtensions.GetDomainPlanZoneStepName("contoso.com"));
+        Assert.Equal("provision-domain-contoso-com", AzureCustomDomainOpsExtensions.GetDomainProvisionZoneStepName("contoso.com"));
+        Assert.Equal("plan-aca-env-certificates", AzureCustomDomainOpsExtensions.GetPlanEnvCertificatesStepName("aca-env"));
+        Assert.Equal("provision-aca-env-certificates", AzureCustomDomainOpsExtensions.GetProvisionEnvCertificatesStepName("aca-env"));
+        Assert.Equal("plan-api-domain", AzureCustomDomainOpsExtensions.GetDomainPlanResourceStepName("api"));
         Assert.Equal("provision-api-domain", AzureCustomDomainOpsExtensions.GetDomainProvisionStepName("api"));
         Assert.Equal("provision-api-containerapp", AzureCustomDomainOpsExtensions.GetContainerAppProvisionStepName("api"));
+        Assert.Equal("contoso-com", AzureCustomDomainOpsExtensions.ToZoneSlug("contoso.com"));
     }
 
     [Fact]
-    public async Task RegistersPrereqAndProvisionSteps_WithExpectedDependsOn()
+    public async Task RegistersSplitPlanAndProvisionSteps_WithExpectedDependsOn()
     {
         var builder = DistributedApplication.CreateBuilder(new DistributedApplicationOptions
         {
             Args = ["--publisher", "manifest"]
         });
 
-        var customDomain = builder.AddParameter("customDomain", "example.com");
+        var customDomain = builder.AddParameter("customDomain", "www.example.com");
         var certificateName = builder.AddParameter("certificateName");
         var dns = builder.AddDomainOpsProvider("dns").Ovh();
 
@@ -39,7 +46,7 @@ public sealed class DomainOpsPipelineStepTests
         builder.AddContainer("api", "mcr.microsoft.com/dotnet/samples:aspnetapp")
             .WithHttpEndpoint(targetPort: 8080)
             .PublishAsAzureContainerApp((_, _) => { })
-            .WithAzureCustomDomainOps(customDomain, certificateName, dns);
+            .WithAzureCustomDomainOps(customDomain, certificateName, dns, o => o.DnsZoneName = "example.com");
 
         var steps = await CollectDomainOpsStepsAsync(builder);
 
@@ -49,18 +56,65 @@ public sealed class DomainOpsPipelineStepTests
         var prereqOvh = Assert.Single(steps, s => s.Name == "prereq-domain-ovh");
         Assert.Contains("prereq-domain", prereqOvh.DependsOnSteps);
 
+        var planProvider = Assert.Single(steps, s => s.Name == "plan-domain-ovh");
+        Assert.Contains("prereq-domain-ovh", planProvider.DependsOnSteps);
+
+        var planZone = Assert.Single(steps, s => s.Name == "plan-domain-example-com");
+        Assert.Contains("plan-domain-ovh", planZone.DependsOnSteps);
+
+        var provisionZone = Assert.Single(steps, s => s.Name == "provision-domain-example-com");
+        Assert.Contains("plan-domain-example-com", provisionZone.DependsOnSteps);
+
+        Assert.Contains(steps, s => s.Name == "plan-aca-env-certificates");
+        Assert.Contains(steps, s => s.Name == "provision-aca-env-certificates");
+        Assert.Contains(steps, s => s.Name == "plan-api-domain");
+
         var provisionDomain = Assert.Single(steps, s => s.Name == "provision-api-domain");
-        Assert.Contains("prereq-domain-ovh", provisionDomain.DependsOnSteps);
-        // provision-api-containerapp is wired later via PipelineConfigurationAnnotation once the
-        // out-of-model AzureContainerAppResource exists (after prepare-azure-container-apps).
+        Assert.Contains("provision-aca-env-certificates", provisionDomain.DependsOnSteps);
         Assert.DoesNotContain("provision-api-containerapp", provisionDomain.DependsOnSteps);
 
-        Assert.Contains(steps, s => s.Name == "domain-verify");
-        Assert.Contains(steps, s => s.Name == "domain-guard");
+        Assert.DoesNotContain(steps, s => s.Name == "domain-verify");
+        Assert.DoesNotContain(steps, s => s.Name == "domain-guard");
         Assert.DoesNotContain(steps, s => s.Name == "domain-provision");
 
         var domainOps = Assert.Single(builder.Resources.OfType<AzureCustomDomainOpsResource>());
         Assert.Contains(domainOps.Annotations.OfType<PipelineConfigurationAnnotation>(), _ => true);
+    }
+
+    [Fact]
+    public async Task SecondBindingSameZone_DoesNotDuplicateZoneSteps()
+    {
+        var builder = DistributedApplication.CreateBuilder(new DistributedApplicationOptions
+        {
+            Args = ["--publisher", "manifest"]
+        });
+
+        var domain1 = builder.AddParameter("customDomain1", "www.example.com");
+        var domain2 = builder.AddParameter("customDomain2", "api.example.com");
+        var cert1 = builder.AddParameter("certificateName1");
+        var cert2 = builder.AddParameter("certificateName2");
+        var dns = builder.AddDomainOpsProvider("dns").Cloudflare();
+        builder.AddAzureContainerAppEnvironment("aca-env");
+
+        builder.AddContainer("api", "mcr.microsoft.com/dotnet/samples:aspnetapp")
+            .WithHttpEndpoint(targetPort: 8080)
+            .PublishAsAzureContainerApp((_, _) => { })
+            .WithAzureCustomDomainOps(domain1, cert1, dns, o => o.DnsZoneName = "example.com");
+
+        builder.AddContainer("web", "mcr.microsoft.com/dotnet/samples:aspnetapp")
+            .WithHttpEndpoint(targetPort: 8080)
+            .PublishAsAzureContainerApp((_, _) => { })
+            .WithAzureCustomDomainOps(domain2, cert2, dns, o => o.DnsZoneName = "example.com");
+
+        var steps = await CollectDomainOpsStepsAsync(builder);
+
+        Assert.Single(steps, s => s.Name == "plan-domain-example-com");
+        Assert.Single(steps, s => s.Name == "provision-domain-example-com");
+        Assert.Single(steps, s => s.Name == "plan-domain-cloudflare");
+        Assert.Contains(steps, s => s.Name == "plan-api-domain");
+        Assert.Contains(steps, s => s.Name == "plan-web-domain");
+        Assert.Contains(steps, s => s.Name == "provision-api-domain");
+        Assert.Contains(steps, s => s.Name == "provision-web-domain");
     }
 
     [Fact]

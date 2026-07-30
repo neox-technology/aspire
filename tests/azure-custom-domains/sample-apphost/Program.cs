@@ -2,7 +2,7 @@ using Neox.Aspire.Hosting.Azure;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
-var customDomain = builder.AddParameter("customDomain", "sokomwatt.com");
+var customDomain = builder.AddParameter("customDomain", "www.sokomwatt.com");
 var certificateName = builder.AddParameter("certificateName");
 
 var dns = builder.AddDomainOpsProvider("dns")
@@ -16,6 +16,9 @@ builder.AddContainer("api", "mcr.microsoft.com/dotnet/samples:aspnetapp")
     .WithHttpEndpoint(targetPort: 8080)
     .WithExternalHttpEndpoints()
     .PublishAsAzureContainerApp((_, _) => { })
-    .WithAzureCustomDomainOps(customDomain, certificateName, dns);
+    .WithAzureCustomDomainOps(customDomain, certificateName, dns, options =>
+    {
+        options.DnsZoneName = "sokomwatt.com";
+    });
 
 builder.Build().Run();

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Neox.Aspire.Hosting.Azure.Dns;
 using Neox.Aspire.Hosting.Azure.Pipeline;
 using Neox.Aspire.Hosting.Azure.Processes;
+using Neox.Aspire.Hosting.Azure.Provisioning;
 using Xunit;
 
 namespace Neox.Aspire.Hosting.Azure.CustomDomains.Tests;
@@ -10,110 +11,85 @@ namespace Neox.Aspire.Hosting.Azure.CustomDomains.Tests;
 public sealed class DomainOpsOrchestratorTests
 {
     [Fact]
-    public async Task GuardAsync_ThrowsWhenCertificateRequiredAndEmpty()
+    public void PlanResourceDomain_BuildsModelWithoutArm()
     {
         var orchestrator = CreateOrchestrator();
-        var cert = CreateParameter("certificateName", "");
-
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            orchestrator.GuardAsync(cert, new AzureCustomDomainOpsOptions { RequireCertificateName = true }, CancellationToken.None));
-    }
-
-    [Fact]
-    public async Task GuardAsync_PassesWhenCertificatePresent()
-    {
-        var orchestrator = CreateOrchestrator();
-        var cert = CreateParameter("certificateName", "my-cert");
-
-        var outcome = await orchestrator.GuardAsync(
-            cert,
-            new AzureCustomDomainOpsOptions { RequireCertificateName = true },
-            CancellationToken.None);
-
-        Assert.False(outcome.Skipped);
-        Assert.Equal("my-cert", outcome.CertificateName);
-    }
-
-    [Fact]
-    public async Task VerifyAsync_ReturnsSkippedDnsWhenNoPlanInput()
-    {
-        var orchestrator = CreateOrchestrator();
-        var domain = CreateParameter("customDomain", "www.contoso.com");
-        var cert = CreateParameter("certificateName", "my-cert");
         var resource = new TestResource("api");
 
-        var outcome = await orchestrator.VerifyAsync(
+        var plan = orchestrator.PlanResourceDomain(
             resource,
-            domain,
-            cert,
-            new AzureCustomDomainOpsOptions { RequireCertificateName = true },
-            CancellationToken.None);
+            "www.contoso.com",
+            new AzureCustomDomainOpsOptions { ManagedCertificateName = "www-contoso-com" },
+            certificateNameParameter: null);
 
-        Assert.Equal("api", outcome.TargetResourceName);
-        Assert.Equal("www.contoso.com", outcome.Hostname);
-        Assert.Equal(DomainOpsDnsCheckStatus.SkippedNoPlanInput, outcome.DnsStatus);
+        Assert.Equal("api", plan.TargetResourceName);
+        Assert.Equal("www.contoso.com", plan.Hostname);
+        Assert.Equal("www-contoso-com", plan.CertificateName);
+        Assert.Equal("CNAME", plan.ValidationMethod);
+        Assert.Equal(HostnameKind.Subdomain, plan.Kind);
     }
 
     [Fact]
-    public async Task VerifyAsync_ThrowsOnDnsDrift()
+    public void PlanResourceDomain_UsesHttpForApex()
     {
         var orchestrator = CreateOrchestrator();
-        var domain = CreateParameter("customDomain", "www.contoso.com");
-        var cert = CreateParameter("certificateName", "my-cert");
-        var resource = new TestResource("api");
 
-        var planInput = new DnsPlanInput(
-            "www.contoso.com",
-            "app.example.azurecontainerapps.io",
-            "1.2.3.4",
-            "code");
+        var plan = orchestrator.PlanResourceDomain(
+            new TestResource("api"),
+            "contoso.com",
+            new AzureCustomDomainOpsOptions(),
+            certificateNameParameter: null);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            orchestrator.VerifyAsync(
-                resource,
-                domain,
-                cert,
-                new AzureCustomDomainOpsOptions { RequireCertificateName = true },
-                CancellationToken.None,
-                observedRecords: [],
-                planInput: planInput));
+        Assert.Equal("HTTP", plan.ValidationMethod);
+        Assert.Equal(HostnameKind.Apex, plan.Kind);
     }
 
     [Fact]
-    public async Task VerifyAsync_PassesWhenObservedMatchesPlan()
+    public void PlanProvider_WritesOctoDnsConfig()
     {
-        var orchestrator = CreateOrchestrator();
-        var domain = CreateParameter("customDomain", "www.contoso.com");
-        var cert = CreateParameter("certificateName", "my-cert");
-        var resource = new TestResource("api");
+        var workDir = Path.Combine(Path.GetTempPath(), "neox-plan-provider-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(workDir);
+        try
+        {
+            var configPath = Path.Combine(workDir, "octodns.yaml");
+            var zoneDir = Path.Combine(workDir, "zones");
+            Directory.CreateDirectory(zoneDir);
 
-        var planInput = new DnsPlanInput(
-            "www.contoso.com",
-            "app.example.azurecontainerapps.io",
-            "1.2.3.4",
-            "code");
+            var provider = new CloudflareDomainOpsProviderResource("dns");
+            provider.BindAuthParameter("token", new ParameterResource("dns-token", _ => "secret", secret: true));
 
-        var expected = new DnsRecordPlanner().Plan(planInput).Records;
+            var orchestrator = CreateOrchestrator();
+            var outcome = orchestrator.PlanProvider(
+                provider,
+                ["contoso.com"],
+                new AzureCustomDomainOpsOptions
+                {
+                    OctoDnsConfigPath = configPath,
+                    OctoDnsZoneDirectory = zoneDir
+                });
 
-        var outcome = await orchestrator.VerifyAsync(
-            resource,
-            domain,
-            cert,
-            new AzureCustomDomainOpsOptions { RequireCertificateName = true },
-            CancellationToken.None,
-            observedRecords: expected,
-            planInput: planInput);
-
-        Assert.Equal(DomainOpsDnsCheckStatus.Matched, outcome.DnsStatus);
-        Assert.Equal(HostnameKind.Subdomain, outcome.Kind);
-        Assert.Equal(expected.Count, outcome.PlannedRecordCount);
+            Assert.Equal(configPath, outcome.ConfigPath);
+            Assert.Contains("env/DNS_TOKEN", File.ReadAllText(configPath), StringComparison.Ordinal);
+            Assert.DoesNotContain("secret", File.ReadAllText(configPath), StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(workDir))
+            {
+                Directory.Delete(workDir, recursive: true);
+            }
+        }
     }
 
     private static DomainOpsOrchestrator CreateOrchestrator()
-        => new(new FakeProcessRunner(), NullLogger.Instance);
-
-    private static ParameterResource CreateParameter(string name, string value)
-        => new(name, _ => value, secret: false);
+        => new(
+            new FakeProcessRunner(),
+            NullLogger.Instance,
+            new DnsRecordPlanner(),
+            new OctoDnsZoneWriter(),
+            new OctoDnsConfigWriter(),
+            azureClient: new FakeAzureClient(),
+            provisioner: null);
 
     private sealed class TestResource(string name) : Resource(name);
 
@@ -126,5 +102,41 @@ public sealed class DomainOpsOrchestratorTests
             string? workingDirectory = null,
             IReadOnlyDictionary<string, string>? environment = null)
             => Task.FromResult(new ProcessResult(0, string.Empty, string.Empty));
+    }
+
+    private sealed class FakeAzureClient : IAzureContainerAppClient
+    {
+        public Task<AzureContainerAppTargets> GetTargetsAsync(
+            string containerAppName,
+            string? resourceGroup,
+            string? environmentName,
+            CancellationToken cancellationToken)
+            => Task.FromResult(new AzureContainerAppTargets(
+                containerAppName,
+                resourceGroup ?? "rg",
+                environmentName ?? "env",
+                "app.example.azurecontainerapps.io",
+                "1.2.3.4",
+                "asuid"));
+
+        public Task<IReadOnlyList<AzureManagedCertificateInfo>> ListManagedCertificatesAsync(
+            AzureContainerAppTargets targets,
+            CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyList<AzureManagedCertificateInfo>>([]);
+
+        public Task<AzureManagedCertificateInfo> CreateManagedCertificateAsync(
+            AzureContainerAppTargets targets,
+            string hostname,
+            string certificateName,
+            string validationMethod,
+            CancellationToken cancellationToken)
+            => Task.FromResult(new AzureManagedCertificateInfo(certificateName, hostname, $"/certs/{certificateName}"));
+
+        public Task BindHostnameAsync(
+            AzureContainerAppTargets targets,
+            string hostname,
+            string certificateId,
+            CancellationToken cancellationToken)
+            => Task.CompletedTask;
     }
 }

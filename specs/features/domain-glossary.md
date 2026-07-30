@@ -18,14 +18,18 @@ Terminology authority for Neox Aspire packages in this **public** repository (`a
 | **hosting package** | A `Neox.Aspire.Hosting.*` library that AppHosts reference for Aspire resource/extension helpers. Lives under `src/hosting/` when present. |
 | **Shipping** | Arcade package output bucket for packages intended for consumers (`artifacts/packages/<Configuration>/Shipping/`). Distinct from non-shipping / internal artifacts. |
 | **migration worker** | Reusable non-hosting DI helper (`Neox.Aspire.EntityFrameworkCore.MigrationWorker`) that runs EF Core `MigrateAsync` in a one-shot `BackgroundService`, then stops the host via `AddEfCoreMigrationService<TDbContext>()`. |
-| **custom domain ops** | Hosting helpers (`Neox.Aspire.Hosting.Azure.CustomDomains`) that orchestrate ACA custom domain DNS, managed certificates, and GitHub variable updates via `aspire do` pipeline steps. |
+| **custom domain ops** | Hosting helpers (`Neox.Aspire.Hosting.Azure.CustomDomains`) that orchestrate ACA custom domain DNS and managed certificates via `aspire do` pipeline steps (plan/provision split for provider, zone, env certs, and resource bind). |
 | **DomainOps provider** | Aspire resource (`DomainOpsProviderResource` and **source-generated** subtypes such as Cloudflare/OVH/Route53) that selects an OctoDNS DNS **provider**, holds auth parameter bindings, and drives generated `octodns.yaml` + Docker image choice. Aligns with octoDNS terminology (**provider**, not provisioner). Types are emitted from the versioned OctoDNS provider catalogue. |
 | **OctoDNS provider catalogue** | Checked-in JSON (`octodns-providers.json`) listing official `octodns/{flavor}` Docker providers (excluding all/etchosts/dyn) plus README-derived config settings; refreshed manually via `tools/octodns-provider-catalog`. |
 | **prereq-domain** | Shared DomainOps pipeline gate registered by `AddDomainOpsProviderCore`; depends on Aspire `provision-{acaEnv.Name}` for the AppHost's `AzureContainerAppEnvironmentResource`. |
 | **prereq-domain-{provider}** | Provider-specific DomainOps prereq (slug, e.g. `cloudflare`) that `docker pull`s `octodns/{provider}`; depends on `prereq-domain`. One step per provider slug, shared across resources of that type. |
-| **provision-{resource}-domain** | Per-compute DomainOps provision step (replaces former `domain-provision`) that reads ACA ingress targets via Azure Resource Manager (`ITokenCredentialProvider`), dumps the live DNS zone, **upserts** planned ACA records into OctoDNS YAML (no secrets on disk), applies Creates/Updates only via `docker run` + `octodns-sync`, binds a managed certificate via ARM, and sets the GitHub Actions certificate variable. Depends on `prereq-domain-{provider}` and Aspire `provision-{resource}-containerapp`. |
-| **domain-verify** | Pipeline step that checks DNS and certificate parameter consistency before a steady-state deploy; fails closed on drift or missing cert in strict mode. |
-| **domain-guard** | Pipeline step that fails when a certificate name is required and empty (steady-state fail-fast). |
+| **plan-domain-{provider}** | Writes `octodns.yaml` for a provider (zone list from AppHost bindings; secrets as `env/VAR` refs only). |
+| **plan-domain-{zone}** | Writes/upserts OctoDNS zone YAML for one registrable domain (aggregated across resources); dump live zone is internal. |
+| **provision-domain-{zone}** | Runs OctoDNS sync for a zone (dry-run + Deletes=0 guard internal, then `--doit`); waits for DNS internally. |
+| **plan-{env}-certificates** | Inventories managed certificates already on the ACA environment. |
+| **provision-{env}-certificates** | Creates missing managed certificates on the ACA environment (long wait). |
+| **plan-{resource}-domain** | Prepares/validates the per-resource domain model (hostname, HTTP\|CNAME, expected cert name) without ARM calls. |
+| **provision-{resource}-domain** | Binds an existing managed certificate to the Container App hostname (bind-only). |
 | **managed certificate** | Free DigiCert TLS certificate issued and renewed by Azure Container Apps for a validated custom domain. |
 | **OctoDNS sync** | Applying **upserted** DNS records (create/update only; DomainOps never deletes) by running the official OctoDNS Docker image (`octodns/cloudflare`, `octodns/ovh`, …) with `octodns-dump` then `octodns-sync`, mounting generated config/zones and injecting credentials via container env (`env/VAR` refs in YAML). DomainOps does not treat the zone YAML as full zone ownership. |
 
