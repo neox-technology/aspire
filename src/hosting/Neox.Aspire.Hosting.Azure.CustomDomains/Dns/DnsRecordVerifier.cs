@@ -1,10 +1,13 @@
 namespace Neox.Aspire.Hosting.Azure.Dns;
 
 /// <summary>
-/// Compares expected DNS records to an observed set (for verify).
+/// Compares expected DNS records to an observed set (used after OctoDNS sync / DNS wait).
 /// </summary>
 public sealed class DnsRecordVerifier
 {
+    /// <summary>
+    /// Returns human-readable drift lines for expected records missing from <paramref name="actual"/>.
+    /// </summary>
     public IReadOnlyList<string> FindDrift(IReadOnlyList<DnsRecord> expected, IReadOnlyList<DnsRecord> actual)
     {
         ArgumentNullException.ThrowIfNull(expected);

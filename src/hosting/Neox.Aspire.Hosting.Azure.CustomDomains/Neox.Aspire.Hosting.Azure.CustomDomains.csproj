@@ -6,7 +6,7 @@
     <RootNamespace>Neox.Aspire.Hosting.Azure</RootNamespace>
     <IsPackable>true</IsPackable>
     <SuppressFinalPackageVersion>true</SuppressFinalPackageVersion>
-    <Description>Aspire hosting helpers for Azure Container Apps custom domains (OctoDNS, managed certificates, GitHub Actions variables).</Description>
+    <Description>Aspire hosting helpers for Azure Container Apps custom domains (OctoDNS-in-Docker, managed certificates).</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>aspire;azure;container-apps;dns;octodns;custom-domain</PackageTags>
     <UserSecretsId>f3c17a24-c048-442d-924f-143e22376191</UserSecretsId>
@@ -25,7 +25,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Neox.Aspire.Hosting.Azure.CustomDomains.Generators\Neox.Aspire.Hosting.Azure.CustomDomains.Generators.csproj"
+    <ProjectReference Include="..\Neox.Aspire.Hosting.Azure.CustomDomains.Generators.Internal\Neox.Aspire.Hosting.Azure.CustomDomains.Generators.Internal.csproj"
                       OutputItemType="Analyzer"
                       ReferenceOutputAssembly="false" />
   </ItemGroup>

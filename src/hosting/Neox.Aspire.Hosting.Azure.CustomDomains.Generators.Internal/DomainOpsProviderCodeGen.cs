@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
 
-namespace Neox.Aspire.Hosting.Azure.CustomDomains.Generators;
+namespace Neox.Aspire.Hosting.Azure.CustomDomains.Generators.Internal;
 
 /// <summary>
 /// Pure catalogue → C# emission helpers (unit-testable without a Roslyn driver).
