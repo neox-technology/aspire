@@ -34,7 +34,7 @@ public sealed class DnsRecordPlannerTests
         Assert.Equal(HostnameKind.Subdomain, plan.Kind);
         Assert.Equal("contoso.com", plan.ZoneName);
         Assert.Equal("www", plan.RelativeHost);
-        Assert.Contains(plan.Records, r => r.Type == "CNAME" && r.Name == "www" && r.Value == "api.nicehill-1234.westeurope.azurecontainerapps.io");
+        Assert.Contains(plan.Records, r => r.Type == "CNAME" && r.Name == "www" && r.Value == "api.nicehill-1234.westeurope.azurecontainerapps.io.");
         Assert.Contains(plan.Records, r => r.Type == "TXT" && r.Name == "asuid.www" && r.Value == "verification-code");
     }
 

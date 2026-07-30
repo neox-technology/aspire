@@ -66,6 +66,16 @@ public interface IAzureContainerAppClient : IAzureContainerAppReader
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Ensures <paramref name="hostname"/> is registered on the Container App without a certificate
+    /// (<c>BindingType.Disabled</c>). No-op if the hostname is already present (does not detach an existing cert).
+    /// </summary>
+    /// <returns><see langword="true"/> when the hostname was added; <see langword="false"/> when already present.</returns>
+    Task<bool> EnsureHostnameAsync(
+        AzureContainerAppTargets targets,
+        string hostname,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Binds an existing managed certificate to a custom hostname on the Container App.
     /// </summary>
     Task BindHostnameAsync(

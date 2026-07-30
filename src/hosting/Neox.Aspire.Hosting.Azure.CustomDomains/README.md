@@ -19,7 +19,7 @@ Fluent DNS provider APIs (`.Cloudflare()`, `.Ovh()`, `.Route53()`, …) are **so
 
 Credentials are **never** written into generated `octodns.yaml` (only `env/VAR` refs). Values are injected as container env vars when running `docker run`. DomainOps reads Container Apps and manages certificates/hostnames via **Azure Resource Manager** (`Azure.ResourceManager.AppContainers`), using the same token scope as Aspire deploy (`https://management.azure.com/.default`).
 
-> **DigiCert / managed certificates:** the CNAME must point **directly** at the Container App FQDN (`*.azurecontainerapps.io`). Do **not** use a Cloudflare orange-cloud proxy, Traffic Manager, or other intermediate CNAME — issuance and renewal will fail.
+> **DigiCert / managed certificates:** the CNAME must point **directly** at the Container App FQDN (`*.azurecontainerapps.io`). DomainOps writes the CNAME target as an absolute FQDN (trailing `.`) so providers do not append the zone name. Do **not** use a Cloudflare orange-cloud proxy, Traffic Manager, or other intermediate CNAME — issuance and renewal will fail.
 
 ## Usage
 
@@ -71,8 +71,11 @@ dotnet run --project tools/octodns-provider-catalog
 | Provision zone (OctoDNS sync) | `aspire do provision-domain-{zone}` | `plan-domain-{zone}` |
 | Plan env certificates | `aspire do plan-{env}-certificates` | `provision-{acaEnv}` |
 | Plan resource domain (model) | `aspire do plan-{resource}-domain` | `provision-domain-{zone}` |
-| Provision env certificates | `aspire do provision-{env}-certificates` | `plan-{env}-certificates`; resource plans; zone provision |
-| Bind resource domain | `aspire do provision-{resource}-domain` | `provision-{env}-certificates`; `provision-{resource}-containerapp` |
+| Add resource hostname (no cert) | `aspire do provision-{resource}-domain` | `plan-{resource}-domain`; zone provision; `provision-{resource}-containerapp` |
+| Env domains gate | `aspire do provision-{env}-domains` | all `provision-{resource}-domain` for the env |
+| Provision env certificates | `aspire do provision-{env}-certificates` | `plan-{env}-certificates`; `provision-{env}-domains` |
+| Bind resource domain | `aspire do deploy-{resource}-domain` | `provision-{env}-certificates`; `provision-{resource}-containerapp` |
+| Deploy domains gate | `aspire do deploy-domains` | all `deploy-{resource}-domain`; required by Aspire `deploy` |
 
 Zone slug: registrable domain with `.` → `-` (e.g. `example.com` → `plan-domain-example-com`).
 
@@ -98,7 +101,7 @@ Pass Aspire parameters non-interactively (`Parameters__customDomain`, `Parameter
     Parameters__certificateName: ""
   run: aspire deploy --non-interactive --environment production
 
-- name: Provision DNS + managed certs + bind
+- name: Provision DNS + hostnames + managed certs + bind
   env:
     Azure__ResourceGroup: ${{ vars.AZURE_RESOURCE_GROUP }}
     Parameters__customDomain: ${{ vars.CUSTOM_DOMAIN }}
@@ -106,8 +109,9 @@ Pass Aspire parameters non-interactively (`Parameters__customDomain`, `Parameter
     Parameters__dns-token: ${{ secrets.CLOUDFLARE_TOKEN }}
   run: |
     aspire do provision-domain-example-com --non-interactive --environment production
-    aspire do provision-env-certificates --non-interactive --environment production
     aspire do provision-api-domain --non-interactive --environment production
+    aspire do provision-env-certificates --non-interactive --environment production
+    aspire do deploy-api-domain --non-interactive --environment production
 
 - name: Redeploy with certificate binding
   env:

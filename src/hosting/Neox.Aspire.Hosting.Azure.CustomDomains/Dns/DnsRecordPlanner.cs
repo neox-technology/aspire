@@ -30,12 +30,19 @@ public sealed class DnsRecordPlanner
         }
         else
         {
-            records.Add(new DnsRecord("CNAME", relativeHost, NormalizeHostname(input.ContainerAppFqdn)));
+            // OctoDNS / zone files treat values without a trailing '.' as relative to the zone.
+            records.Add(new DnsRecord("CNAME", relativeHost, ToAbsoluteFqdn(input.ContainerAppFqdn)));
             records.Add(new DnsRecord("TXT", $"asuid.{relativeHost}", verificationId));
         }
 
         return new DnsPlan(kind, zoneName, relativeHost, records);
     }
+
+    /// <summary>
+    /// Absolute FQDN for OctoDNS record values (trailing <c>.</c>).
+    /// </summary>
+    public static string ToAbsoluteFqdn(string hostname)
+        => NormalizeHostname(hostname) + ".";
 
     public static HostnameKind DetectKind(string hostname)
     {

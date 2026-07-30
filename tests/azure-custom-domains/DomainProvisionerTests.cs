@@ -166,6 +166,31 @@ public sealed class DomainProvisionerTests
     }
 
     [Fact]
+    public async Task EnsureResourceHostname_AddsOnceThenNoOps()
+    {
+        var runner = new RecordingProcessRunner();
+        var azure = new FakeAzureClient(new AzureContainerAppTargets(
+            "api",
+            "rg-demo",
+            "aca-env",
+            "api.nicehill.westeurope.azurecontainerapps.io",
+            "20.1.2.3",
+            "verification"));
+
+        var provisioner = new DomainProvisioner(runner, azure, delayAsync: (_, _) => Task.CompletedTask);
+        var plan = provisioner.PlanResourceDomain(
+            "api",
+            "www.contoso.com",
+            new AzureCustomDomainOpsOptions { ManagedCertificateName = "www-contoso-com" },
+            certificateNameParameter: null);
+
+        Assert.True(await provisioner.EnsureResourceHostnameAsync(azure.Targets, plan, CancellationToken.None));
+        Assert.False(await provisioner.EnsureResourceHostnameAsync(azure.Targets, plan, CancellationToken.None));
+        Assert.Equal(["www.contoso.com"], azure.Ensured);
+        Assert.Empty(azure.Binds);
+    }
+
+    [Fact]
     public async Task ProvisionZone_AbortsWhenDryRunPlanContainsDeletes()
     {
         var workDir = Path.Combine(Path.GetTempPath(), "neox-provision-deletes-" + Guid.NewGuid().ToString("N"));
@@ -259,6 +284,8 @@ public sealed class DomainProvisionerTests
         public AzureContainerAppTargets Targets { get; } = targets;
         public List<AzureManagedCertificateInfo> Created { get; } = [];
         public List<(string Hostname, string CertificateId)> Binds { get; } = [];
+        public HashSet<string> Hostnames { get; } = new(StringComparer.OrdinalIgnoreCase);
+        public List<string> Ensured { get; } = [];
 
         public Task<AzureContainerAppTargets> GetTargetsAsync(
             string containerAppName,
@@ -291,7 +318,23 @@ public sealed class DomainProvisionerTests
             CancellationToken cancellationToken)
         {
             Binds.Add((hostname, certificateId));
+            Hostnames.Add(hostname);
             return Task.CompletedTask;
+        }
+
+        public Task<bool> EnsureHostnameAsync(
+            AzureContainerAppTargets targets,
+            string hostname,
+            CancellationToken cancellationToken)
+        {
+            if (Hostnames.Contains(hostname))
+            {
+                return Task.FromResult(false);
+            }
+
+            Hostnames.Add(hostname);
+            Ensured.Add(hostname);
+            return Task.FromResult(true);
         }
     }
 
