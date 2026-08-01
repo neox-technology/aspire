@@ -13,23 +13,20 @@ var entra = builder.AddAuthProvider("auth-provider-entra")
 // Or bind an existing parameter:
 // .Entra(o => o.TenantId = builder.AddParameter("my-tenant"));
 
-var web = entra.AddApp("web", o =>
-{
-    o.DisplayName = "MyApp-Local";
-    o.ApplicationType = AuthApplicationType.Web;
-    o.RedirectUris = ["https://localhost:7001/signin-oidc"];
-    o.CreateClientSecret = true;
-});
+var web = entra.AddAppRegistration("web", "MyApp-Local");
+// Future: web.WithRedirectUris(...).WithApplicationType(...);
 
 builder.AddProject<Projects.Api>("api")
     .WithAuth(web);
 ```
 
-Then run `aspire do` / `aspire deploy`. Pipeline steps: `prereq-auth-provider-entra-auth` → `prereq-providers-auth` → `prereq-{app}-auth` → `plan-auth-{app}` → `provision-auth-{app}` → `deploy-auth` (`prereq-providers-auth` on shared `auth-ops`; provider prereq and `deploy-auth` on the `EntraAuthOpsResource`; app prereq / plan / provision on each `AuthAppResource`).
+Then run `aspire do` / `aspire deploy`. Pipeline steps: `prereq-auth-provider-entra-auth` → `prereq-providers-auth` → `prereq-{app}-auth` → `plan-{app}-auth` → `provision-{app}-auth` → `deploy-auth` (`prereq-providers-auth` on shared `auth-ops`; provider prereq and `deploy-auth` on the `EntraAuthOpsResource`; app prereq / plan / provision on each `AuthAppResource`).
 
 The tenant parameter prompts as a **Choice** combobox (dashboard / CLI) listing Entra tenants the current Azure credential can access (`AllowCustomChoice` for a manual GUID).
 
-Each app **ClientId** parameter (`{provider}-{app}-client-id`) prompts as a **Choice** after the tenant is resolved: existing app registrations in that tenant (Graph, label `DisplayName — appId`, up to 200), **Create new application** (uses `o.DisplayName` from `AddApp` — not an Aspire parameter), or enter a custom Client ID GUID (`AllowCustomChoice`). Listing requires management Graph permission `Application.Read.All`; on failure the Choice falls back to Create + Other only. After create, AuthOps writes the produced ClientId into the parameter / deployment state.
+Each app **ClientId** parameter (`{provider}-{app}-client-id`) prompts as a **Choice** after the tenant is resolved: existing app registrations in that tenant (Graph, label `DisplayName — appId`, up to 200), **Create new application** (uses the `displayName` argument to `AddAppRegistration` — not an Aspire parameter), or enter a custom Client ID GUID (`AllowCustomChoice`). Listing requires management Graph permission `Application.Read.All`; on failure the Choice falls back to Create + Other only.
+
+`plan-{app}-auth` resolves create vs existing (read-only Graph) and compares the desired DisplayName. `provision-{app}-auth` applies that plan (minimal create = DisplayName only in this revision).
 
 ## Environment variables
 
@@ -39,40 +36,32 @@ Single app under the provider:
 |-----|------------------------|
 | `AUTH_ENTRA_TENANT_ID` | `Parameters__auth-provider-entra-tenant-id` |
 | `AUTH_ENTRA_CLIENT_ID` | `Parameters__auth-provider-entra-web-client-id` |
-| `AUTH_ENTRA_CLIENT_SECRET` | `Parameters__auth-provider-entra-web-client-secret` |
+| `AUTH_ENTRA_CLIENT_SECRET` | `Parameters__auth-provider-entra-web-client-secret` (only when `IncludeClientSecret = true`) |
 | `AUTH_ENTRA_AUTHORITY` | derived |
 
 Multiple apps: `AUTH_ENTRA_{APP}_*` (app slug uppercased).
 
-`CLIENT_SECRET` is emitted only when `CreateClientSecret` is true (or `WithAuth(..., env => env.IncludeClientSecret = true)`). SPA / public clients with `CreateClientSecret = false` do not get a secret env var and are not prompted for one after Graph create.
+`CLIENT_SECRET` is omitted by default. Emit it with `WithAuth(..., env => env.IncludeClientSecret = true)`.
 
 Override prefix / mapping with `WithAuth(app, env => { env.Prefix = "..."; })`.
 
 ## Adopt an existing registration
 
-```csharp
-entra.AddApp("web", o =>
-{
-    o.ExistingClientId = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
-    o.CreateClientSecret = false;
-});
-```
-
-For confidential clients that still need a workload secret, set `CreateClientSecret = true`, rotate, or `IncludeClientSecret = true` and supply the client-secret parameter. AuthOps validates redirect URIs and does not rotate secrets unless you opt in later.
+Choose an existing app in the ClientId Choice prompt, or set `Parameters__{provider}-{app}-client-id` to the ClientId GUID. Plan compares DisplayName; provision binds (and patches DisplayName when it differs). No client-secret create/rotate in this revision.
 
 ## Management vs workload credentials
 
 | Concern | Source |
 |---------|--------|
-| Management (Graph create/update) | `ITokenCredentialProvider` / `DefaultAzureCredential` (`az login` / CI federated) |
+| Management (Graph plan/provision) | `ITokenCredentialProvider` / `DefaultAzureCredential` (`az login` / CI federated) |
 | Workload (ClientId / secret) | Parameters injected as `AUTH_*` — never logged into manifests |
 
 ## Sample AppHost
 
 Smoke sample under `tests/auth-providers/sample-apphost/`:
 
-- Auth apps: `AddApp("auth-appregistration-web")` / `AddApp("auth-appregistration-spa")` (names must differ from Aspire workload resources)
-- Workloads: Blazor Server `blazor` (`AUTH_ENTRA_WEB_*`) and Vite/React `ops` (`VITE_ENTRA_*` via `WithAuth` maps)
+- Auth apps: `AddAppRegistration("auth-appregistration-web", …)` / `AddAppRegistration("auth-appregistration-spa", …)` (names must differ from Aspire workload resources)
+- Workloads: Blazor Server `blazor` (`AUTH_ENTRA_*`) and Vite/React `ops` (`VITE_ENTRA_*` via `WithAuth` maps)
 
 Build with `dotnet build` — no live Graph in CI.
 

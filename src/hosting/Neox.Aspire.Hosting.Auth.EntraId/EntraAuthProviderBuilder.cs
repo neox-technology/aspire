@@ -9,28 +9,23 @@ internal sealed class EntraAuthProviderBuilder(
 {
     public IResourceBuilder<EntraAuthOpsResource> Resource => providerBuilder;
 
-    public IResourceBuilder<AuthAppResource> AddApp(string name, Action<AuthAppOptions>? configure = null)
+    public IResourceBuilder<AuthAppResource> AddAppRegistration(string name, string displayName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
-
-        var options = new AuthAppOptions();
-        configure?.Invoke(options);
-        options.DisplayName ??= name;
+        ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
 
         var provider = providerBuilder.Resource;
-        var app = new AuthAppResource(name, provider)
+        var app = new AuthAppResource(name, provider, displayName)
         {
-            Options = options,
             TenantIdParameter = provider.TenantIdParameter
         };
 
-        var clientIdDefault = options.ExistingClientId;
         var clientId = AuthOpsExtensions.GetOrAddParameter(
             applicationBuilder,
             app.GetParameterName("client-id"),
-            defaultValue: clientIdDefault,
+            defaultValue: null,
             secret: false);
-        EntraAppRegistrationParameterPrompt.ConfigureClientIdChoiceInput(clientId, options.DisplayName);
+        EntraAppRegistrationParameterPrompt.ConfigureClientIdChoiceInput(clientId, displayName);
 
         var clientSecret = AuthOpsExtensions.GetOrAddParameter(
             applicationBuilder,

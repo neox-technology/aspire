@@ -16,13 +16,13 @@ public sealed class AuthEnvOptions
     public bool IncludeAuthority { get; set; } = true;
 
     /// <summary>
-    /// When true and the app has redirect URIs, emit <c>{Prefix}_REDIRECT_URI</c> (first URI).
+    /// When true, emit <c>{Prefix}_REDIRECT_URI</c> (requires a future redirect URI <c>WithXxx</c>).
     /// </summary>
     public bool IncludeRedirectUri { get; set; }
 
     /// <summary>
-    /// When set, controls whether <c>{Prefix}_CLIENT_SECRET</c> is emitted.
-    /// When <c>null</c> (default), follows <see cref="AuthAppOptions.CreateClientSecret"/>.
+    /// When <c>true</c>, emit <c>{Prefix}_CLIENT_SECRET</c>.
+    /// When <c>null</c> or <c>false</c> (default), omit the secret until a create-secret <c>WithXxx</c> exists.
     /// </summary>
     public bool? IncludeClientSecret { get; set; }
 

@@ -13,7 +13,7 @@ namespace Neox.Aspire.Hosting.Auth.Tests;
 public class AuthProviderApiTests
 {
     [Fact]
-    public void AddAuthProvider_Entra_AddApp_CreatesParametersAndResources()
+    public void AddAuthProvider_Entra_AddAppRegistration_CreatesParametersAndResources()
     {
         var builder = DistributedApplication.CreateBuilder();
 
@@ -21,17 +21,12 @@ public class AuthProviderApiTests
         var entra = builder.AddAuthProvider("entra")
             .Entra(o => o.TenantId = tenant);
 
-        var web = entra.AddApp("web", o =>
-        {
-            o.DisplayName = "Test Web";
-            o.ApplicationType = AuthApplicationType.Web;
-            o.RedirectUris = ["https://localhost/signin-oidc"];
-            o.CreateClientSecret = true;
-        });
+        var web = entra.AddAppRegistration("web", "Test Web");
 
         Assert.Equal("entra", entra.Resource.Resource.ProviderSlug);
         Assert.IsType<EntraAuthOpsResource>(entra.Resource.Resource);
         Assert.Equal("web", web.Resource.Name);
+        Assert.Equal("Test Web", web.Resource.DisplayName);
         Assert.Contains(builder.Resources.OfType<EntraAuthOpsResource>(), r => r.Name == "entra");
         Assert.Contains(builder.Resources.OfType<AuthOpsResource>(), r => r.Name == "auth-ops");
         Assert.Contains(builder.Resources.OfType<ParameterResource>(), p => p.Name == "entra-tenant-id");
@@ -51,12 +46,7 @@ public class AuthProviderApiTests
         var builder = DistributedApplication.CreateBuilder();
         var tenant = builder.AddParameter("t", "t");
         var entra = builder.AddAuthProvider("entra").Entra(o => o.TenantId = tenant);
-        var web = entra.AddApp("web", o =>
-        {
-            o.RedirectUris = ["https://localhost/cb"];
-            o.ExistingClientId = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
-            o.CreateClientSecret = false;
-        });
+        var web = entra.AddAppRegistration("web", "Test Web");
 
         var api = builder.AddContainer("api", "mcr.microsoft.com/dotnet/runtime", "10.0");
         api.WithAuth(web);
@@ -64,7 +54,6 @@ public class AuthProviderApiTests
         {
             env.Prefix = "CUSTOM";
             env.Map(AuthOutput.ClientId, "MY_CLIENT_ID");
-            env.IncludeRedirectUri = true;
         });
 
         Assert.NotNull(api.Resource);
@@ -75,7 +64,7 @@ public class AuthProviderApiTests
     {
         var builder = DistributedApplication.CreateBuilder();
         var entra = builder.AddAuthProvider("entra").Entra();
-        var web = entra.AddApp("web", o => o.RedirectUris = ["https://localhost/cb"]);
+        var web = entra.AddAppRegistration("web", "Web");
 
         Assert.Equal("AUTH_ENTRA", web.Resource.DefaultEnvPrefix);
     }
@@ -87,17 +76,12 @@ public class AuthProviderApiTests
     }
 
     [Fact]
-    public void WithAuth_SpaWithoutCreateClientSecret_SkipsClientSecretEnv()
+    public void WithAuth_Default_OmitsClientSecretEnv()
     {
         var builder = DistributedApplication.CreateBuilder();
         var tenant = builder.AddParameter("t", "t");
         var entra = builder.AddAuthProvider("entra").Entra(o => o.TenantId = tenant);
-        var spa = entra.AddApp("spa", o =>
-        {
-            o.ApplicationType = AuthApplicationType.Spa;
-            o.RedirectUris = ["http://localhost:5173"];
-            o.CreateClientSecret = false;
-        });
+        var spa = entra.AddAppRegistration("spa", "Spa");
 
         var ops = builder.AddContainer("ops", "mcr.microsoft.com/dotnet/runtime", "10.0");
         ops.WithAuth(spa);
@@ -107,17 +91,12 @@ public class AuthProviderApiTests
     }
 
     [Fact]
-    public void WithAuth_IncludeClientSecretOverride_EmitsSecretEvenWhenCreateFalse()
+    public void WithAuth_IncludeClientSecretTrue_EmitsSecret()
     {
         var builder = DistributedApplication.CreateBuilder();
         var tenant = builder.AddParameter("t", "t");
         var entra = builder.AddAuthProvider("entra").Entra(o => o.TenantId = tenant);
-        var spa = entra.AddApp("spa", o =>
-        {
-            o.ApplicationType = AuthApplicationType.Spa;
-            o.RedirectUris = ["http://localhost:5173"];
-            o.CreateClientSecret = false;
-        });
+        var spa = entra.AddAppRegistration("spa", "Spa");
 
         var ops = builder.AddContainer("ops", "mcr.microsoft.com/dotnet/runtime", "10.0");
         ops.WithAuth(spa, env => env.IncludeClientSecret = true);
@@ -131,12 +110,8 @@ public class AuthProviderApiTests
     {
         var builder = DistributedApplication.CreateBuilder();
         var entra = builder.AddAuthProvider("entra").Entra();
-        var web = entra.AddApp("web", o => o.RedirectUris = ["https://localhost/cb"]);
-        var api = entra.AddApp("api", o =>
-        {
-            o.ApplicationType = AuthApplicationType.Api;
-            o.IdentifierUris = ["api://test"];
-        });
+        var web = entra.AddAppRegistration("web", "Web");
+        var api = entra.AddAppRegistration("api", "Api");
 
         Assert.Equal("AUTH_ENTRA_WEB", web.Resource.DefaultEnvPrefix);
         Assert.Equal("AUTH_ENTRA_API", api.Resource.DefaultEnvPrefix);
@@ -172,8 +147,8 @@ public class AuthProviderApiTests
             EntraAuthOpsExtensions.GetPrereqStepName("auth-provider-entra"));
         Assert.Equal("prereq-providers-auth", AuthOpsExtensions.AuthPrereqProvidersStepName);
         Assert.Equal("deploy-auth", EntraAuthOpsExtensions.AuthDeployStepName);
-        Assert.Equal("plan-auth-web", AuthOpsExtensions.GetPlanAuthStepName("web"));
-        Assert.Equal("provision-auth-web", AuthOpsExtensions.GetProvisionAuthStepName("web"));
+        Assert.Equal("plan-web-auth", AuthOpsExtensions.GetPlanAuthStepName("web"));
+        Assert.Equal("provision-web-auth", AuthOpsExtensions.GetProvisionAuthStepName("web"));
     }
 
     [Fact]
@@ -203,13 +178,7 @@ public class AuthProviderApiTests
         var entra = builder.AddAuthProvider("auth-provider-entra")
             .Entra(o => o.TenantId = tenant);
 
-        entra.AddApp("web", o =>
-        {
-            o.DisplayName = "Test Web";
-            o.ApplicationType = AuthApplicationType.Web;
-            o.RedirectUris = ["https://localhost/signin-oidc"];
-            o.CreateClientSecret = true;
-        });
+        entra.AddAppRegistration("web", "Test Web");
 
         var steps = await CollectAuthOpsStepsAsync(builder);
 
@@ -221,7 +190,7 @@ public class AuthProviderApiTests
         var prereqProviders = Assert.Single(steps, s => s.Name == "prereq-providers-auth");
         Assert.Empty(prereqProviders.DependsOnSteps);
 
-        var plan = Assert.Single(steps, s => s.Name == "plan-auth-web");
+        var plan = Assert.Single(steps, s => s.Name == "plan-web-auth");
         Assert.Contains("prereq-web-auth", plan.DependsOnSteps);
         Assert.DoesNotContain("prereq-providers-auth", plan.DependsOnSteps);
         Assert.DoesNotContain("prereq-auth-provider-entra-auth", plan.DependsOnSteps);
@@ -229,8 +198,8 @@ public class AuthProviderApiTests
         var prereqApp = Assert.Single(steps, s => s.Name == "prereq-web-auth");
         Assert.Contains("prereq-providers-auth", prereqApp.DependsOnSteps);
 
-        var provision = Assert.Single(steps, s => s.Name == "provision-auth-web");
-        Assert.Contains("plan-auth-web", provision.DependsOnSteps);
+        var provision = Assert.Single(steps, s => s.Name == "provision-web-auth");
+        Assert.Contains("plan-web-auth", provision.DependsOnSteps);
         Assert.Contains("deploy-auth", provision.RequiredBySteps);
 
         var deploy = Assert.Single(steps, s => s.Name == "deploy-auth");

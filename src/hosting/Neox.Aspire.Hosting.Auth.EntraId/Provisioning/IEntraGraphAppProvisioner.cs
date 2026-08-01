@@ -1,9 +1,20 @@
 namespace Neox.Aspire.Hosting.Auth;
 
 /// <summary>
-/// Creates or adopts Entra app registrations via Microsoft Graph.
+/// Plans and applies Entra app registrations via Microsoft Graph.
 /// </summary>
 public interface IEntraGraphAppProvisioner
 {
-    Task<EntraProvisionResult> ProvisionAsync(AuthAppResource app, CancellationToken cancellationToken);
+    /// <summary>
+    /// Read-only resolve + desired-vs-existing compare (no mutating Graph writes).
+    /// </summary>
+    Task<AuthAppRegistrationPlan> PlanAsync(AuthAppResource app, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Applies a previously computed <see cref="AuthAppRegistrationPlan"/>.
+    /// </summary>
+    Task<EntraProvisionResult> ProvisionAsync(
+        AuthAppResource app,
+        AuthAppRegistrationPlan plan,
+        CancellationToken cancellationToken);
 }

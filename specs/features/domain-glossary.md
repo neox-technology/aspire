@@ -39,13 +39,13 @@ Terminology authority for Neox Aspire packages in this **public** repository (`a
 | **AuthOpsResourceBase** | Abstract non-container Aspire resource for an identity **provider** (slug, apps, authority formatter); owns provider AuthOps steps (`prereq-{providerResource}-auth`, `deploy-auth`). |
 | **EntraAuthOpsResource** | Entra ID AuthOps provider resource (`AuthOpsResourceBase`); created by `.Entra(...)`. |
 | **AuthOpsResource** | Hidden AppHost marker resource (`auth-ops`) that owns shared AuthOps pipeline gates (notably `prereq-providers-auth`). |
-| **Auth app** | Logical app registration under an Auth provider (`AddApp` / `AuthAppResource`): display name (`AuthAppOptions.DisplayName`, options-only), application type (Web/Spa/Api/Native), redirect URIs, optional adopt via existing client id, and optional client-secret creation. |
+| **Auth app** | Logical app registration under an Auth provider (`AddAppRegistration` / `AuthAppResource`) with a required display name; further registration settings via future `WithXxx` methods. |
 | **prereq-{providerResource}-auth** | Provider-specific AuthOps prereq named from the Aspire provider resource name (e.g. `prereq-auth-provider-entra-auth`); ensures tenant parameter ready (Choice of accessible tenants); **RequiredBy** `prereq-providers-auth`. |
 | **prereq-providers-auth** | Shared AuthOps noop gate on `AuthOpsResource`; fan-in of all `prereq-{providerResource}-auth` so every registered provider is authenticated before per-app prereqs. |
-| **prereq-{app}-auth** | Per Auth app prereq on `AuthAppResource` (e.g. `prereq-web-auth`); **DependsOn** `prereq-providers-auth`; ensures ClientId parameter ready (Choice: Create new application, existing apps in the selected tenant via Graph, or custom GUID); create uses `AuthAppOptions.DisplayName` (not an Aspire parameter). |
-| **plan-auth-{app}** | Validates the desired Entra application model for one Auth app (no mutating Graph writes required); **DependsOn** `prereq-{app}-auth`. |
-| **provision-auth-{app}** | Creates or adopts the Entra application via Microsoft Graph (adopt when ClientId is a GUID; create when unset/sentinel using `DisplayName`), sets workload `ParameterResource`s (client id/secret/tenant), persists idempotence state under `Auth:Entra:{app}`. |
-| **deploy-auth** | Gate hosted on the Entra provider resource; depends on all `provision-auth-{app}` steps; required by Aspire `deploy`. |
+| **prereq-{app}-auth** | Per Auth app prereq on `AuthAppResource` (e.g. `prereq-web-auth`); **DependsOn** `prereq-providers-auth`; ensures ClientId parameter ready (Choice: Create new application, existing apps in the selected tenant via Graph, or custom GUID); create uses `AddAppRegistration` display name (not an Aspire parameter). |
+| **plan-{app}-auth** | Read-only Graph resolve + desired-vs-existing compare for one Auth app; attaches an apply plan (no mutating Graph writes); **DependsOn** `prereq-{app}-auth`. |
+| **provision-{app}-auth** | Applies the Auth app plan via Microsoft Graph (create minimal DisplayName, patch DisplayName, or noop bind), sets workload ClientId/TenantId `ParameterResource`s; **DependsOn** `plan-{app}-auth`. |
+| **deploy-auth** | Gate hosted on the Entra provider resource; depends on all `provision-{app}-auth` steps; required by Aspire `deploy`. |
 | **AUTH_ env convention** | Generic consumer injection `AUTH_{PROVIDER_SLUG}_{SETTING}` (e.g. `AUTH_ENTRA_CLIENT_ID`); with multiple apps under one provider, `AUTH_{PROVIDER}_{APP}_{SETTING}`. No ASP.NET Core scheme mapping in AuthOps v1. |
 
 ## Out of scope

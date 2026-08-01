@@ -35,21 +35,21 @@ public static class AuthOpsExtensions
     }
 
     /// <summary>
-    /// Builds <c>plan-auth-{app}</c>.
+    /// Builds <c>plan-{app}-auth</c>.
     /// </summary>
     public static string GetPlanAuthStepName(string appName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(appName);
-        return $"plan-auth-{appName}";
+        return $"plan-{appName}-auth";
     }
 
     /// <summary>
-    /// Builds <c>provision-auth-{app}</c>.
+    /// Builds <c>provision-{app}-auth</c>.
     /// </summary>
     public static string GetProvisionAuthStepName(string appName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(appName);
-        return $"provision-auth-{appName}";
+        return $"provision-{appName}-auth";
     }
 
     /// <summary>
@@ -87,8 +87,7 @@ public static class AuthOpsExtensions
         builder.WithEnvironment(envOptions.ResolveName(AuthOutput.TenantId, prefix), authApp.TenantIdParameter);
         builder.WithEnvironment(envOptions.ResolveName(AuthOutput.ClientId, prefix), authApp.ClientIdParameter);
 
-        var includeClientSecret = envOptions.IncludeClientSecret ?? authApp.Options.CreateClientSecret;
-        if (includeClientSecret)
+        if (envOptions.IncludeClientSecret == true)
         {
             builder.WithEnvironment(
                 envOptions.ResolveName(AuthOutput.ClientSecret, prefix),
@@ -107,13 +106,6 @@ public static class AuthOpsExtensions
                     context.EnvironmentVariables[authorityName] = formatter(tenantId);
                 }
             });
-        }
-
-        if (envOptions.IncludeRedirectUri && authApp.Options.RedirectUris.Count > 0)
-        {
-            builder.WithEnvironment(
-                envOptions.ResolveName(AuthOutput.RedirectUri, prefix),
-                authApp.Options.RedirectUris[0]);
         }
 
         return builder;

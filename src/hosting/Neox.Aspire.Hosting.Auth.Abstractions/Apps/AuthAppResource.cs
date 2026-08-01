@@ -7,11 +7,13 @@ namespace Neox.Aspire.Hosting.Auth;
 /// </summary>
 public sealed class AuthAppResource : Resource
 {
-    public AuthAppResource(string name, AuthOpsResourceBase provider)
+    public AuthAppResource(string name, AuthOpsResourceBase provider, string displayName)
         : base(name)
     {
         ArgumentNullException.ThrowIfNull(provider);
+        ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
         Provider = provider;
+        DisplayName = displayName;
     }
 
     /// <summary>
@@ -20,9 +22,9 @@ public sealed class AuthAppResource : Resource
     public AuthOpsResourceBase Provider { get; }
 
     /// <summary>
-    /// Desired OAuth application options.
+    /// Desired display name in the identity provider (from <c>AddAppRegistration</c>).
     /// </summary>
-    public AuthAppOptions Options { get; internal set; } = new();
+    public string DisplayName { get; }
 
     /// <summary>
     /// Workload tenant id parameter (<c>{provider}-tenant-id</c> shared, or app-qualified when needed).

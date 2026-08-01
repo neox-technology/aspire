@@ -38,7 +38,7 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
         return new EntraGraphAppProvisioner(graph, configuration);
     }
 
-    public async Task<EntraProvisionResult> ProvisionAsync(AuthAppResource app, CancellationToken cancellationToken)
+    public async Task<AuthAppRegistrationPlan> PlanAsync(AuthAppResource app, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(app);
 
@@ -48,72 +48,125 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
                 $"Auth app '{app.Name}' provider '{app.Provider.Name}' is not Entra.");
         }
 
-        var tenantId = await ResolveTenantIdAsync(entra, app, cancellationToken).ConfigureAwait(false);
-        var options = app.Options;
-        var displayName = options.DisplayName ?? app.Name;
-
-        var adoptClientId = await ResolveAdoptClientIdAsync(app, cancellationToken).ConfigureAwait(false);
-        if (!string.IsNullOrWhiteSpace(adoptClientId))
+        if (string.IsNullOrWhiteSpace(app.DisplayName))
         {
-            return await AdoptAsync(tenantId, adoptClientId, options, cancellationToken)
-                .ConfigureAwait(false);
+            throw new InvalidOperationException($"Auth app '{app.Name}' requires DisplayName.");
         }
 
-        var existing = await FindByDisplayNameAsync(displayName, cancellationToken).ConfigureAwait(false);
-        if (existing is not null)
+        var tenantId = await ResolveTenantIdAsync(entra, app, cancellationToken).ConfigureAwait(false);
+        var adoptClientId = ResolveAdoptClientId(app);
+
+        if (!string.IsNullOrWhiteSpace(adoptClientId))
         {
-            await UpdateRedirectsAsync(existing, options, cancellationToken).ConfigureAwait(false);
-            string? secret = null;
-            if (options.RotateClientSecret || (options.CreateClientSecret && string.IsNullOrEmpty(existing.AppId)))
-            {
-                // Rotate only when explicitly requested on an existing app.
-                if (options.RotateClientSecret && !string.IsNullOrEmpty(existing.Id))
-                {
-                    secret = await AddPasswordAsync(existing.Id!, cancellationToken).ConfigureAwait(false);
-                }
-            }
+            var existing = await GetByAppIdAsync(adoptClientId, cancellationToken).ConfigureAwait(false)
+                ?? throw new InvalidOperationException(
+                    $"No Entra application found with client id '{adoptClientId}'.");
+
+            return BuildAdoptPlan(tenantId, app.DisplayName, existing);
+        }
+
+        var byName = await FindByDisplayNameAsync(app.DisplayName, cancellationToken).ConfigureAwait(false);
+        if (byName is not null)
+        {
+            return BuildAdoptPlan(tenantId, app.DisplayName, byName);
+        }
+
+        return new AuthAppRegistrationPlan
+        {
+            Mode = AuthAppRegistrationPlanMode.Create,
+            TenantId = tenantId,
+            DesiredDisplayName = app.DisplayName,
+            Existing = null,
+            Actions = [AuthAppRegistrationPlanAction.CreateApplication]
+        };
+    }
+
+    public async Task<EntraProvisionResult> ProvisionAsync(
+        AuthAppResource app,
+        AuthAppRegistrationPlan plan,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(app);
+        ArgumentNullException.ThrowIfNull(plan);
+
+        if (plan.Actions.Contains(AuthAppRegistrationPlanAction.CreateApplication))
+        {
+            var created = await CreateApplicationAsync(plan.DesiredDisplayName, cancellationToken)
+                .ConfigureAwait(false);
 
             return new EntraProvisionResult
             {
-                TenantId = tenantId,
-                ClientId = existing.AppId ?? throw new InvalidOperationException("Graph application missing AppId."),
-                ClientSecret = secret,
-                ApplicationObjectId = existing.Id
+                TenantId = plan.TenantId,
+                ClientId = created.AppId ?? throw new InvalidOperationException("Created application missing AppId."),
+                ClientSecret = null,
+                ApplicationObjectId = created.Id
             };
         }
 
-        var created = await CreateApplicationAsync(displayName, options, cancellationToken).ConfigureAwait(false);
-        string? createdSecret = null;
-        if (options.CreateClientSecret && !string.IsNullOrEmpty(created.Id))
+        var existing = plan.Existing
+            ?? throw new InvalidOperationException(
+                $"Auth app '{app.Name}' plan is Adopt but has no existing snapshot.");
+
+        if (plan.Actions.Contains(AuthAppRegistrationPlanAction.UpdateDisplayName))
         {
-            createdSecret = await AddPasswordAsync(created.Id!, cancellationToken).ConfigureAwait(false);
+            await PatchDisplayNameAsync(existing.ObjectId, plan.DesiredDisplayName, cancellationToken)
+                .ConfigureAwait(false);
         }
 
         return new EntraProvisionResult
         {
-            TenantId = tenantId,
-            ClientId = created.AppId ?? throw new InvalidOperationException("Created application missing AppId."),
-            ClientSecret = createdSecret,
-            ApplicationObjectId = created.Id
+            TenantId = plan.TenantId,
+            ClientId = existing.AppId,
+            ClientSecret = null,
+            ApplicationObjectId = existing.ObjectId
         };
     }
 
-    private static Task<string?> ResolveAdoptClientIdAsync(
-        AuthAppResource app,
-        CancellationToken cancellationToken)
+    private static AuthAppRegistrationPlan BuildAdoptPlan(
+        string tenantId,
+        string desiredDisplayName,
+        Application existing)
     {
-        _ = cancellationToken;
+        var objectId = existing.Id
+            ?? throw new InvalidOperationException("Graph application missing object id.");
+        var appId = existing.AppId
+            ?? throw new InvalidOperationException("Graph application missing AppId.");
 
+        var snapshot = new AuthAppRegistrationExistingSnapshot
+        {
+            ObjectId = objectId,
+            AppId = appId,
+            DisplayName = existing.DisplayName
+        };
+
+        var displayNameDiffers = !string.Equals(
+            existing.DisplayName,
+            desiredDisplayName,
+            StringComparison.Ordinal);
+
+        return new AuthAppRegistrationPlan
+        {
+            Mode = AuthAppRegistrationPlanMode.Adopt,
+            TenantId = tenantId,
+            DesiredDisplayName = desiredDisplayName,
+            Existing = snapshot,
+            Actions = displayNameDiffers
+                ? [AuthAppRegistrationPlanAction.UpdateDisplayName]
+                : [AuthAppRegistrationPlanAction.None]
+        };
+    }
+
+    private static string? ResolveAdoptClientId(AuthAppResource app)
+    {
         if (app.ClientIdParameter is not null
             && TryGetResolvedParameterValue(app.ClientIdParameter, out var fromParam))
         {
             if (!EntraAppRegistrationParameterPrompt.IsCreateSentinel(fromParam)
                 && Guid.TryParse(fromParam, out _))
             {
-                return Task.FromResult<string?>(fromParam);
+                return fromParam;
             }
 
-            // Create sentinel or non-GUID — do not adopt.
             if (!string.IsNullOrWhiteSpace(fromParam)
                 && !EntraAppRegistrationParameterPrompt.IsCreateSentinel(fromParam)
                 && !Guid.TryParse(fromParam, out _))
@@ -124,13 +177,7 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
             }
         }
 
-        if (!string.IsNullOrWhiteSpace(app.Options.ExistingClientId)
-            && Guid.TryParse(app.Options.ExistingClientId, out _))
-        {
-            return Task.FromResult<string?>(app.Options.ExistingClientId);
-        }
-
-        return Task.FromResult<string?>(null);
+        return null;
     }
 
     /// <summary>
@@ -167,7 +214,6 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
                 }
             }
 
-            // No wait TCS (e.g. default value / publish) — GetValueAsync is non-blocking.
             value = parameter.GetValueAsync(CancellationToken.None).AsTask().GetAwaiter().GetResult();
             return !string.IsNullOrWhiteSpace(value);
         }
@@ -182,6 +228,8 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
         AuthAppResource app,
         CancellationToken cancellationToken)
     {
+        _ = entra;
+
         if (app.TenantIdParameter is not null)
         {
             var fromParam = await app.TenantIdParameter.GetValueAsync(cancellationToken).ConfigureAwait(false);
@@ -205,51 +253,23 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
             "Entra tenant id is required. Set Entra options TenantId parameter, Parameters__{provider}-tenant-id, or Azure__TenantId.");
     }
 
-    private async Task<EntraProvisionResult> AdoptAsync(
-        string tenantId,
-        string clientId,
-        AuthAppOptions options,
-        CancellationToken cancellationToken)
+    private async Task<Application?> GetByAppIdAsync(string clientId, CancellationToken cancellationToken)
     {
-        Application? app;
         try
         {
-            // Filter by appId (client id).
             var page = await _graph.Applications.GetAsync(request =>
             {
                 request.QueryParameters.Filter = $"appId eq '{EscapeOData(clientId)}'";
                 request.QueryParameters.Top = 1;
             }, cancellationToken).ConfigureAwait(false);
 
-            app = page?.Value?.FirstOrDefault();
+            return page?.Value?.FirstOrDefault();
         }
         catch (ODataError ex)
         {
             throw new InvalidOperationException(
                 $"Failed to look up Entra application '{clientId}': {ex.Error?.Message ?? ex.Message}", ex);
         }
-
-        if (app is null)
-        {
-            throw new InvalidOperationException(
-                $"No Entra application found with client id '{clientId}'.");
-        }
-
-        await UpdateRedirectsAsync(app, options, cancellationToken).ConfigureAwait(false);
-
-        string? secret = null;
-        if (options.RotateClientSecret && !string.IsNullOrEmpty(app.Id))
-        {
-            secret = await AddPasswordAsync(app.Id!, cancellationToken).ConfigureAwait(false);
-        }
-
-        return new EntraProvisionResult
-        {
-            TenantId = tenantId,
-            ClientId = app.AppId ?? clientId,
-            ClientSecret = secret,
-            ApplicationObjectId = app.Id
-        };
     }
 
     private async Task<Application?> FindByDisplayNameAsync(string displayName, CancellationToken cancellationToken)
@@ -263,26 +283,14 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
         return page?.Value?.FirstOrDefault();
     }
 
-    private async Task<Application> CreateApplicationAsync(
-        string displayName,
-        AuthAppOptions options,
-        CancellationToken cancellationToken)
+    private async Task<Application> CreateApplicationAsync(string displayName, CancellationToken cancellationToken)
     {
         var application = new Application
         {
             DisplayName = displayName,
-            SignInAudience = "AzureADMyOrg"
+            SignInAudience = "AzureADMyOrg",
+            Notes = $"neox-aspire-auth:{NeoxMarkerExtension}"
         };
-
-        ApplyPlatform(application, options);
-
-        if (options.IdentifierUris.Count > 0)
-        {
-            application.IdentifierUris = [.. options.IdentifierUris];
-        }
-
-        // Marker note in description for idempotent discovery (extension attrs need directory setup).
-        application.Notes = $"neox-aspire-auth:{NeoxMarkerExtension}";
 
         var created = await _graph.Applications.PostAsync(application, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
@@ -290,74 +298,14 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
         return created ?? throw new InvalidOperationException("Graph Applications.PostAsync returned null.");
     }
 
-    private async Task UpdateRedirectsAsync(
-        Application existing,
-        AuthAppOptions options,
+    private async Task PatchDisplayNameAsync(
+        string objectId,
+        string displayName,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrEmpty(existing.Id) || options.RedirectUris.Count == 0)
-        {
-            return;
-        }
-
-        var patch = new Application();
-        ApplyPlatform(patch, options);
-        if (options.IdentifierUris.Count > 0)
-        {
-            patch.IdentifierUris = [.. options.IdentifierUris];
-        }
-
-        await _graph.Applications[existing.Id].PatchAsync(patch, cancellationToken: cancellationToken)
+        var patch = new Application { DisplayName = displayName };
+        await _graph.Applications[objectId].PatchAsync(patch, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
-    }
-
-    private static void ApplyPlatform(Application application, AuthAppOptions options)
-    {
-        var uris = options.RedirectUris.ToList();
-        switch (options.ApplicationType)
-        {
-            case AuthApplicationType.Web:
-                application.Web = new Microsoft.Graph.Models.WebApplication
-                {
-                    RedirectUris = uris
-                };
-                break;
-            case AuthApplicationType.Spa:
-                application.Spa = new SpaApplication
-                {
-                    RedirectUris = uris
-                };
-                break;
-            case AuthApplicationType.Native:
-                application.PublicClient = new PublicClientApplication
-                {
-                    RedirectUris = uris
-                };
-                break;
-            case AuthApplicationType.Api:
-                // API apps typically use identifier URIs; optional redirects ignored.
-                break;
-        }
-    }
-
-    private async Task<string> AddPasswordAsync(string applicationObjectId, CancellationToken cancellationToken)
-    {
-        var body = new Microsoft.Graph.Applications.Item.AddPassword.AddPasswordPostRequestBody
-        {
-            PasswordCredential = new PasswordCredential
-            {
-                DisplayName = "neox-aspire-auth",
-                EndDateTime = DateTimeOffset.UtcNow.AddMonths(12)
-            }
-        };
-
-        var result = await _graph.Applications[applicationObjectId]
-            .AddPassword
-            .PostAsync(body, cancellationToken: cancellationToken)
-            .ConfigureAwait(false);
-
-        return result?.SecretText
-            ?? throw new InvalidOperationException("Graph AddPassword returned no secret text.");
     }
 
     private static string EscapeOData(string value) => value.Replace("'", "''", StringComparison.Ordinal);

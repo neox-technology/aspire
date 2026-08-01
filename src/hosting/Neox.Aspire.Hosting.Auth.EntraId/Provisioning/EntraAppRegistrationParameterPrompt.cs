@@ -7,7 +7,7 @@ namespace Neox.Aspire.Hosting.Auth;
 
 /// <summary>
 /// Prompts for an Auth app ClientId: adopt an existing app (listed from the tenant) or choose create (sentinel).
-/// DisplayName for create comes from <see cref="AuthAppOptions.DisplayName"/> (not an Aspire parameter).
+/// DisplayName for create comes from <c>AddAppRegistration</c> (not an Aspire parameter).
 /// </summary>
 internal static class EntraAppRegistrationParameterPrompt
 {
