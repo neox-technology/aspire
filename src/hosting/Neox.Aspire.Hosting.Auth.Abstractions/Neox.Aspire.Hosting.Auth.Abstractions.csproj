@@ -6,9 +6,9 @@
     <RootNamespace>Neox.Aspire.Hosting.Auth</RootNamespace>
     <IsPackable>true</IsPackable>
     <SuppressFinalPackageVersion>true</SuppressFinalPackageVersion>
-    <Description>Aspire hosting helpers for identity-provider app registrations (AuthOps): Entra via Microsoft Graph and generic AUTH_* environment injection.</Description>
+    <Description>Aspire hosting AuthOps abstractions: shared provider/app model, pipeline gates, and generic AUTH_* environment injection.</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageTags>aspire;auth;entra;oidc;graph;authops</PackageTags>
+    <PackageTags>aspire;auth;authops;oidc</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,12 +17,10 @@
 
   <ItemGroup>
     <PackageReference Include="Aspire.Hosting" Version="$(AspireVersion)" />
-    <PackageReference Include="Aspire.Hosting.Azure" Version="$(AspireVersion)" />
-    <PackageReference Include="Azure.Identity" Version="1.21.0" />
-    <PackageReference Include="Microsoft.Graph" Version="5.94.0" />
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Neox.Aspire.Hosting.Auth.EntraId" />
     <InternalsVisibleTo Include="Neox.Aspire.Hosting.Auth.Tests" />
   </ItemGroup>
 </Project>

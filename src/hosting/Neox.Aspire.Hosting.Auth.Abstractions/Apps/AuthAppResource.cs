@@ -3,7 +3,7 @@ using Aspire.Hosting.ApplicationModel;
 namespace Neox.Aspire.Hosting.Auth;
 
 /// <summary>
-/// Logical app registration under an Auth provider (create or adopt via Microsoft Graph for Entra).
+/// Logical app registration under an Auth provider.
 /// </summary>
 public sealed class AuthAppResource : Resource
 {
@@ -20,7 +20,7 @@ public sealed class AuthAppResource : Resource
     public AuthProviderResource Provider { get; }
 
     /// <summary>
-    /// Desired Entra / OAuth application options.
+    /// Desired OAuth application options.
     /// </summary>
     public AuthAppOptions Options { get; internal set; } = new();
 
@@ -40,7 +40,7 @@ public sealed class AuthAppResource : Resource
     public ParameterResource ClientSecretParameter { get; internal set; } = null!;
 
     /// <summary>
-    /// Default env prefix for a single app: <c>AUTH_ENTRA</c>; for multiple apps: <c>AUTH_ENTRA_{APP}</c>.
+    /// Default env prefix for a single app: <c>AUTH_{PROVIDER}</c>; for multiple apps: <c>AUTH_{PROVIDER}_{APP}</c>.
     /// </summary>
     public string DefaultEnvPrefix
     {

@@ -8,7 +8,12 @@
 
 ## Summary
 
-Hosting package `Neox.Aspire.Hosting.Auth` (**AuthOps**) provisions Entra ID app registrations via Microsoft Graph and injects workload credentials into Aspire resources as **generic environment variables** (`AUTH_{PROVIDER}_{SETTING}`). Consumers call `AddAuthProvider` → `.Entra(...)` → `AddApp` → `WithAuth` → `aspire do` / `aspire deploy`.
+AuthOps is split into two hosting packages:
+
+- **`Neox.Aspire.Hosting.Auth.Abstractions`** — common AuthOps model, shared pipeline gates (`prereq-auth`, `deploy-auth`), and generic `WithAuth` env injection.
+- **`Neox.Aspire.Hosting.Auth.EntraId`** — Entra ID provider (`AddAuthProvider` → `.Entra(...)` → `AddApp`), Graph provisioning, and Entra-specific pipeline steps.
+
+Consumers reference **`Neox.Aspire.Hosting.Auth.EntraId`** (pulls Abstractions transitively). The former package id **`Neox.Aspire.Hosting.Auth` is retired** (breaking). Namespace remains `Neox.Aspire.Hosting.Auth` in both assemblies.
 
 **v1 decisions (frozen):**
 
@@ -32,8 +37,8 @@ None — `aspire do` / `aspire deploy` pipeline steps only. No dashboard `WithCo
 ## Dependencies
 
 - Arcade pack/publish ([`nuget-org`](nuget-org.md)), terminology ([`domain-glossary`](domain-glossary.md))
-- `Aspire.Hosting` (resources, parameters, pipelines, `IInteractionService`)
-- Microsoft Graph (SDK or minimal HTTP client) for application CRUD + password credentials
+- `Aspire.Hosting` (Abstractions: resources, parameters, pipelines, `IInteractionService`)
+- `Aspire.Hosting.Azure`, Azure.Identity, Microsoft Graph (EntraId only) for application CRUD + password credentials
 - Aspire Azure credential surface where available (`ITokenCredentialProvider` / equivalent) for **management** Graph calls; CI may use app-only Graph separately from workload secrets
 - Patterns: DomainOps (`AddDomainOpsProvider`, `WithPipelineStepFactory`, parameter prompts) in [`azure-custom-domains`](azure-custom-domains.md)
 
@@ -46,18 +51,22 @@ None — `aspire do` / `aspire deploy` pipeline steps only. No dashboard `WithCo
 - Dedicated Dashboard UI
 - Automatic secret rotation on every deploy (opt-in only if added later)
 - Multi-tenant / CIAM / External ID–specific flows beyond a single Entra tenant app registration
+- Meta-package / type-forwarding shim retaining package id `Neox.Aspire.Hosting.Auth`
 
 ## Acceptance criteria
 
-- [x] Package `Neox.Aspire.Hosting.Auth` under `src/hosting/Neox.Aspire.Hosting.Auth/`.
-- [x] `AddAuthProvider(name).Entra(configure)` registers a non-container `AuthProviderResource` (slug `entra`).
-- [x] `AddApp(name, configure)` models an Entra app registration (`AuthAppResource` or equivalent) with Web / Spa / Api / Native, redirect URIs, optional identifier URIs, create-secret flag, optional `ExistingClientId`.
-- [x] `WithAuth(app)` / `WithAuth(app, env => …)` injects only generic `AUTH_ENTRA_*` (or custom prefix) via `WithEnvironment` late-bound to parameters — never resolves secrets at model build time.
+- [x] Package `Neox.Aspire.Hosting.Auth.Abstractions` under `src/hosting/Neox.Aspire.Hosting.Auth.Abstractions/` (Aspire.Hosting only).
+- [x] Package `Neox.Aspire.Hosting.Auth.EntraId` under `src/hosting/Neox.Aspire.Hosting.Auth.EntraId/` (refs Abstractions + Graph/Azure).
+- [x] Former package id `Neox.Aspire.Hosting.Auth` removed (no shipping assembly with that id).
+- [x] `AddAuthProvider(name)` lives in Abstractions; `.Entra(configure)` is an EntraId extension on `IAuthProviderBuilder`.
+- [x] `AddApp(name, configure)` models an Entra app registration (`AuthAppResource`) with Web / Spa / Api / Native, redirect URIs, optional identifier URIs, create-secret flag, optional `ExistingClientId`.
+- [x] `WithAuth(app)` / `WithAuth(app, env => …)` injects only generic `AUTH_*` (or custom prefix) via `WithEnvironment` late-bound to parameters — never resolves secrets at model build time; Authority uses provider `AuthorityFormatter` (Entra sets `login.microsoftonline.com`).
 - [x] Pipeline steps match **Pipeline step contracts** below; tags include `auth-ops`; `deploy-auth` is required by Aspire `deploy`.
 - [x] Management vs workload credentials are separated; workload secrets use `ParameterResource` with `secret: true`.
 - [x] Interactive prompts for missing params when `IInteractionService` is available; otherwise require `Parameters__*` / credential config (CI).
-- [x] Unit tests with Graph fakes; package README for consumers.
-- [x] Sample AppHost (`tests/auth-providers/sample-apphost/`) wires Blazor Web + Vite Spa via AuthOps; CI smoke is `dotnet build` only (no live Graph).
+- [x] Unit tests with Graph fakes; EntraId package README for consumers.
+- [x] Sample AppHost (`tests/auth-providers/sample-apphost/`) wires Blazor Web + Vite Spa via AuthOps; Auth app resource names (`web`/`spa`) stay distinct from workload resources (`blazor`/`ops`); CI smoke is `dotnet build` only (no live Graph).
+- [x] `WithAuth` / provision skip client secret when `CreateClientSecret` is false (SPA / public client) unless `IncludeClientSecret` overrides.
 - [x] Glossary terms for AuthOps promoted in [`domain-glossary`](domain-glossary.md).
 
 ## Terminology
@@ -68,23 +77,26 @@ See [`domain-glossary`](domain-glossary.md). Feature-local API names below until
 
 | Item | Path / value |
 |------|----------------|
-| Project | `src/hosting/Neox.Aspire.Hosting.Auth/` |
-| Package id | `Neox.Aspire.Hosting.Auth` |
-| Namespace | `Neox.Aspire.Hosting.Auth` |
+| Abstractions project | `src/hosting/Neox.Aspire.Hosting.Auth.Abstractions/` |
+| Abstractions package id | `Neox.Aspire.Hosting.Auth.Abstractions` |
+| EntraId project | `src/hosting/Neox.Aspire.Hosting.Auth.EntraId/` |
+| EntraId package id | `Neox.Aspire.Hosting.Auth.EntraId` |
+| Namespace (both) | `Neox.Aspire.Hosting.Auth` |
 | Product vocabulary | AuthOps |
-| Provider API | `AddAuthProvider`, `AuthProviderResource`, `.Entra(...)` |
+| Provider API | `AddAuthProvider`, `AuthProviderResource`, `.Entra(...)` (EntraId) |
 | App API | `AddApp`, `AuthAppResource` / options |
 | Binding API | `WithAuth`, env mapping options |
-| Provisioner | `EntraGraphAppProvisioner` (Microsoft Graph) |
+| Provisioner | `EntraGraphAppProvisioner` (Microsoft Graph) in EntraId |
 | Unit tests | `tests/auth-providers/` |
 | Sample AppHost | `tests/auth-providers/sample-apphost/` (Blazor Server + Vite ops SPA; smoke `dotnet build` only) |
-| Sample Blazor | `tests/auth-providers/sample-blazor/` — Web app registration + `AUTH_ENTRA_BLAZOR_*` |
-| Sample ops | `tests/auth-providers/sample-ops/` — Spa app registration; `WithAuth` maps `VITE_ENTRA_*` |
+| Sample Blazor | `tests/auth-providers/sample-blazor/` — workload `blazor`; Auth app `web` → `AUTH_ENTRA_WEB_*` |
+| Sample ops | `tests/auth-providers/sample-ops/` — workload `ops`; Auth app `spa`; `WithAuth` maps `VITE_ENTRA_*` |
 | Pipeline tags | `["auth-ops"]` |
 
 ### Proposed AppHost surface (v1)
 
 ```csharp
+// PackageReference: Neox.Aspire.Hosting.Auth.EntraId
 var entra = builder.AddAuthProvider("entra")
     .Entra(o =>
     {
@@ -123,7 +135,7 @@ Convention: `AUTH_{PROVIDER_SLUG}_{SETTING}` with provider slug uppercased.
 | Tenant id | `AUTH_ENTRA_TENANT_ID` | `{provider}-tenant-id` (e.g. `entra-tenant-id`) |
 | Client id | `AUTH_ENTRA_CLIENT_ID` | `{provider}-client-id` or `{provider}-{app}-client-id` when multiple apps |
 | Client secret | `AUTH_ENTRA_CLIENT_SECRET` | `{provider}-client-secret` / `{provider}-{app}-client-secret` (`secret: true`) |
-| Authority | `AUTH_ENTRA_AUTHORITY` | Derived (`https://login.microsoftonline.com/{tenant}`) — optional emit |
+| Authority | `AUTH_ENTRA_AUTHORITY` | Derived via provider `AuthorityFormatter` (`https://login.microsoftonline.com/{tenant}` for Entra) — optional emit |
 | Redirect URI | `AUTH_ENTRA_REDIRECT_URI` | Optional; primary redirect when useful for the consumer |
 
 CI: `Parameters__entra-client-id`, `Parameters__entra-client-secret`, `Parameters__entra-tenant-id` (and app-qualified names when multiple apps share one provider resource).
@@ -143,11 +155,11 @@ Never resolve workload secrets at distributed-application model build time. Neve
 
 | Step | Registered by | DependsOn | Exit 0 | Exit ≠ 0 |
 |------|---------------|-----------|--------|----------|
-| `prereq-auth` | `AddAuthProvider` core | (none hard) — credential/Graph client obtainable | Management credential ready | Missing interactive input / credential failure |
-| `prereq-auth-entra` | `.Entra(...)` (optional, idempotent) | `prereq-auth` | Tenant reachable / Graph scopes OK | Tenant or Graph permission failure |
-| `plan-auth-{app}` | `AddApp` / AuthOps bind | `prereq-auth-entra` (or `prereq-auth`) | Desired model validated (display name, type, redirect URIs) | Invalid options |
-| `provision-auth-{app}` | `AddApp` / AuthOps | `plan-auth-{app}` | App exists (created or adopted); workload parameters set; state saved for idempotence | Graph failure / validation failure |
-| `deploy-auth` | AuthOps (idempotent gate) | all `provision-auth-{app}`; **RequiredBy** Aspire `deploy` | Gate only | Dependency failure |
+| `prereq-auth` | `AddAuthProvider` (Abstractions) | (none hard) — credential/Graph client obtainable | Management credential ready | Missing interactive input / credential failure |
+| `prereq-auth-entra` | `.Entra(...)` (EntraId, optional, idempotent) | `prereq-auth` | Tenant reachable / Graph scopes OK | Tenant or Graph permission failure |
+| `plan-auth-{app}` | `AddApp` / AuthOps bind (EntraId) | `prereq-auth-entra` (or `prereq-auth`) | Desired model validated (display name, type, redirect URIs) | Invalid options |
+| `provision-auth-{app}` | `AddApp` / AuthOps (EntraId) | `plan-auth-{app}` | App exists (created or adopted); workload parameters set; state saved for idempotence | Graph failure / validation failure |
+| `deploy-auth` | AuthOps Abstractions gate (idempotent) | all `provision-auth-{app}`; **RequiredBy** Aspire `deploy` | Gate only | Dependency failure |
 
 `{app}` is the Auth app resource name slug (same dash rules as other Neox steps).
 
@@ -167,27 +179,26 @@ Never resolve workload secrets at distributed-application model build time. Neve
 ### Target package layout
 
 ```
-src/hosting/Neox.Aspire.Hosting.Auth/
+src/hosting/Neox.Aspire.Hosting.Auth.Abstractions/
   AuthProviderExtensions.cs
-  AuthOpsExtensions*.cs
-  Provider/
-    AuthProviderResource.cs
-    EntraAuthProviderBuilder.cs
-  Apps/
-    AuthAppResource.cs / options
-  Provisioning/
-    EntraGraphAppProvisioner.cs
-  Pipeline/
-    AuthOpsOrchestrator.cs   # if shared orchestration needed
+  AuthOpsExtensions.cs          # WithAuth, prereq-auth, deploy-auth
+  Provider/AuthProviderResource.cs
+  Apps/AuthAppResource.cs / options
+  README.md                     # optional thin pointer
+
+src/hosting/Neox.Aspire.Hosting.Auth.EntraId/
+  EntraAuthProviderBuilderExtensions.cs  # .Entra(...)
+  EntraAuthOpsExtensions.cs              # prereq-auth-entra, plan/provision
+  Provider/EntraAuthProvider*.cs
+  Provisioning/EntraGraphAppProvisioner.cs
   README.md
 ```
 
-### Implementation sequencing (after status → `defined`)
+### Implementation sequencing
 
-1. Skeleton package + `AddAuthProvider` / `.Entra` / `AddApp` / `WithAuth` (env wiring, no Graph).
-2. Pipeline step registration + parameter naming.
-3. `EntraGraphAppProvisioner` (create/adopt/idempotent) + deployment state.
-4. Parameter prompts + README + unit tests.
-5. Status → `implemented`; expand glossary if needed.
+1. Spec status → `defined` (this revision).
+2. Create Abstractions + EntraId projects; move/split sources; retire `Neox.Aspire.Hosting.Auth`.
+3. Update tests/samples/solution; build + unit tests.
+4. Status → `implemented`.
 
-**Do not implement code while this spec remains `draft`.** This spec is **`defined`**; implementation of `Neox.Aspire.Hosting.Auth` may proceed.
+This package split is **`implemented`**.

@@ -10,7 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\hosting\Neox.Aspire.Hosting.Auth\Neox.Aspire.Hosting.Auth.csproj" />
+    <ProjectReference Include="..\..\src\hosting\Neox.Aspire.Hosting.Auth.EntraId\Neox.Aspire.Hosting.Auth.EntraId.csproj" />
   </ItemGroup>
 
   <ItemGroup>

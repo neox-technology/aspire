@@ -20,6 +20,11 @@ public abstract class AuthProviderResource : Resource
     public abstract string ProviderSlug { get; }
 
     /// <summary>
+    /// Optional formatter that builds an authority URL from a tenant id for <see cref="AuthOpsExtensions.WithAuth{T}"/>.
+    /// </summary>
+    public Func<string, string>? AuthorityFormatter { get; set; }
+
+    /// <summary>
     /// Auth apps registered under this provider.
     /// </summary>
     public IReadOnlyList<AuthAppResource> Apps => _apps;

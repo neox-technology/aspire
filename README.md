@@ -3,7 +3,7 @@
 [![CI](https://github.com/neox-technology/aspire/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/neox-technology/aspire/actions/workflows/ci.yml)
 [![NuGet](https://img.shields.io/nuget/vpre/Neox.Aspire.EntityFrameworkCore.MigrationWorker.svg?label=MigrationWorker)](https://www.nuget.org/packages/Neox.Aspire.EntityFrameworkCore.MigrationWorker)
 [![NuGet](https://img.shields.io/nuget/vpre/Neox.Aspire.Hosting.Azure.CustomDomains.svg?label=CustomDomains)](https://www.nuget.org/packages/Neox.Aspire.Hosting.Azure.CustomDomains)
-[![NuGet](https://img.shields.io/nuget/vpre/Neox.Aspire.Hosting.Auth.svg?label=Auth)](https://www.nuget.org/packages/Neox.Aspire.Hosting.Auth)
+[![NuGet](https://img.shields.io/nuget/vpre/Neox.Aspire.Hosting.Auth.EntraId.svg?label=Auth.EntraId)](https://www.nuget.org/packages/Neox.Aspire.Hosting.Auth.EntraId)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/Neox.Aspire.EntityFrameworkCore.MigrationWorker.svg?label=MigrationWorker%20downloads)](https://www.nuget.org/packages/Neox.Aspire.EntityFrameworkCore.MigrationWorker)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/Neox.Aspire.Hosting.Azure.CustomDomains.svg?label=CustomDomains%20downloads)](https://www.nuget.org/packages/Neox.Aspire.Hosting.Azure.CustomDomains)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -21,14 +21,14 @@ Pick a package and install from nuget.org:
 ```bash
 dotnet add package Neox.Aspire.EntityFrameworkCore.MigrationWorker
 dotnet add package Neox.Aspire.Hosting.Azure.CustomDomains
-dotnet add package Neox.Aspire.Hosting.Auth
+dotnet add package Neox.Aspire.Hosting.Auth.EntraId
 ```
 
 | Package | Usage |
 |---------|-------|
 | [MigrationWorker](src/Neox.Aspire.EntityFrameworkCore.MigrationWorker/README.md) | `AddEfCoreMigrationService<TDbContext>()` |
 | [CustomDomains](src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains/README.md) | `AddDomainOpsProvider` + `WithAzureCustomDomainOps` |
-| [Auth](src/hosting/Neox.Aspire.Hosting.Auth/README.md) | `AddAuthProvider` + `WithAuth` |
+| [Auth.EntraId](src/hosting/Neox.Aspire.Hosting.Auth.EntraId/README.md) | `AddAuthProvider` + `.Entra` + `WithAuth` |
 
 > [!NOTE]
 > .NET SDK **10.0.110** is pinned in [`global.json`](global.json). Arcade installs a local copy via `eng/common` when needed.
@@ -37,7 +37,8 @@ dotnet add package Neox.Aspire.Hosting.Auth
 
 - [NuGet: Neox.Aspire.EntityFrameworkCore.MigrationWorker](https://www.nuget.org/packages/Neox.Aspire.EntityFrameworkCore.MigrationWorker)
 - [NuGet: Neox.Aspire.Hosting.Azure.CustomDomains](https://www.nuget.org/packages/Neox.Aspire.Hosting.Azure.CustomDomains)
-- [NuGet: Neox.Aspire.Hosting.Auth](https://www.nuget.org/packages/Neox.Aspire.Hosting.Auth)
+- [NuGet: Neox.Aspire.Hosting.Auth.EntraId](https://www.nuget.org/packages/Neox.Aspire.Hosting.Auth.EntraId)
+- [NuGet: Neox.Aspire.Hosting.Auth.Abstractions](https://www.nuget.org/packages/Neox.Aspire.Hosting.Auth.Abstractions)
 - [Aspire documentation](https://aspire.dev/docs/)
 - [microsoft/aspire](https://github.com/microsoft/aspire)
 - [Feature specs](specs/README.md)
@@ -52,9 +53,10 @@ Packable libraries live under `src/`. Hosting packages use the `Neox.Aspire.Host
 |---------|------|
 | [`Neox.Aspire.EntityFrameworkCore.MigrationWorker`](src/Neox.Aspire.EntityFrameworkCore.MigrationWorker) | One-shot EF Core migration `BackgroundService` via `AddEfCoreMigrationService<TDbContext>()` |
 | [`Neox.Aspire.Hosting.Azure.CustomDomains`](src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains) | ACA custom domain ops (`WithAzureCustomDomainOps`, OctoDNS / managed certs via `aspire do`) |
-| [`Neox.Aspire.Hosting.Auth`](src/hosting/Neox.Aspire.Hosting.Auth) | AuthOps — Entra app registrations (Graph) + generic `AUTH_*` env via `WithAuth` |
+| [`Neox.Aspire.Hosting.Auth.Abstractions`](src/hosting/Neox.Aspire.Hosting.Auth.Abstractions) | AuthOps core — shared gates + generic `AUTH_*` via `WithAuth` |
+| [`Neox.Aspire.Hosting.Auth.EntraId`](src/hosting/Neox.Aspire.Hosting.Auth.EntraId) | AuthOps Entra — Graph app registrations + `.Entra(...)` |
 
-Tests: [`tests/efcore-migration-worker/`](tests/efcore-migration-worker/) (Aspire harnesses, Docker), [`tests/azure-custom-domains/`](tests/azure-custom-domains/) (unit + sample AppHost), and [`tests/auth-providers/`](tests/auth-providers/) (AuthOps unit tests). Specs: [`specs/`](specs/README.md).
+Tests: [`tests/efcore-migration-worker/`](tests/efcore-migration-worker/) (Aspire harnesses, Docker), [`tests/azure-custom-domains/`](tests/azure-custom-domains/) (unit + sample AppHost), and [`tests/auth-providers/`](tests/auth-providers/) (AuthOps unit tests + sample AppHost Blazor/ops). Specs: [`specs/`](specs/README.md).
 
 ### Build
 

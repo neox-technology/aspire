@@ -65,6 +65,44 @@ public class AuthProviderApiTests
     }
 
     [Fact]
+    public void WithAuth_SpaWithoutCreateClientSecret_SkipsClientSecretEnv()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var entra = builder.AddAuthProvider("entra").Entra(o => o.TenantId = "t");
+        var spa = entra.AddApp("spa", o =>
+        {
+            o.ApplicationType = AuthApplicationType.Spa;
+            o.RedirectUris = ["http://localhost:5173"];
+            o.CreateClientSecret = false;
+        });
+
+        var ops = builder.AddContainer("ops", "mcr.microsoft.com/dotnet/runtime", "10.0");
+        ops.WithAuth(spa);
+
+        // TenantId + ClientId + Authority (no ClientSecret)
+        Assert.Equal(3, ops.Resource.Annotations.OfType<EnvironmentCallbackAnnotation>().Count());
+    }
+
+    [Fact]
+    public void WithAuth_IncludeClientSecretOverride_EmitsSecretEvenWhenCreateFalse()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var entra = builder.AddAuthProvider("entra").Entra(o => o.TenantId = "t");
+        var spa = entra.AddApp("spa", o =>
+        {
+            o.ApplicationType = AuthApplicationType.Spa;
+            o.RedirectUris = ["http://localhost:5173"];
+            o.CreateClientSecret = false;
+        });
+
+        var ops = builder.AddContainer("ops", "mcr.microsoft.com/dotnet/runtime", "10.0");
+        ops.WithAuth(spa, env => env.IncludeClientSecret = true);
+
+        // TenantId + ClientId + ClientSecret + Authority
+        Assert.Equal(4, ops.Resource.Annotations.OfType<EnvironmentCallbackAnnotation>().Count());
+    }
+
+    [Fact]
     public void AuthApp_DefaultEnvPrefix_MultiApp_IncludesAppSlug()
     {
         var builder = DistributedApplication.CreateBuilder();
@@ -103,7 +141,7 @@ public class AuthProviderApiTests
     public void StepNames_FollowContracts()
     {
         Assert.Equal("prereq-auth", AuthOpsExtensions.AuthPrereqStepName);
-        Assert.Equal("prereq-auth-entra", AuthOpsExtensions.AuthPrereqEntraStepName);
+        Assert.Equal("prereq-auth-entra", EntraAuthOpsExtensions.AuthPrereqEntraStepName);
         Assert.Equal("deploy-auth", AuthOpsExtensions.AuthDeployStepName);
         Assert.Equal("plan-auth-web", AuthOpsExtensions.GetPlanAuthStepName("web"));
         Assert.Equal("provision-auth-web", AuthOpsExtensions.GetProvisionAuthStepName("web"));

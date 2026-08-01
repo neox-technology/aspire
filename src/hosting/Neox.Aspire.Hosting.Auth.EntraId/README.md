@@ -1,6 +1,8 @@
-# Neox.Aspire.Hosting.Auth
+# Neox.Aspire.Hosting.Auth.EntraId
 
 Aspire hosting helpers (**AuthOps**) that provision Entra ID app registrations via Microsoft Graph and inject workload credentials into resources as generic environment variables (`AUTH_ENTRA_*`).
+
+Depends on [`Neox.Aspire.Hosting.Auth.Abstractions`](../Neox.Aspire.Hosting.Auth.Abstractions/README.md).
 
 ## Quick start
 
@@ -35,6 +37,8 @@ Single app under the provider:
 
 Multiple apps: `AUTH_ENTRA_{APP}_*` (app slug uppercased).
 
+`CLIENT_SECRET` is emitted only when `CreateClientSecret` is true (or `WithAuth(..., env => env.IncludeClientSecret = true)`). SPA / public clients with `CreateClientSecret = false` do not get a secret env var and are not prompted for one after Graph create.
+
 Override prefix / mapping with `WithAuth(app, env => { env.Prefix = "..."; })`.
 
 ## Adopt an existing registration
@@ -47,7 +51,7 @@ entra.AddApp("web", o =>
 });
 ```
 
-Provide the secret via `Parameters__entra-web-client-secret` when needed. AuthOps validates redirect URIs and does not rotate secrets unless you opt in later.
+For confidential clients that still need a workload secret, set `CreateClientSecret = true`, rotate, or `IncludeClientSecret = true` and supply `Parameters__entra-web-client-secret`. AuthOps validates redirect URIs and does not rotate secrets unless you opt in later.
 
 ## Management vs workload credentials
 
@@ -58,7 +62,12 @@ Provide the secret via `Parameters__entra-web-client-secret` when needed. AuthOp
 
 ## Sample AppHost
 
-Smoke sample under `tests/auth-providers/sample-apphost/`: Blazor Server (`sample-blazor`, Web + client secret) and Vite/React ops SPA (`sample-ops`, Spa + `VITE_ENTRA_*` via `WithAuth` env maps). Build with `dotnet build` — no live Graph in CI.
+Smoke sample under `tests/auth-providers/sample-apphost/`:
+
+- Auth apps: `AddApp("web")` / `AddApp("spa")` (names must differ from Aspire workload resources)
+- Workloads: Blazor Server `blazor` (`AUTH_ENTRA_WEB_*`) and Vite/React `ops` (`VITE_ENTRA_*` via `WithAuth` maps)
+
+Build with `dotnet build` — no live Graph in CI.
 
 ## Spec
 

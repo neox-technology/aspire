@@ -1,7 +1,7 @@
 namespace Neox.Aspire.Hosting.Auth;
 
 /// <summary>
-/// Options for <see cref="AuthProviderExtensions"/> <c>.Entra(...)</c>.
+/// Options for <c>.Entra(...)</c> on an AuthOps provider builder.
 /// </summary>
 public sealed class EntraAuthProviderOptions
 {

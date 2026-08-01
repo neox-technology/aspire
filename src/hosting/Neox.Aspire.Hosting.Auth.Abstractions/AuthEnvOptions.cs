@@ -20,6 +20,12 @@ public sealed class AuthEnvOptions
     /// </summary>
     public bool IncludeRedirectUri { get; set; }
 
+    /// <summary>
+    /// When set, controls whether <c>{Prefix}_CLIENT_SECRET</c> is emitted.
+    /// When <c>null</c> (default), follows <see cref="AuthAppOptions.CreateClientSecret"/>.
+    /// </summary>
+    public bool? IncludeClientSecret { get; set; }
+
     private readonly Dictionary<AuthOutput, string> _maps = [];
 
     /// <summary>
