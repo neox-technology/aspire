@@ -57,6 +57,7 @@ None — `aspire do` / `aspire deploy` pipeline steps only. No dashboard `WithCo
 - [x] Management vs workload credentials are separated; workload secrets use `ParameterResource` with `secret: true`.
 - [x] Interactive prompts for missing params when `IInteractionService` is available; otherwise require `Parameters__*` / credential config (CI).
 - [x] Unit tests with Graph fakes; package README for consumers.
+- [x] Sample AppHost (`tests/auth-providers/sample-apphost/`) wires Blazor Web + Vite Spa via AuthOps; CI smoke is `dotnet build` only (no live Graph).
 - [x] Glossary terms for AuthOps promoted in [`domain-glossary`](domain-glossary.md).
 
 ## Terminology
@@ -76,6 +77,9 @@ See [`domain-glossary`](domain-glossary.md). Feature-local API names below until
 | Binding API | `WithAuth`, env mapping options |
 | Provisioner | `EntraGraphAppProvisioner` (Microsoft Graph) |
 | Unit tests | `tests/auth-providers/` |
+| Sample AppHost | `tests/auth-providers/sample-apphost/` (Blazor Server + Vite ops SPA; smoke `dotnet build` only) |
+| Sample Blazor | `tests/auth-providers/sample-blazor/` — Web app registration + `AUTH_ENTRA_BLAZOR_*` |
+| Sample ops | `tests/auth-providers/sample-ops/` — Spa app registration; `WithAuth` maps `VITE_ENTRA_*` |
 | Pipeline tags | `["auth-ops"]` |
 
 ### Proposed AppHost surface (v1)

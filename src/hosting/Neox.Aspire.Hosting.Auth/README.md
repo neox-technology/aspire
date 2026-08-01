@@ -56,6 +56,10 @@ Provide the secret via `Parameters__entra-web-client-secret` when needed. AuthOp
 | Management (Graph create/update) | `ITokenCredentialProvider` / `DefaultAzureCredential` (`az login` / CI federated) |
 | Workload (ClientId / secret) | Parameters injected as `AUTH_*` — never logged into manifests |
 
+## Sample AppHost
+
+Smoke sample under `tests/auth-providers/sample-apphost/`: Blazor Server (`sample-blazor`, Web + client secret) and Vite/React ops SPA (`sample-ops`, Spa + `VITE_ENTRA_*` via `WithAuth` env maps). Build with `dotnet build` — no live Graph in CI.
+
 ## Spec
 
 See [`specs/features/auth-providers.md`](../../../specs/features/auth-providers.md).

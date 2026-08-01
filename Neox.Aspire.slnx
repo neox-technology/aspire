@@ -10,6 +10,8 @@
   <Folder Name="/tests/" />
   <Folder Name="/tests/auth-providers/">
     <Project Path="tests/auth-providers/Neox.Aspire.Hosting.Auth.Tests.csproj" />
+    <Project Path="tests/auth-providers/sample-apphost/Neox.Aspire.Hosting.Auth.Tests.SampleAppHost.csproj" />
+    <Project Path="tests/auth-providers/sample-blazor/Neox.Aspire.Hosting.Auth.Tests.SampleBlazor.csproj" />
   </Folder>
   <Folder Name="/tests/azure-custom-domains/">
     <Project Path="tests/azure-custom-domains/Neox.Aspire.Hosting.Azure.CustomDomains.Tests.csproj" />

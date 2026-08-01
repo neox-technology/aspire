@@ -1,0 +1,20 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.4.6">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>Neox.Aspire.Hosting.Auth.Tests.SampleAppHost</RootNamespace>
+    <UserSecretsId>neox-aspire-auth-sample-apphost</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.JavaScript" Version="$(AspireVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\hosting\Neox.Aspire.Hosting.Auth\Neox.Aspire.Hosting.Auth.csproj" IsAspireProjectResource="false" />
+    <ProjectReference Include="..\sample-blazor\Neox.Aspire.Hosting.Auth.Tests.SampleBlazor.csproj" />
+  </ItemGroup>
+</Project>
