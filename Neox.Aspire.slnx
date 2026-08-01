@@ -3,10 +3,14 @@
     <Project Path="src/Neox.Aspire.EntityFrameworkCore.MigrationWorker/Neox.Aspire.EntityFrameworkCore.MigrationWorker.csproj" />
   </Folder>
   <Folder Name="/src/hosting/">
+    <Project Path="src/hosting/Neox.Aspire.Hosting.Auth/Neox.Aspire.Hosting.Auth.csproj" />
     <Project Path="src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains/Neox.Aspire.Hosting.Azure.CustomDomains.csproj" />
     <Project Path="src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains.Generators.Internal/Neox.Aspire.Hosting.Azure.CustomDomains.Generators.Internal.csproj" />
   </Folder>
   <Folder Name="/tests/" />
+  <Folder Name="/tests/auth-providers/">
+    <Project Path="tests/auth-providers/Neox.Aspire.Hosting.Auth.Tests.csproj" />
+  </Folder>
   <Folder Name="/tests/azure-custom-domains/">
     <Project Path="tests/azure-custom-domains/Neox.Aspire.Hosting.Azure.CustomDomains.Tests.csproj" />
     <Project Path="tests/azure-custom-domains/sample-apphost/Neox.Aspire.Hosting.Azure.CustomDomains.Tests.SampleAppHost.csproj" />

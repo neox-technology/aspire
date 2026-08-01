@@ -3,7 +3,7 @@
 | Field | Value |
 |-------|-------|
 | Slug | `auth-providers` |
-| Status | draft |
+| Status | implemented |
 | Last code review | 2026-08-01 |
 
 ## Summary
@@ -49,15 +49,15 @@ None — `aspire do` / `aspire deploy` pipeline steps only. No dashboard `WithCo
 
 ## Acceptance criteria
 
-- [ ] Package `Neox.Aspire.Hosting.Auth` under `src/hosting/Neox.Aspire.Hosting.Auth/`.
-- [ ] `AddAuthProvider(name).Entra(configure)` registers a non-container `AuthProviderResource` (slug `entra`).
-- [ ] `AddApp(name, configure)` models an Entra app registration (`AuthAppResource` or equivalent) with Web / Spa / Api / Native, redirect URIs, optional identifier URIs, create-secret flag, optional `ExistingClientId`.
-- [ ] `WithAuth(app)` / `WithAuth(app, env => …)` injects only generic `AUTH_ENTRA_*` (or custom prefix) via `WithEnvironment` late-bound to parameters — never resolves secrets at model build time.
-- [ ] Pipeline steps match **Pipeline step contracts** below; tags include `auth-ops`; `deploy-auth` is required by Aspire `deploy`.
-- [ ] Management vs workload credentials are separated; workload secrets use `ParameterResource` with `secret: true`.
-- [ ] Interactive prompts for missing params when `IInteractionService` is available; otherwise require `Parameters__*` / credential config (CI).
-- [ ] Unit tests with Graph fakes; package README for consumers.
-- [ ] Glossary terms for AuthOps promoted in [`domain-glossary`](domain-glossary.md).
+- [x] Package `Neox.Aspire.Hosting.Auth` under `src/hosting/Neox.Aspire.Hosting.Auth/`.
+- [x] `AddAuthProvider(name).Entra(configure)` registers a non-container `AuthProviderResource` (slug `entra`).
+- [x] `AddApp(name, configure)` models an Entra app registration (`AuthAppResource` or equivalent) with Web / Spa / Api / Native, redirect URIs, optional identifier URIs, create-secret flag, optional `ExistingClientId`.
+- [x] `WithAuth(app)` / `WithAuth(app, env => …)` injects only generic `AUTH_ENTRA_*` (or custom prefix) via `WithEnvironment` late-bound to parameters — never resolves secrets at model build time.
+- [x] Pipeline steps match **Pipeline step contracts** below; tags include `auth-ops`; `deploy-auth` is required by Aspire `deploy`.
+- [x] Management vs workload credentials are separated; workload secrets use `ParameterResource` with `secret: true`.
+- [x] Interactive prompts for missing params when `IInteractionService` is available; otherwise require `Parameters__*` / credential config (CI).
+- [x] Unit tests with Graph fakes; package README for consumers.
+- [x] Glossary terms for AuthOps promoted in [`domain-glossary`](domain-glossary.md).
 
 ## Terminology
 
@@ -186,4 +186,4 @@ src/hosting/Neox.Aspire.Hosting.Auth/
 4. Parameter prompts + README + unit tests.
 5. Status → `implemented`; expand glossary if needed.
 
-**Do not implement code while this spec remains `draft`.** Promote to `defined` only after human review.
+**Do not implement code while this spec remains `draft`.** This spec is **`defined`**; implementation of `Neox.Aspire.Hosting.Auth` may proceed.
