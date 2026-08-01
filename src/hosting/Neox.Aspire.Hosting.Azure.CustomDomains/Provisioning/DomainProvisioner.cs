@@ -407,6 +407,9 @@ public sealed class DomainProvisioner
         return (mountRoot, configInContainer.Replace('\\', '/'), zonesRelative);
     }
 
+    private static StringComparison PathComparison =>
+        OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+
     private static string GetCommonRoot(string pathA, string pathB)
     {
         var a = Path.GetFullPath(pathA).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
@@ -418,7 +421,7 @@ public sealed class DomainProvisioner
         var common = new List<string>();
         for (var i = 0; i < len; i++)
         {
-            if (!string.Equals(partsA[i], partsB[i], StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(partsA[i], partsB[i], PathComparison))
             {
                 break;
             }
@@ -431,7 +434,9 @@ public sealed class DomainProvisioner
             return Directory.GetCurrentDirectory();
         }
 
-        return Path.Combine(common.ToArray());
+        // Path.Combine drops a leading empty segment (Unix absolute root "/"), which turns
+        // "/tmp/..." into relative "tmp/...". string.Join preserves the absolute root.
+        return string.Join(Path.DirectorySeparatorChar, common);
     }
 
     private static string ToContainerRelative(string mountRoot, string fullPath)
@@ -440,10 +445,10 @@ public sealed class DomainProvisioner
             .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
             + Path.DirectorySeparatorChar;
         var full = Path.GetFullPath(fullPath);
-        if (!full.StartsWith(root, StringComparison.OrdinalIgnoreCase) &&
+        if (!full.StartsWith(root, PathComparison) &&
             !string.Equals(full.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
                 root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-                StringComparison.OrdinalIgnoreCase))
+                PathComparison))
         {
             throw new InvalidOperationException(
                 $"Path '{fullPath}' is not under Docker mount root '{mountRoot}'.");

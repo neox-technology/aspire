@@ -351,6 +351,41 @@ public sealed class DomainProvisionerTests
     }
 
     [Fact]
+    public void ResolveDockerMount_UnderTempDirectory_PreservesAbsoluteRoot()
+    {
+        var workDir = Path.Combine(Path.GetTempPath(), "neox-mount-" + Guid.NewGuid().ToString("N"));
+        var zoneDir = Path.Combine(workDir, "zones");
+        var configPath = Path.Combine(workDir, "octodns.yaml");
+        Directory.CreateDirectory(zoneDir);
+        File.WriteAllText(configPath, "providers: {}");
+
+        try
+        {
+            var (mountRoot, configInContainer, zonesRelative) =
+                DomainProvisioner.ResolveDockerMount(configPath, zoneDir);
+
+            Assert.True(Path.IsPathRooted(mountRoot), $"MountRoot must be absolute, got '{mountRoot}'.");
+            Assert.True(
+                Path.GetFullPath(configPath).StartsWith(
+                    Path.GetFullPath(mountRoot).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                        + Path.DirectorySeparatorChar,
+                    OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal),
+                $"Config '{configPath}' must be under mount '{mountRoot}'.");
+            Assert.False(string.IsNullOrWhiteSpace(configInContainer));
+            Assert.StartsWith("./", zonesRelative, StringComparison.Ordinal);
+            Assert.DoesNotContain('\\', configInContainer);
+            Assert.DoesNotContain('\\', zonesRelative);
+        }
+        finally
+        {
+            if (Directory.Exists(workDir))
+            {
+                Directory.Delete(workDir, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public void EnsureUpsertOnlyPlan_AllowsZeroDeletesAndNoChanges()
     {
         DomainProvisioner.EnsureUpsertOnlyPlan("Summary: Creates=1, Updates=1, Deletes=0, Existing=4, Meta=False");
