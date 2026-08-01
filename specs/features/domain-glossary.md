@@ -3,7 +3,7 @@
 | Field | Value |
 |-------|-------|
 | Slug | `domain-glossary` |
-| Status | draft |
+| Status | defined |
 | Last code review | 2026-08-01 |
 
 ## Summary

@@ -28,16 +28,16 @@ Each `specs/features/<slug>.md` file follows this skeleton:
 ```
 
 - **Status**: `draft` → `defined` → `implemented` (Neox workflow).
-- **Acceptance criteria**: expected behavior in the present tense; `[x]` if already in code, `[ ]` for known gaps.
+- **Acceptance criteria**: expected behavior in the present tense; `[x]` if already in code, `[ ]` for known gaps. The glossary (`domain-glossary`) has no acceptance-criteria section by design.
 - **Terminology**: point to `domain-glossary`; do not redefine shared terms.
 
 ## Feature index
 
 | Slug | Status | Description |
 |------|--------|-------------|
-| [`domain-glossary`](features/domain-glossary.md) | draft | Neox Aspire terminology (seed) |
-| [`gitflow-ci`](features/gitflow-ci.md) | defined | GitFlow Actions (auto-PR, finish, cleanup, start-release) + CI on develop/main |
-| [`nuget-org`](features/nuget-org.md) | defined | Arcade pack/publish to nuget.org (Trusted Publishing) |
+| [`domain-glossary`](features/domain-glossary.md) | defined | Neox Aspire terminology (seed) |
+| [`gitflow-ci`](features/gitflow-ci.md) | implemented | GitFlow Actions (auto-PR, finish, cleanup, start-release) + CI on develop/main |
+| [`nuget-org`](features/nuget-org.md) | implemented | Arcade pack/publish to nuget.org (Trusted Publishing) |
 | [`efcore-migration-worker`](features/efcore-migration-worker.md) | implemented | EF Core migration worker + Aspire xUnit harnesses (SqlServer/Postgres/MySQL/Oracle) |
 | [`azure-custom-domains`](features/azure-custom-domains.md) | implemented | ACA custom domain ops (OctoDNS-in-Docker, managed certs, `aspire do`) |
 | [`auth-providers`](features/auth-providers.md) | implemented | AuthOps — Abstractions + EntraId packages (Graph) + generic `AUTH_*` env injection |

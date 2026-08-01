@@ -1,12 +1,14 @@
 # Neox Aspire
 
 [![CI](https://github.com/neox-technology/aspire/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/neox-technology/aspire/actions/workflows/ci.yml)
-[![NuGet](https://img.shields.io/nuget/vpre/Neox.Aspire.EntityFrameworkCore.MigrationWorker.svg?label=MigrationWorker)](https://www.nuget.org/packages/Neox.Aspire.EntityFrameworkCore.MigrationWorker)
-[![NuGet](https://img.shields.io/nuget/vpre/Neox.Aspire.Hosting.Azure.CustomDomains.svg?label=CustomDomains)](https://www.nuget.org/packages/Neox.Aspire.Hosting.Azure.CustomDomains)
-[![NuGet](https://img.shields.io/nuget/vpre/Neox.Aspire.Hosting.Auth.EntraId.svg?label=Auth.EntraId)](https://www.nuget.org/packages/Neox.Aspire.Hosting.Auth.EntraId)
-[![NuGet Downloads](https://img.shields.io/nuget/dt/Neox.Aspire.EntityFrameworkCore.MigrationWorker.svg?label=MigrationWorker%20downloads)](https://www.nuget.org/packages/Neox.Aspire.EntityFrameworkCore.MigrationWorker)
-[![NuGet Downloads](https://img.shields.io/nuget/dt/Neox.Aspire.Hosting.Azure.CustomDomains.svg?label=CustomDomains%20downloads)](https://www.nuget.org/packages/Neox.Aspire.Hosting.Azure.CustomDomains)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+| Package | Downloads | README |
+|---------|-----------|--------|
+| [Neox.Aspire.EntityFrameworkCore.MigrationWorker](https://www.nuget.org/packages/Neox.Aspire.EntityFrameworkCore.MigrationWorker) | [![NuGet Downloads](https://img.shields.io/nuget/dt/Neox.Aspire.EntityFrameworkCore.MigrationWorker.svg)](https://www.nuget.org/packages/Neox.Aspire.EntityFrameworkCore.MigrationWorker) | [README](src/Neox.Aspire.EntityFrameworkCore.MigrationWorker/README.md) |
+| [Neox.Aspire.Hosting.Azure.CustomDomains](https://www.nuget.org/packages/Neox.Aspire.Hosting.Azure.CustomDomains) | [![NuGet Downloads](https://img.shields.io/nuget/dt/Neox.Aspire.Hosting.Azure.CustomDomains.svg)](https://www.nuget.org/packages/Neox.Aspire.Hosting.Azure.CustomDomains) | [README](src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains/README.md) |
+| [Neox.Aspire.Hosting.Auth.Abstractions](https://www.nuget.org/packages/Neox.Aspire.Hosting.Auth.Abstractions) | [![NuGet Downloads](https://img.shields.io/nuget/dt/Neox.Aspire.Hosting.Auth.Abstractions.svg)](https://www.nuget.org/packages/Neox.Aspire.Hosting.Auth.Abstractions) | [README](src/hosting/Neox.Aspire.Hosting.Auth.Abstractions/README.md) |
+| [Neox.Aspire.Hosting.Auth.EntraId](https://www.nuget.org/packages/Neox.Aspire.Hosting.Auth.EntraId) | [![NuGet Downloads](https://img.shields.io/nuget/dt/Neox.Aspire.Hosting.Auth.EntraId.svg)](https://www.nuget.org/packages/Neox.Aspire.Hosting.Auth.EntraId) | [README](src/hosting/Neox.Aspire.Hosting.Auth.EntraId/README.md) |
 
 ## What is Neox Aspire?
 
@@ -16,7 +18,7 @@ This repository is **public**. It is not an AppHost and does not run Aspire orch
 
 ## Getting started
 
-Pick a package and install from nuget.org:
+Pick a package and install from nuget.org (see the package README for usage):
 
 ```bash
 dotnet add package Neox.Aspire.EntityFrameworkCore.MigrationWorker
@@ -35,13 +37,10 @@ dotnet add package Neox.Aspire.Hosting.Auth.EntraId
 
 ## Useful links
 
-- [NuGet: Neox.Aspire.EntityFrameworkCore.MigrationWorker](https://www.nuget.org/packages/Neox.Aspire.EntityFrameworkCore.MigrationWorker)
-- [NuGet: Neox.Aspire.Hosting.Azure.CustomDomains](https://www.nuget.org/packages/Neox.Aspire.Hosting.Azure.CustomDomains)
-- [NuGet: Neox.Aspire.Hosting.Auth.EntraId](https://www.nuget.org/packages/Neox.Aspire.Hosting.Auth.EntraId)
-- [NuGet: Neox.Aspire.Hosting.Auth.Abstractions](https://www.nuget.org/packages/Neox.Aspire.Hosting.Auth.Abstractions)
 - [Aspire documentation](https://aspire.dev/docs/)
 - [microsoft/aspire](https://github.com/microsoft/aspire)
 - [Feature specs](specs/README.md)
+- [Domain glossary](specs/features/domain-glossary.md)
 - [CI build status](https://github.com/neox-technology/aspire/actions/workflows/ci.yml)
 - [Publish workflow](.github/workflows/publish-nuget.yml)
 

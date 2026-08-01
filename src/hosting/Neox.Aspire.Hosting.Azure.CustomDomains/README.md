@@ -1,6 +1,18 @@
 # Neox.Aspire.Hosting.Azure.CustomDomains
 
+[![NuGet](https://img.shields.io/nuget/vpre/Neox.Aspire.Hosting.Azure.CustomDomains.svg?label=NuGet)](https://www.nuget.org/packages/Neox.Aspire.Hosting.Azure.CustomDomains)
+
 Aspire hosting helpers for **Azure Container Apps** custom domains: DNS via [OctoDNS](https://github.com/octodns/octodns) (config generated in-process; sync via **Docker**), and **managed certificates** (inventory → create → bind).
+
+## Install
+
+```bash
+dotnet add package Neox.Aspire.Hosting.Azure.CustomDomains
+```
+
+```xml
+<PackageReference Include="Neox.Aspire.Hosting.Azure.CustomDomains" Version="1.0.0-preview.*" />
+```
 
 ## Naming
 
@@ -94,11 +106,7 @@ builder.AddProject<Projects.Api>("api")
 
 Same provider can serve multiple bindings. Apps in the **same DNS zone** share one `plan-domain-{zone}` / `provision-domain-{zone}` pair. List steps with `aspire do --list-steps`.
 
-Fluent provider APIs are **source-generated** from [`Provider/octodns-providers.json`](Provider/octodns-providers.json). Refresh:
-
-```bash
-dotnet run --project tools/octodns-provider-catalog
-```
+Fluent provider APIs include `.Cloudflare()`, `.Ovh()`, `.Route53()`, `.Azure()`, `.Digitalocean()`, and other OctoDNS-backed providers. Auth is taken from `Parameters__{providerName}-*` when options are omitted.
 
 ## Pipeline steps
 
@@ -117,20 +125,20 @@ dotnet run --project tools/octodns-provider-catalog
 | Bind cert | `aspire do deploy-{resource}-domain-{dom}` |
 | Deploy domains gate | `aspire do deploy-domains` (required by Aspire `deploy`) |
 
-Zone / hostname slug: `.` → `-` (e.g. `example.com` → `example-com`). DependsOn / exit contracts: feature spec [`azure-custom-domains`](../../../specs/features/azure-custom-domains.md).
+Zone / hostname slug: `.` → `-` (e.g. `example.com` → `example-com`).
 
 DNS DomainOps is **upsert-only**. Unresolved parameters open Aspire’s Set parameter modal for interactive `aspire do`; CI must supply `Parameters__*`.
 
 ## CI flows
 
-Pass `Parameters__*` and `Azure__*` non-interactively. GitHub variable automation (`gh variable set`) is **out of scope for V1** — set the certificate parameter yourself for the Bicep redeploy (e.g. `Parameters__api-certificate` or `Parameters__certificateName`).
+Pass `Parameters__*` and `Azure__*` non-interactively. Set the certificate parameter yourself for the Bicep redeploy (e.g. `Parameters__api-certificate` or `Parameters__certificateName`).
 
 **Bootstrap** (empty cert): `aspire deploy` → run DomainOps provision/bind steps (see `aspire do --list-steps`) → `aspire deploy` with certificate name set.
 
 **Steady-state:** `aspire deploy --non-interactive` with all parameters populated.
 
-## Package
+## Notes
 
-```bash
-dotnet add package Neox.Aspire.Hosting.Azure.CustomDomains
-```
+- This is an Aspire **hosting** package: wire providers and bindings on `IDistributedApplicationBuilder`, then run DomainOps via `aspire do` / `aspire deploy`.
+- Credentials must stay in Aspire parameters / environment variables — they are never written into generated `octodns.yaml`.
+- License: MIT.
