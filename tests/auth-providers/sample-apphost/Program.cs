@@ -3,10 +3,12 @@ using Neox.Aspire.Hosting.Auth;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
-var entra = builder.AddAuthProvider("entra")
+// Tenant via Parameters__entra-tenant-id / Azure__TenantId / interactive prompt.
+var entra = builder.AddAuthProvider("auth-provider-entra")
     .Entra();
 
-var blazorAuth = entra.AddApp("blazor-app", o =>
+// Auth app resource names must differ from workload resources (Aspire unique names).
+var webAuth = entra.AddApp("auth-appregistration-web", o =>
 {
     o.DisplayName = "AuthSample-Blazor";
     o.ApplicationType = AuthApplicationType.Web;
@@ -14,7 +16,7 @@ var blazorAuth = entra.AddApp("blazor-app", o =>
     o.CreateClientSecret = true;
 });
 
-var opsAuth = entra.AddApp("ops-app", o =>
+var spaAuth = entra.AddApp("auth-appregistration-spa", o =>
 {
     o.DisplayName = "AuthSample-Ops";
     o.ApplicationType = AuthApplicationType.Spa;
@@ -24,11 +26,11 @@ var opsAuth = entra.AddApp("ops-app", o =>
 
 builder.AddProject<Projects.Neox_Aspire_Hosting_Auth_Tests_SampleBlazor>("blazor")
     .WithExternalHttpEndpoints()
-    .WithAuth(blazorAuth);
+    .WithAuth(webAuth);
 
 builder.AddViteApp("ops", "../sample-ops")
     .WithExternalHttpEndpoints()
-    .WithAuth(opsAuth, env =>
+    .WithAuth(spaAuth, env =>
     {
         env.Map(AuthOutput.TenantId, "VITE_ENTRA_TENANT_ID");
         env.Map(AuthOutput.ClientId, "VITE_ENTRA_CLIENT_ID");

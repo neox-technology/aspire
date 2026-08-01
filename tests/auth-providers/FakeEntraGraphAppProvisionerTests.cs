@@ -26,22 +26,25 @@ public class FakeEntraGraphAppProvisionerTests
         Assert.False(string.IsNullOrWhiteSpace(result.ClientId));
         Assert.False(string.IsNullOrWhiteSpace(result.ClientSecret));
     }
-}
 
-internal sealed class FakeEntraGraphAppProvisioner : IEntraGraphAppProvisioner
-{
-    public Task<EntraProvisionResult> ProvisionAsync(AuthAppResource app, CancellationToken cancellationToken)
+    [Fact]
+    public async Task FakeProvisioner_SpaWithoutSecret_ReturnsNullClientSecret()
     {
-        var tenant = app.Provider is EntraAuthProviderResource entra && !string.IsNullOrWhiteSpace(entra.TenantId)
-            ? entra.TenantId!
-            : "00000000-0000-0000-0000-000000000001";
-
-        return Task.FromResult(new EntraProvisionResult
+        var provider = new EntraAuthProviderResource("entra") { TenantId = "tenant-1" };
+        var app = new AuthAppResource("spa", provider)
         {
-            TenantId = tenant,
-            ClientId = "11111111-1111-1111-1111-111111111111",
-            ClientSecret = app.Options.CreateClientSecret ? "fake-secret" : null,
-            ApplicationObjectId = "obj-1"
-        });
+            Options = new AuthAppOptions
+            {
+                DisplayName = "Spa",
+                ApplicationType = AuthApplicationType.Spa,
+                RedirectUris = ["http://localhost:5173"],
+                CreateClientSecret = false
+            }
+        };
+        provider.RegisterApp(app);
+
+        var result = await new FakeEntraGraphAppProvisioner().ProvisionAsync(app, CancellationToken.None);
+
+        Assert.Null(result.ClientSecret);
     }
 }

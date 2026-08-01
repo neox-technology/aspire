@@ -1,5 +1,5 @@
 {
   "appHost": {
-    "path": "sample_apphost.csproj"
+    "path": "Neox.Aspire.Hosting.Auth.Tests.SampleAppHost.csproj"
   }
 }

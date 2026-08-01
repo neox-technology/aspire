@@ -4,13 +4,13 @@
 
 <h1>AuthOps sample — Blazor Server</h1>
 
-<p>Workload Entra settings injected by <code>WithAuth</code> (multi-app prefix <code>AUTH_ENTRA_BLAZOR_*</code>):</p>
+<p>Workload Entra settings injected by <code>WithAuth</code> (multi-app prefix <code>AUTH_ENTRA_WEB_*</code>):</p>
 
 <ul>
-    <li><strong>AUTH_ENTRA_BLAZOR_TENANT_ID</strong>: <code>@(Env("AUTH_ENTRA_BLAZOR_TENANT_ID"))</code></li>
-    <li><strong>AUTH_ENTRA_BLAZOR_CLIENT_ID</strong>: <code>@(Env("AUTH_ENTRA_BLAZOR_CLIENT_ID"))</code></li>
-    <li><strong>AUTH_ENTRA_BLAZOR_AUTHORITY</strong>: <code>@(Env("AUTH_ENTRA_BLAZOR_AUTHORITY"))</code></li>
-    <li><strong>AUTH_ENTRA_BLAZOR_CLIENT_SECRET</strong>: <code>@(SecretPresent("AUTH_ENTRA_BLAZOR_CLIENT_SECRET"))</code></li>
+    <li><strong>AUTH_ENTRA_WEB_TENANT_ID</strong>: <code>@(Env("AUTH_ENTRA_WEB_TENANT_ID"))</code></li>
+    <li><strong>AUTH_ENTRA_WEB_CLIENT_ID</strong>: <code>@(Env("AUTH_ENTRA_WEB_CLIENT_ID"))</code></li>
+    <li><strong>AUTH_ENTRA_WEB_AUTHORITY</strong>: <code>@(Env("AUTH_ENTRA_WEB_AUTHORITY"))</code></li>
+    <li><strong>AUTH_ENTRA_WEB_CLIENT_SECRET</strong>: <code>@(SecretPresent("AUTH_ENTRA_WEB_CLIENT_SECRET"))</code></li>
 </ul>
 
 @code {
