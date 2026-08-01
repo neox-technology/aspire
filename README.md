@@ -36,6 +36,7 @@ dotnet add package Neox.Aspire.Hosting.Azure.CustomDomains
 - [Aspire documentation](https://aspire.dev/docs/)
 - [microsoft/aspire](https://github.com/microsoft/aspire)
 - [Feature specs](specs/README.md)
+- [Domain glossary](specs/features/domain-glossary.md)
 - [CI build status](https://github.com/neox-technology/aspire/actions/workflows/ci.yml)
 - [Publish workflow](.github/workflows/publish-nuget.yml)
 

@@ -3,8 +3,8 @@
 | Field | Value |
 |-------|-------|
 | Slug | `gitflow-ci` |
-| Status | defined |
-| Last code review | 2026-07-29 |
+| Status | implemented |
+| Last code review | 2026-08-01 |
 
 ## Summary
 
