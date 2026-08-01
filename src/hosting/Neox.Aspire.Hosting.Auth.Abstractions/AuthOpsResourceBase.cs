@@ -21,9 +21,9 @@ public abstract class AuthOpsResourceBase : Resource
     public abstract string ProviderSlug { get; }
 
     /// <summary>
-    /// Optional formatter that builds an authority URL from a tenant id for <see cref="AuthOpsExtensions.WithAuth{T}"/>.
+    /// Optional factory that builds a deferred authority URL from the tenant parameter for <see cref="AuthOpsExtensions.WithAuth{T}"/>.
     /// </summary>
-    public Func<string, string>? AuthorityFormatter { get; set; }
+    public Func<ParameterResource, ReferenceExpression>? AuthorityExpression { get; set; }
 
     /// <summary>
     /// Auth apps registered under this provider.

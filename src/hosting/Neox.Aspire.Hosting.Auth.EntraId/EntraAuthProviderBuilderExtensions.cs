@@ -27,7 +27,8 @@ public static class EntraAuthProviderBuilderExtensions
 
         var resource = new EntraAuthOpsResource(name)
         {
-            AuthorityFormatter = static tenantId => $"https://login.microsoftonline.com/{tenantId}"
+            AuthorityExpression = static tenant =>
+                ReferenceExpression.Create($"https://login.microsoftonline.com/{tenant}")
         };
 
         var tenantParam = options.TenantId

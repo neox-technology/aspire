@@ -62,7 +62,7 @@ None — `aspire do` / `aspire deploy` pipeline steps only. No dashboard `WithCo
 - [x] Former package id `Neox.Aspire.Hosting.Auth` removed (no shipping assembly with that id).
 - [x] `AddAuthProvider(name)` lives in Abstractions; `.Entra(configure)` is an EntraId extension on `IAuthProviderBuilder`.
 - [x] `AddAppRegistration(name, displayName)` models an Entra app registration (`AuthAppResource`) with required display name; no options bag (future `WithXxx`).
-- [x] `WithAuth(app)` / `WithAuth(app, env => …)` injects only generic `AUTH_*` (or custom prefix) via `WithEnvironment` late-bound to parameters — never resolves secrets at model build time; Authority uses provider `AuthorityFormatter` (Entra sets `login.microsoftonline.com`).
+- [x] `WithAuth(app)` / `WithAuth(app, env => …)` injects only generic `AUTH_*` (or custom prefix) via `WithEnvironment` late-bound to parameters — never resolves secrets at model build time; Authority uses provider `AuthorityExpression` (`ReferenceExpression`, Entra sets `login.microsoftonline.com/{tenant}`).
 - [x] `WithAuth` omits client secret unless `IncludeClientSecret == true`; no default redirect URI from app registration options.
 - [x] Pipeline steps match **Pipeline step contracts** below; tags include `auth-ops`; `deploy-auth` is required by Aspire `deploy`.
 - [x] Shared `AuthOpsResource` (`auth-ops`) hosts noop gate `prereq-providers-auth` (fan-in of all `prereq-{providerResource}-auth`).
@@ -138,7 +138,7 @@ Convention: `AUTH_{PROVIDER_SLUG}_{SETTING}` with provider slug uppercased.
 | Tenant id | `AUTH_ENTRA_TENANT_ID` | `{provider}-tenant-id` (e.g. `entra-tenant-id`) |
 | Client id | `AUTH_ENTRA_CLIENT_ID` | `{provider}-client-id` or `{provider}-{app}-client-id` when multiple apps |
 | Client secret | `AUTH_ENTRA_CLIENT_SECRET` | `{provider}-client-secret` / `{provider}-{app}-client-secret` (`secret: true`) — injected only when `IncludeClientSecret == true` |
-| Authority | `AUTH_ENTRA_AUTHORITY` | Derived via provider `AuthorityFormatter` (`https://login.microsoftonline.com/{tenant}` for Entra) — optional emit |
+| Authority | `AUTH_ENTRA_AUTHORITY` | Derived via provider `AuthorityExpression` (`https://login.microsoftonline.com/{tenant}` for Entra) — optional emit |
 | Redirect URI | `AUTH_ENTRA_REDIRECT_URI` | Optional; when a future URI `WithXxx` exists |
 
 CI: `Parameters__entra-client-id`, `Parameters__entra-client-secret`, `Parameters__entra-tenant-id` (and app-qualified names when multiple apps share one provider resource).

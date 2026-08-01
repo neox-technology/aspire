@@ -94,18 +94,10 @@ public static class AuthOpsExtensions
                 authApp.ClientSecretParameter);
         }
 
-        if (envOptions.IncludeAuthority && authApp.Provider.AuthorityFormatter is { } formatter)
+        if (envOptions.IncludeAuthority && authApp.Provider.AuthorityExpression is { } authority)
         {
             var authorityName = envOptions.ResolveName(AuthOutput.Authority, prefix);
-            builder.WithEnvironment(async context =>
-            {
-                var tenantId = await authApp.TenantIdParameter.GetValueAsync(context.CancellationToken)
-                    .ConfigureAwait(false);
-                if (!string.IsNullOrWhiteSpace(tenantId))
-                {
-                    context.EnvironmentVariables[authorityName] = formatter(tenantId);
-                }
-            });
+            builder.WithEnvironment(authorityName, authority(authApp.TenantIdParameter));
         }
 
         return builder;
