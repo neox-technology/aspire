@@ -10,8 +10,8 @@
 
 AuthOps is split into two hosting packages:
 
-- **`Neox.Aspire.Hosting.Auth.Abstractions`** — common AuthOps model and generic `WithAuth` env injection.
-- **`Neox.Aspire.Hosting.Auth.EntraId`** — Entra ID provider (`AddAuthProvider` → `.Entra(...)` → `AddApp`), Graph provisioning, and Entra pipeline steps/gates (`prereq-auth-entra`, `deploy-auth`) hosted on the provider resource.
+- **`Neox.Aspire.Hosting.Auth.Abstractions`** — common AuthOps model (`AuthOpsResourceBase`), generic `WithAuth` env injection, shared `AuthOpsResource`, and gate `prereq-providers-auth`.
+- **`Neox.Aspire.Hosting.Auth.EntraId`** — Entra ID provider (`AddAuthProvider` → `.Entra(...)` → `EntraAuthOpsResource` / `AddApp`), Graph provisioning, provider prereq `prereq-{providerResource}-auth`, and `deploy-auth` on the provider resource.
 
 Consumers reference **`Neox.Aspire.Hosting.Auth.EntraId`** (pulls Abstractions transitively). The former package id **`Neox.Aspire.Hosting.Auth` is retired** (breaking). Namespace remains `Neox.Aspire.Hosting.Auth` in both assemblies.
 
@@ -23,7 +23,7 @@ Consumers reference **`Neox.Aspire.Hosting.Auth.EntraId`** (pulls Abstractions t
 
 ## User scenarios
 
-- AppHost registers `AddAuthProvider("entra").Entra(...)`, defines one or more apps with `AddApp("web", ...)`, binds consumers with `WithAuth(app)`; local interactive `aspire do` prompts unresolved parameters; CI supplies `Parameters__*` / Azure credential with `--non-interactive`.
+- AppHost registers `AddAuthProvider("auth-provider-entra").Entra(...)`, defines one or more apps with `AddApp(...)`, binds consumers with `WithAuth(app)`; local interactive `aspire do` prompts unresolved parameters (tenant via Choice combobox of accessible tenants); CI supplies `Parameters__*` / Azure credential with `--non-interactive`.
 - **Create path:** no `ExistingClientId` → `provision-auth-{app}` creates the Entra application (+ optional password credential), writes workload outputs into Aspire `ParameterResource`s (`secret: true` for secrets), then `WithAuth` wires `AUTH_ENTRA_*` env on the consumer.
 - **Adopt path:** `ExistingClientId` set → Graph GET + validate redirect URIs / model against plan; **do not** rotate client secret unless an explicit option requests rotation; bind existing ClientId/TenantId (and secret parameter if already provided).
 - **Idempotent re-run:** provision finds the app via deployment state (`Auth:Entra:{app}`) and/or DisplayName + Neox extension property/tag; updates redirect URIs when the plan differs.
@@ -62,10 +62,14 @@ None — `aspire do` / `aspire deploy` pipeline steps only. No dashboard `WithCo
 - [x] `AddApp(name, configure)` models an Entra app registration (`AuthAppResource`) with Web / Spa / Api / Native, redirect URIs, optional identifier URIs, create-secret flag, optional `ExistingClientId`.
 - [x] `WithAuth(app)` / `WithAuth(app, env => …)` injects only generic `AUTH_*` (or custom prefix) via `WithEnvironment` late-bound to parameters — never resolves secrets at model build time; Authority uses provider `AuthorityFormatter` (Entra sets `login.microsoftonline.com`).
 - [x] Pipeline steps match **Pipeline step contracts** below; tags include `auth-ops`; `deploy-auth` is required by Aspire `deploy`.
+- [x] Shared `AuthOpsResource` (`auth-ops`) hosts noop gate `prereq-providers-auth` (fan-in of all `prereq-{providerResource}-auth`).
+- [x] `.Entra(...)` creates `EntraAuthOpsResource` (: `AuthOpsResourceBase`); provider prereq is `prereq-{providerResource.Name}-auth` (e.g. `prereq-auth-provider-entra-auth`).
+- [x] `EntraAuthProviderOptions.TenantId` is `IResourceBuilder<ParameterResource>?`; auto-creates `{name}-tenant-id` when null; parameter uses `WithCustomInput` Choice (+ `AllowCustomChoice`) of ARM tenants.
 - [x] Management vs workload credentials are separated; workload secrets use `ParameterResource` with `secret: true`.
 - [x] Interactive prompts for missing params when `IInteractionService` is available; otherwise require `Parameters__*` / credential config (CI).
 - [x] Unit tests with Graph fakes; EntraId package README for consumers.
-- [x] Sample AppHost (`tests/auth-providers/sample-apphost/`) wires Blazor Web + Vite Spa via AuthOps; Auth app resource names (`web`/`spa`) stay distinct from workload resources (`blazor`/`ops`); CI smoke is `dotnet build` only (no live Graph).
+- [x] Unit tests assert AuthOps pipeline graph (`prereq-{resource}-auth` → `prereq-providers-auth` → `plan-auth-*`).
+- [x] Sample AppHost (`tests/auth-providers/sample-apphost/`) wires Blazor Web + Vite Spa via AuthOps; Auth app resource names stay distinct from workload resources (`blazor`/`ops`); CI smoke is `dotnet build` only (no live Graph).
 - [x] `WithAuth` / provision skip client secret when `CreateClientSecret` is false (SPA / public client) unless `IncludeClientSecret` overrides.
 - [x] Glossary terms for AuthOps promoted in [`domain-glossary`](domain-glossary.md).
 
@@ -83,7 +87,7 @@ See [`domain-glossary`](domain-glossary.md). Feature-local API names below until
 | EntraId package id | `Neox.Aspire.Hosting.Auth.EntraId` |
 | Namespace (both) | `Neox.Aspire.Hosting.Auth` |
 | Product vocabulary | AuthOps |
-| Provider API | `AddAuthProvider`, `AuthProviderResource`, `.Entra(...)` (EntraId) |
+| Provider API | `AddAuthProvider`, `AuthOpsResourceBase`, `.Entra(...)` → `EntraAuthOpsResource` (EntraId) |
 | App API | `AddApp`, `AuthAppResource` / options |
 | Binding API | `WithAuth`, env mapping options |
 | Provisioner | `EntraGraphAppProvisioner` (Microsoft Graph) in EntraId |
@@ -97,13 +101,12 @@ See [`domain-glossary`](domain-glossary.md). Feature-local API names below until
 
 ```csharp
 // PackageReference: Neox.Aspire.Hosting.Auth.EntraId
-var entra = builder.AddAuthProvider("entra")
+var entra = builder.AddAuthProvider("auth-provider-entra")
     .Entra(o =>
     {
-        // Tenant for the app registration; may bind a ParameterResource.
-        o.TenantId = "...";
-        // Management uses ITokenCredentialProvider / az login locally;
-        // CI: Azure__* or app-only Graph — never the workload client secret.
+        // Optional: bind an existing Aspire parameter. Otherwise AuthOps creates
+        // {name}-tenant-id with a Choice combobox of tenants the credential can access.
+        // o.TenantId = builder.AddParameter("my-tenant");
     });
 
 var webAppReg = entra.AddApp("web", o =>
@@ -146,20 +149,21 @@ When multiple `AddApp` instances exist under one provider, parameter and env nam
 
 | Concern | Source | Used by |
 |---------|--------|---------|
-| Management (create/update app) | `ITokenCredentialProvider` / Graph app-only | `prereq-auth-entra`, `provision-auth-{app}` only |
+| Management (create/update app) | `ITokenCredentialProvider` / Graph app-only | `prereq-{providerResource}-auth`, `provision-auth-{app}` only |
 | Workload (ClientId / secret / tenant for apps) | Output `ParameterResource`s | `WithAuth` → consumer env |
 
 Never resolve workload secrets at distributed-application model build time. Never write secrets into manifests or generated config files.
 
 ### Pipeline step contracts
 
-Gates (`prereq-auth-entra`, `deploy-auth`) are hosted on the Entra **provider** resource (no shared `auth-ops` resource).
+Shared gate `prereq-providers-auth` is hosted on **`AuthOpsResource`** (`auth-ops`). Provider prereq and `deploy-auth` stay on the provider resource (`EntraAuthOpsResource`).
 
-| Step | Registered by | DependsOn | Exit 0 | Exit ≠ 0 |
-|------|---------------|-----------|--------|----------|
-| `prereq-auth-entra` | `.Entra(...)` (EntraId, idempotent) | (none) | Tenant parameter ready / Graph credential path OK | Missing interactive input / credential failure |
-| `plan-auth-{app}` | `AddApp` / AuthOps bind (EntraId) | `prereq-auth-entra` | Desired model validated (display name, type, redirect URIs) | Invalid options |
-| `provision-auth-{app}` | `AddApp` / AuthOps (EntraId) | `plan-auth-{app}` | App exists (created or adopted); workload parameters set; state saved for idempotence | Graph failure / validation failure |
+| Step | Registered by | DependsOn / RequiredBy | Exit 0 | Exit ≠ 0 |
+|------|---------------|------------------------|--------|----------|
+| `prereq-{providerResource}-auth` | `.Entra(...)` (idempotent; name = Aspire resource name, e.g. `prereq-auth-provider-entra-auth`) | **RequiredBy** `prereq-providers-auth` | Tenant parameter ready (Choice of ARM tenants / custom GUID) | Missing interactive input / credential failure |
+| `prereq-providers-auth` | Abstractions on `AuthOpsResource` (idempotent) | Fan-in of all `prereq-{providerResource}-auth` (noop) | Gate only | Dependency failure |
+| `plan-auth-{app}` | `AddApp` / AuthOps bind (EntraId) | **DependsOn** `prereq-providers-auth` | Desired model validated (display name, type, redirect URIs) | Invalid options |
+| `provision-auth-{app}` | `AddApp` / AuthOps (EntraId) | **DependsOn** `plan-auth-{app}` | App exists (created or adopted); workload parameters set; state saved for idempotence | Graph failure / validation failure |
 | `deploy-auth` | EntraId gate on provider (idempotent) | all `provision-auth-{app}`; **RequiredBy** Aspire `deploy` | Gate only | Dependency failure |
 
 `{app}` is the Auth app resource name slug (same dash rules as other Neox steps).
@@ -182,24 +186,27 @@ Gates (`prereq-auth-entra`, `deploy-auth`) are hosted on the Entra **provider** 
 ```
 src/hosting/Neox.Aspire.Hosting.Auth.Abstractions/
   AuthProviderExtensions.cs
-  AuthOpsExtensions.cs          # WithAuth, plan/provision step names
-  Provider/AuthProviderResource.cs
+  AuthOpsResource.cs            # shared auth-ops marker resource
+  AuthOpsResourceBase.cs        # provider base (slug, apps, authority)
+  AuthOpsExtensions.cs          # WithAuth, plan/provision/prereq step names, prereq-providers-auth gate
   Apps/AuthAppResource.cs / options
-  README.md                     # optional thin pointer
+  README.md
 
 src/hosting/Neox.Aspire.Hosting.Auth.EntraId/
-  EntraAuthProviderBuilderExtensions.cs  # .Entra(...)
-  EntraAuthOpsExtensions.cs              # prereq-auth-entra, deploy-auth, plan/provision
-  Provider/EntraAuthProvider*.cs
+  EntraAuthProviderBuilderExtensions.cs  # .Entra(...) → EntraAuthOpsResource
+  EntraAuthOpsExtensions.cs              # prereq-{name}-auth, deploy-auth, plan/provision
+  Provider/EntraAuthOpsResource.cs
+  Provider/EntraAuthProviderOptions.cs   # TenantId = ParameterResource?
   Provisioning/EntraGraphAppProvisioner.cs
+  Provisioning/EntraTenantEnumerator.cs  # ARM tenant Choice options
   README.md
 ```
 
 ### Implementation sequencing
 
-1. Spec status → `defined` (this revision).
-2. Create Abstractions + EntraId projects; move/split sources; retire `Neox.Aspire.Hosting.Auth`.
-3. Update tests/samples/solution; build + unit tests.
+1. Spec status → `defined` (this revision: `EntraAuthOpsResource`, `prereq-{resource.Name}-auth`, tenant Choice parameter).
+2. Rename types; wire step names from resource name; TenantId Parameter + `WithCustomInput`.
+3. Update tests/READMEs; build + unit tests.
 4. Status → `implemented`.
 
-This package split is **`implemented`**.
+This revision (`EntraAuthOpsResource`, `prereq-{resource.Name}-auth`, tenant Choice parameter) is **`implemented`**.

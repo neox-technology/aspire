@@ -3,7 +3,7 @@ using Neox.Aspire.Hosting.Auth;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
-// Tenant via Parameters__entra-tenant-id / Azure__TenantId / interactive prompt.
+// Tenant via Parameters__auth-provider-entra-tenant-id / Choice prompt / Azure__TenantId.
 var entra = builder.AddAuthProvider("auth-provider-entra")
     .Entra();
 

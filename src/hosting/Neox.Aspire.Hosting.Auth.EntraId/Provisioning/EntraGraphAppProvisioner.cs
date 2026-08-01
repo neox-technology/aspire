@@ -41,7 +41,7 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
     {
         ArgumentNullException.ThrowIfNull(app);
 
-        if (app.Provider is not EntraAuthProviderResource entra)
+        if (app.Provider is not EntraAuthOpsResource entra)
         {
             throw new InvalidOperationException(
                 $"Auth app '{app.Name}' provider '{app.Provider.Name}' is not Entra.");
@@ -97,15 +97,10 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
     }
 
     private async Task<string> ResolveTenantIdAsync(
-        EntraAuthProviderResource entra,
+        EntraAuthOpsResource entra,
         AuthAppResource app,
         CancellationToken cancellationToken)
     {
-        if (!string.IsNullOrWhiteSpace(entra.TenantId))
-        {
-            return entra.TenantId;
-        }
-
         if (app.TenantIdParameter is not null)
         {
             var fromParam = await app.TenantIdParameter.GetValueAsync(cancellationToken).ConfigureAwait(false);
@@ -126,7 +121,7 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
         }
 
         throw new InvalidOperationException(
-            "Entra tenant id is required. Set Entra options TenantId, Parameters__{provider}-tenant-id, or Azure__TenantId.");
+            "Entra tenant id is required. Set Entra options TenantId parameter, Parameters__{provider}-tenant-id, or Azure__TenantId.");
     }
 
     private async Task<EntraProvisionResult> AdoptAsync(

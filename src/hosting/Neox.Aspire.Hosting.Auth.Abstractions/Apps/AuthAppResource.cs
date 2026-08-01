@@ -7,7 +7,7 @@ namespace Neox.Aspire.Hosting.Auth;
 /// </summary>
 public sealed class AuthAppResource : Resource
 {
-    public AuthAppResource(string name, AuthProviderResource provider)
+    public AuthAppResource(string name, AuthOpsResourceBase provider)
         : base(name)
     {
         ArgumentNullException.ThrowIfNull(provider);
@@ -17,7 +17,7 @@ public sealed class AuthAppResource : Resource
     /// <summary>
     /// Parent Auth provider.
     /// </summary>
-    public AuthProviderResource Provider { get; }
+    public AuthOpsResourceBase Provider { get; }
 
     /// <summary>
     /// Desired OAuth application options.
@@ -52,7 +52,7 @@ public sealed class AuthAppResource : Resource
                 return $"AUTH_{providerToken}";
             }
 
-            return $"AUTH_{providerToken}_{AuthProviderResource.SanitizeEnvToken(Name)}";
+            return $"AUTH_{providerToken}_{AuthOpsResourceBase.SanitizeEnvToken(Name)}";
         }
     }
 

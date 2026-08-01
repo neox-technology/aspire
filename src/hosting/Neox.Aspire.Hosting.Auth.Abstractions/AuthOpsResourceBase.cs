@@ -3,19 +3,20 @@ using Aspire.Hosting.ApplicationModel;
 namespace Neox.Aspire.Hosting.Auth;
 
 /// <summary>
-/// Non-container Aspire resource representing an identity <c>provider</c> used by AuthOps.
+/// Abstract non-container Aspire resource representing an identity <c>provider</c> used by AuthOps.
 /// </summary>
-public abstract class AuthProviderResource : Resource
+public abstract class AuthOpsResourceBase : Resource
 {
     private readonly List<AuthAppResource> _apps = [];
 
-    protected AuthProviderResource(string name)
+    protected AuthOpsResourceBase(string name)
         : base(name)
     {
     }
 
     /// <summary>
-    /// Stable provider slug used in pipeline step names and <c>AUTH_{SLUG}_*</c> env vars (e.g. <c>entra</c>).
+    /// Stable provider slug used in <c>AUTH_{SLUG}_*</c> env vars (e.g. <c>entra</c>).
+    /// Pipeline prereq steps use the Aspire resource <see cref="Resource.Name"/> instead.
     /// </summary>
     public abstract string ProviderSlug { get; }
 

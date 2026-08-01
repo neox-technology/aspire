@@ -11,7 +11,7 @@ public interface IEntraAuthProviderBuilder
     /// <summary>
     /// The Entra provider resource.
     /// </summary>
-    IResourceBuilder<EntraAuthProviderResource> Resource { get; }
+    IResourceBuilder<EntraAuthOpsResource> Resource { get; }
 
     /// <summary>
     /// Adds an app registration under this Entra provider.

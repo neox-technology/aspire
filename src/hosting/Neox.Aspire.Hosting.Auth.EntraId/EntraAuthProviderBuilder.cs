@@ -5,9 +5,9 @@ namespace Neox.Aspire.Hosting.Auth;
 
 internal sealed class EntraAuthProviderBuilder(
     IDistributedApplicationBuilder applicationBuilder,
-    IResourceBuilder<EntraAuthProviderResource> providerBuilder) : IEntraAuthProviderBuilder
+    IResourceBuilder<EntraAuthOpsResource> providerBuilder) : IEntraAuthProviderBuilder
 {
-    public IResourceBuilder<EntraAuthProviderResource> Resource => providerBuilder;
+    public IResourceBuilder<EntraAuthOpsResource> Resource => providerBuilder;
 
     public IResourceBuilder<AuthAppResource> AddApp(string name, Action<AuthAppOptions>? configure = null)
     {
@@ -22,7 +22,6 @@ internal sealed class EntraAuthProviderBuilder(
         {
             Options = options,
             TenantIdParameter = provider.TenantIdParameter
-                ?? throw new InvalidOperationException("Entra provider tenant parameter was not created.")
         };
 
         var clientIdDefault = options.ExistingClientId;

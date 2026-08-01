@@ -19,6 +19,7 @@
     <PackageReference Include="Aspire.Hosting" Version="$(AspireVersion)" />
     <PackageReference Include="Aspire.Hosting.Azure" Version="$(AspireVersion)" />
     <PackageReference Include="Azure.Identity" Version="1.21.0" />
+    <PackageReference Include="Azure.ResourceManager" Version="1.13.2" />
     <PackageReference Include="Microsoft.Graph" Version="5.94.0" />
   </ItemGroup>
 

@@ -1,13 +1,30 @@
+#pragma warning disable ASPIREPIPELINES001
+
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
+using Aspire.Hosting.Pipelines;
 
 namespace Neox.Aspire.Hosting.Auth;
 
 /// <summary>
-/// AuthOps binding and shared helpers (<c>WithAuth</c>, plan/provision step names, parameters).
+/// AuthOps binding and shared helpers (<c>WithAuth</c>, plan/provision/prereq step names, gates).
 /// </summary>
 public static class AuthOpsExtensions
 {
+    /// <summary>
+    /// Shared AuthOps prerequisite gate (<c>prereq-providers-auth</c>) — all providers authenticated.
+    /// </summary>
+    public const string AuthPrereqProvidersStepName = "prereq-providers-auth";
+
+    /// <summary>
+    /// Builds <c>prereq-{providerResource}-auth</c> from the Aspire provider resource name.
+    /// </summary>
+    public static string GetPrereqProviderAuthStepName(string providerResourceName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(providerResourceName);
+        return $"prereq-{providerResourceName}-auth";
+    }
+
     /// <summary>
     /// Builds <c>plan-auth-{app}</c>.
     /// </summary>
@@ -91,6 +108,50 @@ public static class AuthOpsExtensions
         }
 
         return builder;
+    }
+
+    internal static IResourceBuilder<AuthOpsResource> EnsureAuthOpsResource(
+        IDistributedApplicationBuilder applicationBuilder)
+    {
+        ArgumentNullException.ThrowIfNull(applicationBuilder);
+
+        var existing = applicationBuilder.Resources
+            .OfType<AuthOpsResource>()
+            .FirstOrDefault();
+
+        if (existing is not null)
+        {
+            return applicationBuilder.CreateResourceBuilder(existing);
+        }
+
+        return applicationBuilder.AddResource(new AuthOpsResource(AuthOpsResource.DefaultResourceName))
+            .ExcludeFromManifest()
+            .WithInitialState(new CustomResourceSnapshot
+            {
+                ResourceType = "AuthOps",
+                State = KnownResourceStates.Running,
+                Properties = []
+            });
+    }
+
+    internal static void EnsurePrereqProvidersAuthGate(IDistributedApplicationBuilder applicationBuilder)
+    {
+        var authOps = EnsureAuthOpsResource(applicationBuilder);
+        if (authOps.Resource.Annotations.OfType<AuthNamedStepAnnotation>()
+            .Any(a => string.Equals(a.StepName, AuthPrereqProvidersStepName, StringComparison.Ordinal)))
+        {
+            return;
+        }
+
+        authOps.WithAnnotation(new AuthNamedStepAnnotation(AuthPrereqProvidersStepName));
+        authOps.WithPipelineStepFactory(factoryContext => new PipelineStep
+        {
+            Name = AuthPrereqProvidersStepName,
+            Description = "AuthOps gate — all identity providers authenticated.",
+            Tags = ["auth-ops"],
+            Resource = factoryContext.Resource,
+            Action = _ => Task.CompletedTask
+        });
     }
 
     internal static IResourceBuilder<ParameterResource> GetOrAddParameter(

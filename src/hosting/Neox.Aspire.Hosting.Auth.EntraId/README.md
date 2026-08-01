@@ -7,8 +7,11 @@ Depends on [`Neox.Aspire.Hosting.Auth.Abstractions`](../Neox.Aspire.Hosting.Auth
 ## Quick start
 
 ```csharp
-var entra = builder.AddAuthProvider("entra")
-    .Entra(o => o.TenantId = "00000000-0000-0000-0000-000000000000");
+var entra = builder.AddAuthProvider("auth-provider-entra")
+    .Entra(); // creates parameter auth-provider-entra-tenant-id (Choice of accessible tenants)
+
+// Or bind an existing parameter:
+// .Entra(o => o.TenantId = builder.AddParameter("my-tenant"));
 
 var web = entra.AddApp("web", o =>
 {
@@ -22,7 +25,9 @@ builder.AddProject<Projects.Api>("api")
     .WithAuth(web);
 ```
 
-Then run `aspire do` / `aspire deploy`. Pipeline steps: `prereq-auth-entra` → `plan-auth-{app}` → `provision-auth-{app}` → `deploy-auth` (gates hosted on the Entra provider resource).
+Then run `aspire do` / `aspire deploy`. Pipeline steps: `prereq-auth-provider-entra-auth` → `prereq-providers-auth` → `plan-auth-{app}` → `provision-auth-{app}` → `deploy-auth` (`prereq-providers-auth` on shared `auth-ops`; provider prereq and `deploy-auth` on the `EntraAuthOpsResource`).
+
+The tenant parameter prompts as a **Choice** combobox (dashboard / CLI) listing Entra tenants the current Azure credential can access (`AllowCustomChoice` for a manual GUID).
 
 ## Environment variables
 
@@ -30,9 +35,9 @@ Single app under the provider:
 
 | Env | Aspire parameter (CI) |
 |-----|------------------------|
-| `AUTH_ENTRA_TENANT_ID` | `Parameters__entra-tenant-id` |
-| `AUTH_ENTRA_CLIENT_ID` | `Parameters__entra-web-client-id` |
-| `AUTH_ENTRA_CLIENT_SECRET` | `Parameters__entra-web-client-secret` |
+| `AUTH_ENTRA_TENANT_ID` | `Parameters__auth-provider-entra-tenant-id` |
+| `AUTH_ENTRA_CLIENT_ID` | `Parameters__auth-provider-entra-web-client-id` |
+| `AUTH_ENTRA_CLIENT_SECRET` | `Parameters__auth-provider-entra-web-client-secret` |
 | `AUTH_ENTRA_AUTHORITY` | derived |
 
 Multiple apps: `AUTH_ENTRA_{APP}_*` (app slug uppercased).
@@ -51,7 +56,7 @@ entra.AddApp("web", o =>
 });
 ```
 
-For confidential clients that still need a workload secret, set `CreateClientSecret = true`, rotate, or `IncludeClientSecret = true` and supply `Parameters__entra-web-client-secret`. AuthOps validates redirect URIs and does not rotate secrets unless you opt in later.
+For confidential clients that still need a workload secret, set `CreateClientSecret = true`, rotate, or `IncludeClientSecret = true` and supply the client-secret parameter. AuthOps validates redirect URIs and does not rotate secrets unless you opt in later.
 
 ## Management vs workload credentials
 
@@ -64,7 +69,7 @@ For confidential clients that still need a workload secret, set `CreateClientSec
 
 Smoke sample under `tests/auth-providers/sample-apphost/`:
 
-- Auth apps: `AddApp("web")` / `AddApp("spa")` (names must differ from Aspire workload resources)
+- Auth apps: `AddApp("auth-appregistration-web")` / `AddApp("auth-appregistration-spa")` (names must differ from Aspire workload resources)
 - Workloads: Blazor Server `blazor` (`AUTH_ENTRA_WEB_*`) and Vite/React `ops` (`VITE_ENTRA_*` via `WithAuth` maps)
 
 Build with `dotnet build` — no live Graph in CI.

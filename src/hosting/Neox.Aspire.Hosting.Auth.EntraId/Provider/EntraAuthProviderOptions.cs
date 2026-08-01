@@ -1,3 +1,6 @@
+using Aspire.Hosting;
+using Aspire.Hosting.ApplicationModel;
+
 namespace Neox.Aspire.Hosting.Auth;
 
 /// <summary>
@@ -6,7 +9,8 @@ namespace Neox.Aspire.Hosting.Auth;
 public sealed class EntraAuthProviderOptions
 {
     /// <summary>
-    /// Entra tenant id (GUID). When set, becomes the default for the tenant parameter.
+    /// Aspire parameter for the Entra tenant id. When <see langword="null"/>, AuthOps creates
+    /// <c>{providerName}-tenant-id</c> with a Choice combobox of tenants the credential can access.
     /// </summary>
-    public string? TenantId { get; set; }
+    public IResourceBuilder<ParameterResource>? TenantId { get; set; }
 }

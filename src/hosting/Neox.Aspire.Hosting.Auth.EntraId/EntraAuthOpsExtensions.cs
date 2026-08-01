@@ -11,42 +11,48 @@ namespace Neox.Aspire.Hosting.Auth;
 /// </summary>
 public static class EntraAuthOpsExtensions
 {
-    /// <summary>Entra-specific prerequisite (<c>prereq-auth-entra</c>).</summary>
-    public const string AuthPrereqEntraStepName = "prereq-auth-entra";
-
     /// <summary>Deploy gate required by Aspire <c>deploy</c> (<c>deploy-auth</c>).</summary>
     public const string AuthDeployStepName = "deploy-auth";
 
-    internal static void EnsurePrereqEntraStep(IResourceBuilder<EntraAuthProviderResource> provider)
+    /// <summary>
+    /// Builds <c>prereq-{providerResource}-auth</c> for an Entra provider resource name.
+    /// </summary>
+    public static string GetPrereqStepName(string providerResourceName) =>
+        AuthOpsExtensions.GetPrereqProviderAuthStepName(providerResourceName);
+
+    internal static void EnsurePrereqEntraStep(
+        IDistributedApplicationBuilder applicationBuilder,
+        IResourceBuilder<EntraAuthOpsResource> provider)
     {
+        AuthOpsExtensions.EnsurePrereqProvidersAuthGate(applicationBuilder);
+
+        var stepName = GetPrereqStepName(provider.Resource.Name);
         if (provider.Resource.Annotations.OfType<AuthNamedStepAnnotation>()
-            .Any(a => string.Equals(a.StepName, AuthPrereqEntraStepName, StringComparison.Ordinal)))
+            .Any(a => string.Equals(a.StepName, stepName, StringComparison.Ordinal)))
         {
             return;
         }
 
-        provider.WithAnnotation(new AuthNamedStepAnnotation(AuthPrereqEntraStepName));
+        provider.WithAnnotation(new AuthNamedStepAnnotation(stepName));
         provider.WithPipelineStepFactory(factoryContext => new PipelineStep
         {
-            Name = AuthPrereqEntraStepName,
+            Name = stepName,
             Description = "AuthOps Entra prerequisite: tenant parameter and Graph credential path.",
             Tags = ["auth-ops"],
             Resource = factoryContext.Resource,
+            RequiredBySteps = [AuthOpsExtensions.AuthPrereqProvidersStepName],
             Action = async context =>
             {
                 var entra = provider.Resource;
-                if (entra.TenantIdParameter is not null)
-                {
-                    await AuthParameterPrompt.EnsureReadyAsync(
-                        context.Services,
-                        [entra.TenantIdParameter],
-                        context.CancellationToken).ConfigureAwait(false);
-                }
+                await EntraTenantParameterPrompt.EnsureReadyAsync(
+                    context.Services,
+                    entra.TenantIdParameter,
+                    context.CancellationToken).ConfigureAwait(false);
             }
         });
     }
 
-    internal static void EnsureDeployAuthGate(IResourceBuilder<EntraAuthProviderResource> provider)
+    internal static void EnsureDeployAuthGate(IResourceBuilder<EntraAuthOpsResource> provider)
     {
         if (provider.Resource.Annotations.OfType<AuthNamedStepAnnotation>()
             .Any(a => string.Equals(a.StepName, AuthDeployStepName, StringComparison.Ordinal)))
@@ -67,7 +73,7 @@ public static class EntraAuthOpsExtensions
     }
 
     internal static void RegisterAppPipelineSteps(
-        IResourceBuilder<EntraAuthProviderResource> provider,
+        IResourceBuilder<EntraAuthOpsResource> provider,
         IResourceBuilder<AuthAppResource> appBuilder)
     {
         var app = appBuilder.Resource;
@@ -89,7 +95,7 @@ public static class EntraAuthOpsExtensions
             Description = $"Validate AuthOps desired model for app '{app.Name}'.",
             Tags = ["auth-ops"],
             Resource = app,
-            DependsOnSteps = [AuthPrereqEntraStepName],
+            DependsOnSteps = [AuthOpsExtensions.AuthPrereqProvidersStepName],
             Action = context =>
             {
                 ValidateAppOptions(app);
@@ -138,7 +144,6 @@ public static class EntraAuthOpsExtensions
                 }
                 else if (app.Options.CreateClientSecret || app.Options.RotateClientSecret)
                 {
-                    // Confidential client expected a secret but Graph did not return one — prompt / CI.
                     await AuthParameterPrompt.EnsureReadyAsync(
                         context.Services,
                         [app.ClientSecretParameter],
@@ -153,14 +158,6 @@ public static class EntraAuthOpsExtensions
     private static IEnumerable<ParameterResource> CollectProvisionInputs(AuthAppResource app)
     {
         yield return app.TenantIdParameter;
-        if (!string.IsNullOrWhiteSpace(app.Options.ExistingClientId))
-        {
-            // Client id known; secret required when not rotating/creating.
-            if (!app.Options.CreateClientSecret && !app.Options.RotateClientSecret)
-            {
-                // Still may need secret from CI — prompted after provision if Graph did not return one.
-            }
-        }
     }
 
     private static void ValidateAppOptions(AuthAppResource app)
