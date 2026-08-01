@@ -4,7 +4,7 @@
 |-------|-------|
 | Slug | `domain-glossary` |
 | Status | draft |
-| Last code review | 2026-07-30 |
+| Last code review | 2026-08-01 |
 
 ## Summary
 
@@ -35,6 +35,15 @@ Terminology authority for Neox Aspire packages in this **public** repository (`a
 | **deploy-domains** | Gate that depends on all `deploy-{resource}-domain-{dom}` steps; required by Aspire `deploy`. |
 | **managed certificate** | Free DigiCert TLS certificate issued and renewed by Azure Container Apps for a validated custom domain. |
 | **OctoDNS sync** | Applying **upserted** DNS records (create/update only; DomainOps never deletes) by running the official OctoDNS Docker image (`octodns/cloudflare`, `octodns/ovh`, …) with `octodns-dump` then `octodns-sync`, mounting generated config/zones and injecting credentials via container env (`env/VAR` refs in YAML). DomainOps does not treat the zone YAML as full zone ownership. |
+| **AuthOps** | Hosting helpers (`Neox.Aspire.Hosting.Auth`) that provision identity-provider **app registrations** (v1: Entra via Microsoft Graph) and inject workload credentials into resources via generic `AUTH_*` environment variables through `aspire do` / `aspire deploy` pipeline steps. |
+| **Auth provider** | Non-container Aspire resource (`AuthProviderResource`) that selects an identity **provider** (v1: Entra), holds management/workload parameter bindings, and owns AuthOps pipeline registration for that provider. |
+| **Auth app** | Logical app registration under an Auth provider (`AddApp` / `AuthAppResource`): display name, application type (Web/Spa/Api/Native), redirect URIs, optional adopt via existing client id, and optional client-secret creation. |
+| **prereq-auth** | Shared AuthOps pipeline gate registered by `AddAuthProvider`; ensures management credentials for Graph (or future providers) are obtainable. |
+| **prereq-auth-entra** | Entra-specific AuthOps prereq: tenant reachable and Graph permissions usable; depends on `prereq-auth`. |
+| **plan-auth-{app}** | Validates the desired Entra application model for one Auth app (no mutating Graph writes required). |
+| **provision-auth-{app}** | Creates or adopts the Entra application via Microsoft Graph, sets workload `ParameterResource`s (client id/secret/tenant), persists idempotence state under `Auth:Entra:{app}`. |
+| **deploy-auth** | Gate that depends on all `provision-auth-{app}` steps; required by Aspire `deploy`. |
+| **AUTH_ env convention** | Generic consumer injection `AUTH_{PROVIDER_SLUG}_{SETTING}` (e.g. `AUTH_ENTRA_CLIENT_ID`); with multiple apps under one provider, `AUTH_{PROVIDER}_{APP}_{SETTING}`. No ASP.NET Core scheme mapping in AuthOps v1. |
 
 ## Out of scope
 

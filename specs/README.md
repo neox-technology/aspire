@@ -40,3 +40,4 @@ Each `specs/features/<slug>.md` file follows this skeleton:
 | [`nuget-org`](features/nuget-org.md) | defined | Arcade pack/publish to nuget.org (Trusted Publishing) |
 | [`efcore-migration-worker`](features/efcore-migration-worker.md) | implemented | EF Core migration worker + Aspire xUnit harnesses (SqlServer/Postgres/MySQL/Oracle) |
 | [`azure-custom-domains`](features/azure-custom-domains.md) | implemented | ACA custom domain ops (OctoDNS-in-Docker, managed certs, `aspire do`) |
+| [`auth-providers`](features/auth-providers.md) | draft | AuthOps — Entra app registrations (Graph) + generic `AUTH_*` env injection |
