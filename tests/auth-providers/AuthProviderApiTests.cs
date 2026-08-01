@@ -38,6 +38,11 @@ public class AuthProviderApiTests
         Assert.Contains(builder.Resources.OfType<ParameterResource>(), p => p.Name == "entra-web-client-id");
         Assert.Contains(builder.Resources.OfType<ParameterResource>(), p => p.Name == "entra-web-client-secret");
         Assert.Contains(tenant.Resource.Annotations.OfType<InputGeneratorAnnotation>(), _ => true);
+
+        var clientId = Assert.Single(
+            builder.Resources.OfType<ParameterResource>(),
+            p => p.Name == "entra-web-client-id");
+        Assert.Contains(clientId.Annotations.OfType<InputGeneratorAnnotation>(), _ => true);
     }
 
     [Fact]
@@ -73,6 +78,12 @@ public class AuthProviderApiTests
         var web = entra.AddApp("web", o => o.RedirectUris = ["https://localhost/cb"]);
 
         Assert.Equal("AUTH_ENTRA", web.Resource.DefaultEnvPrefix);
+    }
+
+    [Fact]
+    public void GetPrereqAppAuthStepName_UsesAppResourceName()
+    {
+        Assert.Equal("prereq-web-auth", AuthOpsExtensions.GetPrereqAppAuthStepName("web"));
     }
 
     [Fact]
@@ -211,8 +222,12 @@ public class AuthProviderApiTests
         Assert.Empty(prereqProviders.DependsOnSteps);
 
         var plan = Assert.Single(steps, s => s.Name == "plan-auth-web");
-        Assert.Contains("prereq-providers-auth", plan.DependsOnSteps);
+        Assert.Contains("prereq-web-auth", plan.DependsOnSteps);
+        Assert.DoesNotContain("prereq-providers-auth", plan.DependsOnSteps);
         Assert.DoesNotContain("prereq-auth-provider-entra-auth", plan.DependsOnSteps);
+
+        var prereqApp = Assert.Single(steps, s => s.Name == "prereq-web-auth");
+        Assert.Contains("prereq-providers-auth", prereqApp.DependsOnSteps);
 
         var provision = Assert.Single(steps, s => s.Name == "provision-auth-web");
         Assert.Contains("plan-auth-web", provision.DependsOnSteps);
@@ -220,6 +235,11 @@ public class AuthProviderApiTests
 
         var deploy = Assert.Single(steps, s => s.Name == "deploy-auth");
         Assert.Contains(WellKnownPipelineSteps.Deploy, deploy.RequiredBySteps);
+
+        var clientId = Assert.Single(
+            builder.Resources.OfType<ParameterResource>(),
+            p => p.Name == "auth-provider-entra-web-client-id");
+        Assert.Contains(clientId.Annotations.OfType<InputGeneratorAnnotation>(), _ => true);
     }
 
     private static async Task<List<PipelineStep>> CollectAuthOpsStepsAsync(IDistributedApplicationBuilder builder)

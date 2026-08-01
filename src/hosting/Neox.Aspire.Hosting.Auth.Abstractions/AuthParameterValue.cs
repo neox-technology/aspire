@@ -20,48 +20,68 @@ internal static class AuthParameterValue
         ArgumentNullException.ThrowIfNull(parameter);
         ArgumentException.ThrowIfNullOrWhiteSpace(value);
 
-        if (TryCompleteWaitForValueTcs(parameter, value))
-        {
-            await SaveDeploymentStateAsync(services, parameter.Name, value, cancellationToken).ConfigureAwait(false);
-            return;
-        }
-
-        // Parameter already has a value (e.g. ExistingClientId default) — still persist state.
+        ForceSetWaitForValueTcs(parameter, value);
         await SaveDeploymentStateAsync(services, parameter.Name, value, cancellationToken).ConfigureAwait(false);
     }
 
-    private static bool TryCompleteWaitForValueTcs(ParameterResource parameter, string value)
+    /// <summary>
+    /// Sets (or replaces) the resolved parameter value, including when a create sentinel was chosen earlier.
+    /// Mirrors Aspire <c>ParameterProcessor</c> recreate-TCS behavior when the value is already completed.
+    /// </summary>
+    private static void ForceSetWaitForValueTcs(ParameterResource parameter, string value)
     {
         try
         {
             var prop = typeof(ParameterResource).GetProperty(
                 "WaitForValueTcs",
                 BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
-            var tcsObj = prop?.GetValue(parameter);
-            if (tcsObj is null)
+            if (prop is null)
             {
-                return false;
+                return;
             }
 
-            var taskProp = tcsObj.GetType().GetProperty("Task");
-            if (taskProp?.GetValue(tcsObj) is Task { IsCompleted: true })
+            var tcsObj = prop.GetValue(parameter);
+            var completed = false;
+            if (tcsObj is not null)
             {
-                return false;
+                var taskProp = tcsObj.GetType().GetProperty("Task");
+                if (taskProp?.GetValue(tcsObj) is Task { IsCompleted: true })
+                {
+                    completed = true;
+                }
+            }
+
+            if (tcsObj is null || completed)
+            {
+                var tcsType = typeof(TaskCompletionSource<string>);
+                var newTcs = Activator.CreateInstance(
+                    tcsType,
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.CreateInstance,
+                    binder: null,
+                    args: [TaskCreationOptions.RunContinuationsAsynchronously],
+                    culture: null);
+                prop.SetValue(parameter, newTcs);
+                tcsObj = newTcs;
+            }
+
+            if (tcsObj is null)
+            {
+                return;
             }
 
             var trySetResult = tcsObj.GetType().GetMethod("TrySetResult", [typeof(string)]);
             if (trySetResult is not null)
             {
-                return trySetResult.Invoke(tcsObj, [value]) is true;
+                trySetResult.Invoke(tcsObj, [value]);
+                return;
             }
 
             var setResult = tcsObj.GetType().GetMethod("SetResult", [typeof(string)]);
             setResult?.Invoke(tcsObj, [value]);
-            return setResult is not null;
         }
         catch
         {
-            return false;
+            // Best-effort; deployment state still persisted by caller.
         }
     }
 

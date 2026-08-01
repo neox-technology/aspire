@@ -25,9 +25,11 @@ builder.AddProject<Projects.Api>("api")
     .WithAuth(web);
 ```
 
-Then run `aspire do` / `aspire deploy`. Pipeline steps: `prereq-auth-provider-entra-auth` → `prereq-providers-auth` → `plan-auth-{app}` → `provision-auth-{app}` → `deploy-auth` (`prereq-providers-auth` on shared `auth-ops`; provider prereq and `deploy-auth` on the `EntraAuthOpsResource`).
+Then run `aspire do` / `aspire deploy`. Pipeline steps: `prereq-auth-provider-entra-auth` → `prereq-providers-auth` → `prereq-{app}-auth` → `plan-auth-{app}` → `provision-auth-{app}` → `deploy-auth` (`prereq-providers-auth` on shared `auth-ops`; provider prereq and `deploy-auth` on the `EntraAuthOpsResource`; app prereq / plan / provision on each `AuthAppResource`).
 
 The tenant parameter prompts as a **Choice** combobox (dashboard / CLI) listing Entra tenants the current Azure credential can access (`AllowCustomChoice` for a manual GUID).
+
+Each app **ClientId** parameter (`{provider}-{app}-client-id`) prompts as a **Choice** after the tenant is resolved: existing app registrations in that tenant (Graph, label `DisplayName — appId`, up to 200), **Create new application** (uses `o.DisplayName` from `AddApp` — not an Aspire parameter), or enter a custom Client ID GUID (`AllowCustomChoice`). Listing requires management Graph permission `Application.Read.All`; on failure the Choice falls back to Create + Other only. After create, AuthOps writes the produced ClientId into the parameter / deployment state.
 
 ## Environment variables
 

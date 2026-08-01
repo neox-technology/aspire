@@ -1,6 +1,6 @@
 # Neox.Aspire.Hosting.Auth.Abstractions
 
-Core **AuthOps** types for Aspire hosting: `AuthOpsResourceBase` / shared `AuthOpsResource`, `prereq-providers-auth` gate, plan/provision/prereq step name helpers, and generic `WithAuth` environment injection (`AUTH_*`).
+Core **AuthOps** types for Aspire hosting: `AuthOpsResourceBase` / shared `AuthOpsResource`, `prereq-providers-auth` gate, `prereq-{app}-auth` / plan / provision step name helpers, and generic `WithAuth` environment injection (`AUTH_*`).
 
 Consumers typically reference [`Neox.Aspire.Hosting.Auth.EntraId`](../Neox.Aspire.Hosting.Auth.EntraId/README.md), which depends on this package.
 

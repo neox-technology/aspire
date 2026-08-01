@@ -1,3 +1,4 @@
+using Aspire.Hosting.ApplicationModel;
 using Aspire.Hosting.Azure;
 using Azure.Identity;
 using Microsoft.Extensions.Configuration;
@@ -51,9 +52,10 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
         var options = app.Options;
         var displayName = options.DisplayName ?? app.Name;
 
-        if (!string.IsNullOrWhiteSpace(options.ExistingClientId))
+        var adoptClientId = await ResolveAdoptClientIdAsync(app, cancellationToken).ConfigureAwait(false);
+        if (!string.IsNullOrWhiteSpace(adoptClientId))
         {
-            return await AdoptAsync(tenantId, options.ExistingClientId!, options, cancellationToken)
+            return await AdoptAsync(tenantId, adoptClientId, options, cancellationToken)
                 .ConfigureAwait(false);
         }
 
@@ -94,6 +96,85 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
             ClientSecret = createdSecret,
             ApplicationObjectId = created.Id
         };
+    }
+
+    private static Task<string?> ResolveAdoptClientIdAsync(
+        AuthAppResource app,
+        CancellationToken cancellationToken)
+    {
+        _ = cancellationToken;
+
+        if (app.ClientIdParameter is not null
+            && TryGetResolvedParameterValue(app.ClientIdParameter, out var fromParam))
+        {
+            if (!EntraAppRegistrationParameterPrompt.IsCreateSentinel(fromParam)
+                && Guid.TryParse(fromParam, out _))
+            {
+                return Task.FromResult<string?>(fromParam);
+            }
+
+            // Create sentinel or non-GUID — do not adopt.
+            if (!string.IsNullOrWhiteSpace(fromParam)
+                && !EntraAppRegistrationParameterPrompt.IsCreateSentinel(fromParam)
+                && !Guid.TryParse(fromParam, out _))
+            {
+                throw new InvalidOperationException(
+                    $"Auth app '{app.Name}' ClientId '{fromParam}' is not a valid GUID. " +
+                    "Provide an existing application (client) id or choose Create.");
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(app.Options.ExistingClientId)
+            && Guid.TryParse(app.Options.ExistingClientId, out _))
+        {
+            return Task.FromResult<string?>(app.Options.ExistingClientId);
+        }
+
+        return Task.FromResult<string?>(null);
+    }
+
+    /// <summary>
+    /// Reads a parameter value only when already resolved (never blocks on <c>WaitForValueTcs</c>).
+    /// </summary>
+    private static bool TryGetResolvedParameterValue(ParameterResource parameter, out string? value)
+    {
+        value = null;
+        try
+        {
+            var prop = typeof(ParameterResource).GetProperty(
+                "WaitForValueTcs",
+                System.Reflection.BindingFlags.Instance
+                | System.Reflection.BindingFlags.NonPublic
+                | System.Reflection.BindingFlags.Public);
+            var tcsObj = prop?.GetValue(parameter);
+            if (tcsObj is not null)
+            {
+                var taskProp = tcsObj.GetType().GetProperty("Task");
+                if (taskProp?.GetValue(tcsObj) is Task<string> task)
+                {
+                    if (!task.IsCompletedSuccessfully)
+                    {
+                        return false;
+                    }
+
+                    value = task.Result;
+                    return true;
+                }
+
+                if (taskProp?.GetValue(tcsObj) is Task { IsCompleted: false })
+                {
+                    return false;
+                }
+            }
+
+            // No wait TCS (e.g. default value / publish) — GetValueAsync is non-blocking.
+            value = parameter.GetValueAsync(CancellationToken.None).AsTask().GetAwaiter().GetResult();
+            return !string.IsNullOrWhiteSpace(value);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private async Task<string> ResolveTenantIdAsync(

@@ -26,6 +26,15 @@ public static class AuthOpsExtensions
     }
 
     /// <summary>
+    /// Builds <c>prereq-{app}-auth</c> from the Auth app resource name.
+    /// </summary>
+    public static string GetPrereqAppAuthStepName(string appName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(appName);
+        return $"prereq-{appName}-auth";
+    }
+
+    /// <summary>
     /// Builds <c>plan-auth-{app}</c>.
     /// </summary>
     public static string GetPlanAuthStepName(string appName)

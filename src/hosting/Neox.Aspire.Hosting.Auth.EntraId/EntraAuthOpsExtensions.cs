@@ -77,6 +77,7 @@ public static class EntraAuthOpsExtensions
         IResourceBuilder<AuthAppResource> appBuilder)
     {
         var app = appBuilder.Resource;
+        var prereqName = AuthOpsExtensions.GetPrereqAppAuthStepName(app.Name);
         var planName = AuthOpsExtensions.GetPlanAuthStepName(app.Name);
         var provisionName = AuthOpsExtensions.GetProvisionAuthStepName(app.Name);
 
@@ -86,8 +87,28 @@ public static class EntraAuthOpsExtensions
             return;
         }
 
+        appBuilder.WithAnnotation(new AuthNamedStepAnnotation(prereqName));
         appBuilder.WithAnnotation(new AuthNamedStepAnnotation(planName));
         appBuilder.WithAnnotation(new AuthNamedStepAnnotation(provisionName));
+
+        appBuilder.WithPipelineStepFactory(_ => new PipelineStep
+        {
+            Name = prereqName,
+            Description =
+                $"AuthOps prerequisite: ClientId for app '{app.Name}' (adopt GUID or create with DisplayName '{app.Options.DisplayName}').",
+            Tags = ["auth-ops"],
+            Resource = app,
+            DependsOnSteps = [AuthOpsExtensions.AuthPrereqProvidersStepName],
+            Action = async context =>
+            {
+                await EntraAppRegistrationParameterPrompt.EnsureReadyAsync(
+                    context.Services,
+                    app.ClientIdParameter,
+                    app.TenantIdParameter,
+                    app.Options.DisplayName,
+                    context.CancellationToken).ConfigureAwait(false);
+            }
+        });
 
         appBuilder.WithPipelineStepFactory(_ => new PipelineStep
         {
@@ -95,11 +116,10 @@ public static class EntraAuthOpsExtensions
             Description = $"Validate AuthOps desired model for app '{app.Name}'.",
             Tags = ["auth-ops"],
             Resource = app,
-            DependsOnSteps = [AuthOpsExtensions.AuthPrereqProvidersStepName],
-            Action = context =>
+            DependsOnSteps = [prereqName],
+            Action = async context =>
             {
-                ValidateAppOptions(app);
-                return Task.CompletedTask;
+                await ValidateAppOptionsAsync(app, context.CancellationToken).ConfigureAwait(false);
             }
         });
 
@@ -160,7 +180,7 @@ public static class EntraAuthOpsExtensions
         yield return app.TenantIdParameter;
     }
 
-    private static void ValidateAppOptions(AuthAppResource app)
+    private static async Task ValidateAppOptionsAsync(AuthAppResource app, CancellationToken cancellationToken)
     {
         var o = app.Options;
         if (string.IsNullOrWhiteSpace(o.DisplayName))
@@ -168,12 +188,68 @@ public static class EntraAuthOpsExtensions
             throw new InvalidOperationException($"Auth app '{app.Name}' requires DisplayName.");
         }
 
+        var clientId = await TryGetClientIdAsync(app, cancellationToken).ConfigureAwait(false);
+        var isCreate = EntraAppRegistrationParameterPrompt.IsCreateSentinel(clientId)
+            && string.IsNullOrWhiteSpace(o.ExistingClientId);
+
         if (o.ApplicationType is AuthApplicationType.Web or AuthApplicationType.Spa or AuthApplicationType.Native
             && o.RedirectUris.Count == 0
-            && string.IsNullOrWhiteSpace(o.ExistingClientId))
+            && isCreate)
         {
             throw new InvalidOperationException(
                 $"Auth app '{app.Name}' ({o.ApplicationType}) requires at least one RedirectUri when creating.");
+        }
+    }
+
+    private static Task<string?> TryGetClientIdAsync(AuthAppResource app, CancellationToken cancellationToken)
+    {
+        _ = cancellationToken;
+        if (app.ClientIdParameter is null)
+        {
+            return Task.FromResult<string?>(null);
+        }
+
+        // Prefer non-blocking read — plan runs after prereq resolved ClientId when interactive.
+        if (TryPeekParameterValue(app.ClientIdParameter, out var peeked))
+        {
+            return Task.FromResult(peeked);
+        }
+
+        return Task.FromResult<string?>(null);
+    }
+
+    private static bool TryPeekParameterValue(ParameterResource parameter, out string? value)
+    {
+        value = null;
+        try
+        {
+            var prop = typeof(ParameterResource).GetProperty(
+                "WaitForValueTcs",
+                System.Reflection.BindingFlags.Instance
+                | System.Reflection.BindingFlags.NonPublic
+                | System.Reflection.BindingFlags.Public);
+            var tcsObj = prop?.GetValue(parameter);
+            if (tcsObj is not null)
+            {
+                var taskProp = tcsObj.GetType().GetProperty("Task");
+                if (taskProp?.GetValue(tcsObj) is Task<string> { IsCompletedSuccessfully: true } task)
+                {
+                    value = task.Result;
+                    return true;
+                }
+
+                if (taskProp?.GetValue(tcsObj) is Task { IsCompleted: false })
+                {
+                    return false;
+                }
+            }
+
+            value = parameter.GetValueAsync(CancellationToken.None).AsTask().GetAwaiter().GetResult();
+            return true;
+        }
+        catch
+        {
+            return false;
         }
     }
 }
