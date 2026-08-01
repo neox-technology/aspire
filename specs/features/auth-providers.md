@@ -10,8 +10,8 @@
 
 AuthOps is split into two hosting packages:
 
-- **`Neox.Aspire.Hosting.Auth.Abstractions`** — common AuthOps model, shared pipeline gates (`prereq-auth`, `deploy-auth`), and generic `WithAuth` env injection.
-- **`Neox.Aspire.Hosting.Auth.EntraId`** — Entra ID provider (`AddAuthProvider` → `.Entra(...)` → `AddApp`), Graph provisioning, and Entra-specific pipeline steps.
+- **`Neox.Aspire.Hosting.Auth.Abstractions`** — common AuthOps model and generic `WithAuth` env injection.
+- **`Neox.Aspire.Hosting.Auth.EntraId`** — Entra ID provider (`AddAuthProvider` → `.Entra(...)` → `AddApp`), Graph provisioning, and Entra pipeline steps/gates (`prereq-auth-entra`, `deploy-auth`) hosted on the provider resource.
 
 Consumers reference **`Neox.Aspire.Hosting.Auth.EntraId`** (pulls Abstractions transitively). The former package id **`Neox.Aspire.Hosting.Auth` is retired** (breaking). Namespace remains `Neox.Aspire.Hosting.Auth` in both assemblies.
 
@@ -146,20 +146,21 @@ When multiple `AddApp` instances exist under one provider, parameter and env nam
 
 | Concern | Source | Used by |
 |---------|--------|---------|
-| Management (create/update app) | `ITokenCredentialProvider` / Graph app-only | `prereq-auth*`, `provision-auth-{app}` only |
+| Management (create/update app) | `ITokenCredentialProvider` / Graph app-only | `prereq-auth-entra`, `provision-auth-{app}` only |
 | Workload (ClientId / secret / tenant for apps) | Output `ParameterResource`s | `WithAuth` → consumer env |
 
 Never resolve workload secrets at distributed-application model build time. Never write secrets into manifests or generated config files.
 
 ### Pipeline step contracts
 
+Gates (`prereq-auth-entra`, `deploy-auth`) are hosted on the Entra **provider** resource (no shared `auth-ops` resource).
+
 | Step | Registered by | DependsOn | Exit 0 | Exit ≠ 0 |
 |------|---------------|-----------|--------|----------|
-| `prereq-auth` | `AddAuthProvider` (Abstractions) | (none hard) — credential/Graph client obtainable | Management credential ready | Missing interactive input / credential failure |
-| `prereq-auth-entra` | `.Entra(...)` (EntraId, optional, idempotent) | `prereq-auth` | Tenant reachable / Graph scopes OK | Tenant or Graph permission failure |
-| `plan-auth-{app}` | `AddApp` / AuthOps bind (EntraId) | `prereq-auth-entra` (or `prereq-auth`) | Desired model validated (display name, type, redirect URIs) | Invalid options |
+| `prereq-auth-entra` | `.Entra(...)` (EntraId, idempotent) | (none) | Tenant parameter ready / Graph credential path OK | Missing interactive input / credential failure |
+| `plan-auth-{app}` | `AddApp` / AuthOps bind (EntraId) | `prereq-auth-entra` | Desired model validated (display name, type, redirect URIs) | Invalid options |
 | `provision-auth-{app}` | `AddApp` / AuthOps (EntraId) | `plan-auth-{app}` | App exists (created or adopted); workload parameters set; state saved for idempotence | Graph failure / validation failure |
-| `deploy-auth` | AuthOps Abstractions gate (idempotent) | all `provision-auth-{app}`; **RequiredBy** Aspire `deploy` | Gate only | Dependency failure |
+| `deploy-auth` | EntraId gate on provider (idempotent) | all `provision-auth-{app}`; **RequiredBy** Aspire `deploy` | Gate only | Dependency failure |
 
 `{app}` is the Auth app resource name slug (same dash rules as other Neox steps).
 
@@ -181,14 +182,14 @@ Never resolve workload secrets at distributed-application model build time. Neve
 ```
 src/hosting/Neox.Aspire.Hosting.Auth.Abstractions/
   AuthProviderExtensions.cs
-  AuthOpsExtensions.cs          # WithAuth, prereq-auth, deploy-auth
+  AuthOpsExtensions.cs          # WithAuth, plan/provision step names
   Provider/AuthProviderResource.cs
   Apps/AuthAppResource.cs / options
   README.md                     # optional thin pointer
 
 src/hosting/Neox.Aspire.Hosting.Auth.EntraId/
   EntraAuthProviderBuilderExtensions.cs  # .Entra(...)
-  EntraAuthOpsExtensions.cs              # prereq-auth-entra, plan/provision
+  EntraAuthOpsExtensions.cs              # prereq-auth-entra, deploy-auth, plan/provision
   Provider/EntraAuthProvider*.cs
   Provisioning/EntraGraphAppProvisioner.cs
   README.md

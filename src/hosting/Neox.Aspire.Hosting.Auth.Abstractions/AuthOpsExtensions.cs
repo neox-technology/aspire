@@ -1,22 +1,13 @@
-#pragma warning disable ASPIREPIPELINES001
-
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
-using Aspire.Hosting.Pipelines;
 
 namespace Neox.Aspire.Hosting.Auth;
 
 /// <summary>
-/// AuthOps binding and shared pipeline registration (<c>WithAuth</c>, step names, shared gates).
+/// AuthOps binding and shared helpers (<c>WithAuth</c>, plan/provision step names, parameters).
 /// </summary>
 public static class AuthOpsExtensions
 {
-    /// <summary>Shared AuthOps prerequisite gate (<c>prereq-auth</c>).</summary>
-    public const string AuthPrereqStepName = "prereq-auth";
-
-    /// <summary>Deploy gate required by Aspire <c>deploy</c> (<c>deploy-auth</c>).</summary>
-    public const string AuthDeployStepName = "deploy-auth";
-
     /// <summary>
     /// Builds <c>plan-auth-{app}</c>.
     /// </summary>
@@ -102,27 +93,6 @@ public static class AuthOpsExtensions
         return builder;
     }
 
-    internal static IResourceBuilder<AuthOpsResource> EnsureAuthOpsResource(
-        IDistributedApplicationBuilder applicationBuilder)
-    {
-        ArgumentNullException.ThrowIfNull(applicationBuilder);
-
-        var existing = applicationBuilder.Resources.OfType<AuthOpsResource>().FirstOrDefault();
-        if (existing is not null)
-        {
-            return applicationBuilder.CreateResourceBuilder(existing);
-        }
-
-        return applicationBuilder.AddResource(new AuthOpsResource())
-            .ExcludeFromManifest()
-            .WithInitialState(new CustomResourceSnapshot
-            {
-                ResourceType = "AuthOps",
-                State = KnownResourceStates.Running,
-                Properties = []
-            });
-    }
-
     internal static IResourceBuilder<ParameterResource> GetOrAddParameter(
         IDistributedApplicationBuilder applicationBuilder,
         string parameterName,
@@ -145,46 +115,5 @@ public static class AuthOpsExtensions
         }
 
         return applicationBuilder.AddParameter(parameterName, secret: secret);
-    }
-
-    internal static void EnsurePrereqAuthStep(IDistributedApplicationBuilder applicationBuilder)
-    {
-        var authOps = EnsureAuthOpsResource(applicationBuilder);
-        if (authOps.Resource.Annotations.OfType<AuthNamedStepAnnotation>()
-            .Any(a => string.Equals(a.StepName, AuthPrereqStepName, StringComparison.Ordinal)))
-        {
-            return;
-        }
-
-        authOps.WithAnnotation(new AuthNamedStepAnnotation(AuthPrereqStepName));
-        authOps.WithPipelineStepFactory(factoryContext => new PipelineStep
-        {
-            Name = AuthPrereqStepName,
-            Description = "AuthOps prerequisite: management credentials available for identity providers.",
-            Tags = ["auth-ops"],
-            Resource = factoryContext.Resource,
-            Action = _ => Task.CompletedTask
-        });
-    }
-
-    internal static void EnsureDeployAuthGate(IDistributedApplicationBuilder applicationBuilder)
-    {
-        var authOps = EnsureAuthOpsResource(applicationBuilder);
-        if (authOps.Resource.Annotations.OfType<AuthNamedStepAnnotation>()
-            .Any(a => string.Equals(a.StepName, AuthDeployStepName, StringComparison.Ordinal)))
-        {
-            return;
-        }
-
-        authOps.WithAnnotation(new AuthNamedStepAnnotation(AuthDeployStepName));
-        authOps.WithPipelineStepFactory(factoryContext => new PipelineStep
-        {
-            Name = AuthDeployStepName,
-            Description = "AuthOps deploy gate — all Auth app provision steps completed.",
-            Tags = ["auth-ops"],
-            Resource = factoryContext.Resource,
-            RequiredBySteps = [WellKnownPipelineSteps.Deploy],
-            Action = _ => Task.CompletedTask
-        });
     }
 }

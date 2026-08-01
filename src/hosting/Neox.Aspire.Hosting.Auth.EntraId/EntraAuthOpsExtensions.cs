@@ -14,23 +14,24 @@ public static class EntraAuthOpsExtensions
     /// <summary>Entra-specific prerequisite (<c>prereq-auth-entra</c>).</summary>
     public const string AuthPrereqEntraStepName = "prereq-auth-entra";
 
+    /// <summary>Deploy gate required by Aspire <c>deploy</c> (<c>deploy-auth</c>).</summary>
+    public const string AuthDeployStepName = "deploy-auth";
+
     internal static void EnsurePrereqEntraStep(IResourceBuilder<EntraAuthProviderResource> provider)
     {
-        var authOps = AuthOpsExtensions.EnsureAuthOpsResource(provider.ApplicationBuilder);
-        if (authOps.Resource.Annotations.OfType<AuthNamedStepAnnotation>()
+        if (provider.Resource.Annotations.OfType<AuthNamedStepAnnotation>()
             .Any(a => string.Equals(a.StepName, AuthPrereqEntraStepName, StringComparison.Ordinal)))
         {
             return;
         }
 
-        authOps.WithAnnotation(new AuthNamedStepAnnotation(AuthPrereqEntraStepName));
-        authOps.WithPipelineStepFactory(factoryContext => new PipelineStep
+        provider.WithAnnotation(new AuthNamedStepAnnotation(AuthPrereqEntraStepName));
+        provider.WithPipelineStepFactory(factoryContext => new PipelineStep
         {
             Name = AuthPrereqEntraStepName,
             Description = "AuthOps Entra prerequisite: tenant parameter and Graph credential path.",
             Tags = ["auth-ops"],
             Resource = factoryContext.Resource,
-            DependsOnSteps = [AuthOpsExtensions.AuthPrereqStepName],
             Action = async context =>
             {
                 var entra = provider.Resource;
@@ -45,8 +46,28 @@ public static class EntraAuthOpsExtensions
         });
     }
 
+    internal static void EnsureDeployAuthGate(IResourceBuilder<EntraAuthProviderResource> provider)
+    {
+        if (provider.Resource.Annotations.OfType<AuthNamedStepAnnotation>()
+            .Any(a => string.Equals(a.StepName, AuthDeployStepName, StringComparison.Ordinal)))
+        {
+            return;
+        }
+
+        provider.WithAnnotation(new AuthNamedStepAnnotation(AuthDeployStepName));
+        provider.WithPipelineStepFactory(factoryContext => new PipelineStep
+        {
+            Name = AuthDeployStepName,
+            Description = "AuthOps deploy gate — all Auth app provision steps completed.",
+            Tags = ["auth-ops"],
+            Resource = factoryContext.Resource,
+            RequiredBySteps = [WellKnownPipelineSteps.Deploy],
+            Action = _ => Task.CompletedTask
+        });
+    }
+
     internal static void RegisterAppPipelineSteps(
-        IDistributedApplicationBuilder applicationBuilder,
+        IResourceBuilder<EntraAuthProviderResource> provider,
         IResourceBuilder<AuthAppResource> appBuilder)
     {
         var app = appBuilder.Resource;
@@ -83,7 +104,7 @@ public static class EntraAuthOpsExtensions
             Tags = ["auth-ops"],
             Resource = app,
             DependsOnSteps = [planName],
-            RequiredBySteps = [AuthOpsExtensions.AuthDeployStepName],
+            RequiredBySteps = [AuthDeployStepName],
             Action = async context =>
             {
                 var provisioner = context.Services.GetService(typeof(IEntraGraphAppProvisioner)) as IEntraGraphAppProvisioner
@@ -126,7 +147,7 @@ public static class EntraAuthOpsExtensions
             }
         });
 
-        AuthOpsExtensions.EnsureDeployAuthGate(applicationBuilder);
+        EnsureDeployAuthGate(provider);
     }
 
     private static IEnumerable<ParameterResource> CollectProvisionInputs(AuthAppResource app)

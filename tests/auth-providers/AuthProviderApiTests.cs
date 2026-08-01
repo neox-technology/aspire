@@ -24,7 +24,7 @@ public class AuthProviderApiTests
 
         Assert.Equal("entra", entra.Resource.Resource.ProviderSlug);
         Assert.Equal("web", web.Resource.Name);
-        Assert.Contains(builder.Resources.OfType<AuthOpsResource>(), r => r.Name == AuthOpsResource.DefaultName);
+        Assert.Contains(builder.Resources.OfType<EntraAuthProviderResource>(), r => r.Name == "entra");
         Assert.Contains(builder.Resources.OfType<ParameterResource>(), p => p.Name == "entra-tenant-id");
         Assert.Contains(builder.Resources.OfType<ParameterResource>(), p => p.Name == "entra-web-client-id");
         Assert.Contains(builder.Resources.OfType<ParameterResource>(), p => p.Name == "entra-web-client-secret");
@@ -140,9 +140,8 @@ public class AuthProviderApiTests
     [Fact]
     public void StepNames_FollowContracts()
     {
-        Assert.Equal("prereq-auth", AuthOpsExtensions.AuthPrereqStepName);
         Assert.Equal("prereq-auth-entra", EntraAuthOpsExtensions.AuthPrereqEntraStepName);
-        Assert.Equal("deploy-auth", AuthOpsExtensions.AuthDeployStepName);
+        Assert.Equal("deploy-auth", EntraAuthOpsExtensions.AuthDeployStepName);
         Assert.Equal("plan-auth-web", AuthOpsExtensions.GetPlanAuthStepName("web"));
         Assert.Equal("provision-auth-web", AuthOpsExtensions.GetProvisionAuthStepName("web"));
     }

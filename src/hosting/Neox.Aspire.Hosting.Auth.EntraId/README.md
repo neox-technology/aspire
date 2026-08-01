@@ -22,7 +22,7 @@ builder.AddProject<Projects.Api>("api")
     .WithAuth(web);
 ```
 
-Then run `aspire do` / `aspire deploy`. Pipeline steps: `prereq-auth` → `prereq-auth-entra` → `plan-auth-{app}` → `provision-auth-{app}` → `deploy-auth`.
+Then run `aspire do` / `aspire deploy`. Pipeline steps: `prereq-auth-entra` → `plan-auth-{app}` → `provision-auth-{app}` → `deploy-auth` (gates hosted on the Entra provider resource).
 
 ## Environment variables
 

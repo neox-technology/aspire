@@ -51,7 +51,7 @@ internal sealed class EntraAuthProviderBuilder(
                 Properties = []
             });
 
-        EntraAuthOpsExtensions.RegisterAppPipelineSteps(applicationBuilder, appBuilder);
+        EntraAuthOpsExtensions.RegisterAppPipelineSteps(providerBuilder, appBuilder);
         return appBuilder;
     }
 }

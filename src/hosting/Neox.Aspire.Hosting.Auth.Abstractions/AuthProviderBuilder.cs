@@ -8,8 +8,6 @@ internal sealed class AuthProviderBuilder : IAuthProviderBuilder
     {
         ApplicationBuilder = applicationBuilder;
         Name = name;
-        AuthOpsExtensions.EnsureAuthOpsResource(applicationBuilder);
-        AuthOpsExtensions.EnsurePrereqAuthStep(applicationBuilder);
     }
 
     public IDistributedApplicationBuilder ApplicationBuilder { get; }

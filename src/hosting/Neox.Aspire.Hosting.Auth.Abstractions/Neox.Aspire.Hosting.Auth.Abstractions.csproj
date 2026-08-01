@@ -6,7 +6,7 @@
     <RootNamespace>Neox.Aspire.Hosting.Auth</RootNamespace>
     <IsPackable>true</IsPackable>
     <SuppressFinalPackageVersion>true</SuppressFinalPackageVersion>
-    <Description>Aspire hosting AuthOps abstractions: shared provider/app model, pipeline gates, and generic AUTH_* environment injection.</Description>
+    <Description>Aspire hosting AuthOps abstractions: shared provider/app model and generic AUTH_* environment injection.</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>aspire;auth;authops;oidc</PackageTags>
   </PropertyGroup>
