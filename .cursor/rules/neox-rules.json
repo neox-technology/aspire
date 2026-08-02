@@ -6,7 +6,8 @@
     "migrationWorker": "src/Neox.Aspire.EntityFrameworkCore.MigrationWorker",
     "customDomains": "src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains",
     "authAbstractions": "src/hosting/Neox.Aspire.Hosting.Auth.Abstractions",
-    "authEntraId": "src/hosting/Neox.Aspire.Hosting.Auth.EntraId"
+    "authEntraId": "src/hosting/Neox.Aspire.Hosting.Auth.EntraId",
+    "authGoogle": "src/hosting/Neox.Aspire.Hosting.Auth.Google"
   },
   "specs": {
     "root": "specs",
@@ -20,7 +21,8 @@
       "migrationWorker": "Neox.Aspire.EntityFrameworkCore.MigrationWorker",
       "customDomains": "Neox.Aspire.Hosting.Azure.CustomDomains",
       "authAbstractions": "Neox.Aspire.Hosting.Auth.Abstractions",
-      "authEntraId": "Neox.Aspire.Hosting.Auth.EntraId"
+      "authEntraId": "Neox.Aspire.Hosting.Auth.EntraId",
+      "authGoogle": "Neox.Aspire.Hosting.Auth.Google"
     }
   }
 }

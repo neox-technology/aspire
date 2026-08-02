@@ -49,8 +49,8 @@ public sealed class AuthAppResource : Resource, IResourceWithParent<AuthOpsResou
     private readonly List<AuthRedirectUri> _redirectUris = [];
 
     /// <summary>
-    /// Desired redirect URIs accumulated via <c>WithRedirectUri</c> / <c>WithLocalhostRedirectUri</c>.
-    /// Graph apply and env emit are not wired yet.
+    /// Desired redirect URIs accumulated via <c>WithRedirectUri</c> / <c>WithLocalhostRedirectUri</c>
+    /// (flat list; Entra platform buckets use typed overloads in the EntraId package).
     /// </summary>
     public IReadOnlyList<AuthRedirectUri> RedirectUris => _redirectUris;
 

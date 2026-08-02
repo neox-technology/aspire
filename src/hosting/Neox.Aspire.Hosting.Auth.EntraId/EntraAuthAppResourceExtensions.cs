@@ -9,6 +9,79 @@ namespace Neox.Aspire.Hosting.Auth;
 public static class EntraAuthAppResourceExtensions
 {
     /// <summary>
+    /// Adds a localhost redirect URI into the Entra Graph platform bucket
+    /// (<see cref="AuthApplicationType"/>).
+    /// </summary>
+    public static IResourceBuilder<AuthAppResource> WithLocalhostRedirectUri(
+        this IResourceBuilder<AuthAppResource> builder,
+        AuthApplicationType redirectUriType,
+        int? port = null,
+        string? path = null)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+
+        if (port is < 1 or > 65535)
+        {
+            throw new ArgumentOutOfRangeException(nameof(port), port, "Port must be between 1 and 65535 when specified.");
+        }
+
+        var uri = port is null
+            ? "https://localhost"
+            : $"https://localhost:{port.Value}";
+
+        var normalizedPath = AuthAppResourceExtensions.NormalizePath(path);
+        if (normalizedPath is not null)
+        {
+            uri += normalizedPath;
+        }
+
+        return WithRedirectUri(builder, redirectUriType, uri);
+    }
+
+    /// <summary>
+    /// Adds an absolute redirect URI into the Entra Graph platform bucket.
+    /// </summary>
+    public static IResourceBuilder<AuthAppResource> WithRedirectUri(
+        this IResourceBuilder<AuthAppResource> builder,
+        AuthApplicationType redirectUriType,
+        string uri)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentException.ThrowIfNullOrWhiteSpace(uri);
+
+        if (!Uri.TryCreate(uri, UriKind.Absolute, out var parsed)
+            || (parsed.Scheme != Uri.UriSchemeHttp && parsed.Scheme != Uri.UriSchemeHttps))
+        {
+            throw new ArgumentException(
+                "Redirect URI must be an absolute http or https URI.",
+                nameof(uri));
+        }
+
+        var entry = AuthRedirectUri.FromLiteral(uri);
+        builder.Resource.AddRedirectUri(entry);
+        AddEntraPlatform(builder, redirectUriType, entry);
+        return builder;
+    }
+
+    /// <summary>
+    /// Adds a parameter-based redirect URI into the Entra Graph platform bucket.
+    /// </summary>
+    public static IResourceBuilder<AuthAppResource> WithRedirectUri(
+        this IResourceBuilder<AuthAppResource> builder,
+        AuthApplicationType redirectUriType,
+        IResourceBuilder<ParameterResource> uri,
+        string? path = null)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(uri);
+
+        var entry = AuthRedirectUri.FromParameter(uri.Resource, AuthAppResourceExtensions.NormalizePath(path));
+        builder.Resource.AddRedirectUri(entry);
+        AddEntraPlatform(builder, redirectUriType, entry);
+        return builder;
+    }
+
+    /// <summary>
     /// Sets the desired Entra supported account types (Graph <c>signInAudience</c>).
     /// When omitted, AuthOps defaults to <see cref="SupportedAccountsType.SingleTenant"/>.
     /// </summary>
@@ -127,5 +200,24 @@ public static class EntraAuthAppResourceExtensions
 
         builder.WithAnnotation(new WellKnownApiPermissionAnnotation(permission));
         return builder;
+    }
+
+    private static void AddEntraPlatform(
+        IResourceBuilder<AuthAppResource> builder,
+        AuthApplicationType redirectUriType,
+        AuthRedirectUri entry)
+    {
+        var annotation = builder.Resource.Annotations.OfType<EntraRedirectUrisAnnotation>().FirstOrDefault();
+        if (annotation is null)
+        {
+            annotation = new EntraRedirectUrisAnnotation();
+            builder.WithAnnotation(annotation);
+        }
+
+        annotation.Entries.Add(new EntraRedirectUriEntry
+        {
+            Type = redirectUriType,
+            Uri = entry
+        });
     }
 }

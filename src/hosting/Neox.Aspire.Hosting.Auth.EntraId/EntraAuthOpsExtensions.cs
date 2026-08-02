@@ -12,7 +12,7 @@ namespace Neox.Aspire.Hosting.Auth;
 public static class EntraAuthOpsExtensions
 {
     /// <summary>Deploy gate required by Aspire <c>deploy</c> (<c>deploy-auth</c>).</summary>
-    public const string AuthDeployStepName = "deploy-auth";
+    public const string AuthDeployStepName = AuthOpsExtensions.AuthDeployStepName;
 
     /// <summary>
     /// Builds <c>prereq-{providerResource}-auth</c> for an Entra provider resource name.
@@ -62,26 +62,6 @@ public static class EntraAuthOpsExtensions
                         context.CancellationToken).ConfigureAwait(false);
                 }
             }
-        });
-    }
-
-    internal static void EnsureDeployAuthGate(IResourceBuilder<EntraAuthOpsResource> provider)
-    {
-        if (provider.Resource.Annotations.OfType<AuthNamedStepAnnotation>()
-            .Any(a => string.Equals(a.StepName, AuthDeployStepName, StringComparison.Ordinal)))
-        {
-            return;
-        }
-
-        provider.WithAnnotation(new AuthNamedStepAnnotation(AuthDeployStepName));
-        provider.WithPipelineStepFactory(factoryContext => new PipelineStep
-        {
-            Name = AuthDeployStepName,
-            Description = "AuthOps deploy gate — all Auth app provision steps completed.",
-            Tags = ["auth-ops"],
-            Resource = factoryContext.Resource,
-            RequiredBySteps = [WellKnownPipelineSteps.Deploy],
-            Action = _ => Task.CompletedTask
         });
     }
 
@@ -175,7 +155,7 @@ public static class EntraAuthOpsExtensions
                 Tags = ["auth-ops"],
                 Resource = app,
                 DependsOnSteps = dependsOn,
-                RequiredBySteps = [AuthDeployStepName],
+                RequiredBySteps = [AuthOpsExtensions.AuthDeployStepName],
                 Action = async context =>
                 {
                     var provisioner = ResolveProvisioner(context.Services);
@@ -205,7 +185,7 @@ public static class EntraAuthOpsExtensions
             };
         });
 
-        EnsureDeployAuthGate(provider);
+        AuthOpsExtensions.EnsureDeployAuthGate(provider.ApplicationBuilder);
     }
 
     private static IEntraGraphAppProvisioner ResolveProvisioner(IServiceProvider services) =>
