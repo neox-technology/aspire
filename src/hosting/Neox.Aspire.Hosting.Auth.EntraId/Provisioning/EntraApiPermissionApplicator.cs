@@ -52,11 +52,23 @@ internal static class EntraApiPermissionApplicator
             }
         }
 
+        foreach (var annotation in app.Annotations.OfType<WellKnownApiPermissionAnnotation>())
+        {
+            var permission = annotation.Permission;
+            result.Add(new AuthDesiredRequiredResourceAccess
+            {
+                ResourceAppId = permission.ResourceAppId,
+                PermissionId = permission.PermissionId,
+                Type = permission.Type
+            });
+        }
+
         return result;
     }
 
     public static bool HasDeclaredPermissions(AuthAppResource app) =>
-        app.Annotations.OfType<ApiPermissionAnnotation>().Any();
+        app.Annotations.OfType<ApiPermissionAnnotation>().Any() ||
+        app.Annotations.OfType<WellKnownApiPermissionAnnotation>().Any();
 
     public static IReadOnlyList<AuthDesiredRequiredResourceAccess> Extract(Application application)
     {

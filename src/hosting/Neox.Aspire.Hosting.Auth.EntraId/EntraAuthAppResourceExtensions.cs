@@ -113,4 +113,19 @@ public static class EntraAuthAppResourceExtensions
         builder.WithAnnotation(new ApiPermissionAnnotation(exposition.Resource));
         return builder;
     }
+
+    /// <summary>
+    /// Consumes a first-party well-known API permission (e.g. <c>MicrosoftGraph.Delegated.UserRead</c>)
+    /// as Graph <c>requiredResourceAccess</c>.
+    /// </summary>
+    public static IResourceBuilder<AuthAppResource> WithApiPermission(
+        this IResourceBuilder<AuthAppResource> builder,
+        WellKnownApiPermission permission)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(permission);
+
+        builder.WithAnnotation(new WellKnownApiPermissionAnnotation(permission));
+        return builder;
+    }
 }

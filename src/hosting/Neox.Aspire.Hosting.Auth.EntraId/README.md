@@ -72,10 +72,14 @@ var apiCaller = api.WithAppRoleExposition(
 var web = entra.AddAppRegistration("web", "MyApp-Local")
     .WithLocalhostRedirectUri(AuthApplicationType.Web, 7281, "/signin-oidc")
     .WithApiPermission(accessAsUser!)
-    .WithApiPermission(apiCaller);
+    .WithApiPermission(apiCaller)
+    .WithApiPermission(MicrosoftGraph.Delegated.UserRead)
+    .WithApiPermission(MicrosoftGraph.Application.UserReadAll);
 ```
 
 Graph mapping: `identifierUris`, `api.oauth2PermissionScopes`, `appRoles`, consumer `requiredResourceAccess` (Scope / Role). Upsert only — AuthOps does not delete Graph entries outside the AppHost model.
+
+Microsoft Graph first-party permissions are source-generated from `Graph/microsoft-graph-permissions.json` as `MicrosoftGraph.Delegated.*` / `MicrosoftGraph.Application.*`. Refresh the catalogue with `dotnet run --project tools/microsoft-graph-permissions-catalog` (Graph service principal) or `--from-docs` for an offline bootstrap. Well-known binds do not add an exposer provision `DependsOn`.
 
 ## Environment variables
 
