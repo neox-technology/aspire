@@ -13,8 +13,8 @@ internal static class EntraApiPermissionApplicator
     /// skips permissions whose exposer ClientId cannot be resolved yet (create path of exposer).
     /// </summary>
     public static IReadOnlyList<AuthDesiredRequiredResourceAccess> CollectDesired(
-        AuthAppResource app,
-        Func<AuthAppResource, string?> resolveExposerClientId)
+        EntraAuthAppRegistrationResource app,
+        Func<EntraAuthAppRegistrationResource, string?> resolveExposerClientId)
     {
         ArgumentNullException.ThrowIfNull(app);
         ArgumentNullException.ThrowIfNull(resolveExposerClientId);
@@ -66,7 +66,7 @@ internal static class EntraApiPermissionApplicator
         return result;
     }
 
-    public static bool HasDeclaredPermissions(AuthAppResource app) =>
+    public static bool HasDeclaredPermissions(EntraAuthAppRegistrationResource app) =>
         app.Annotations.OfType<ApiPermissionAnnotation>().Any() ||
         app.Annotations.OfType<WellKnownApiPermissionAnnotation>().Any();
 

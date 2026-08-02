@@ -1,6 +1,6 @@
 # Neox.Aspire.Hosting.Auth.Google
 
-Aspire hosting helpers (**AuthOps**) that **adopt/bind** an existing Google OAuth ClientId (and ProjectId) and inject workload credentials as generic environment variables (`AUTH_GOOGLE_*`).
+Aspire hosting helpers (**AuthOps**) that **adopt/bind** an existing Google OAuth ClientId (and ProjectId) and inject workload credentials as generic environment variables (`AUTH_GOOGLE_*`) via Google-scoped `WithAuth`.
 
 Depends on [`Neox.Aspire.Hosting.Auth.Abstractions`](../Neox.Aspire.Hosting.Auth.Abstractions/README.md).
 
@@ -12,14 +12,11 @@ Depends on [`Neox.Aspire.Hosting.Auth.Abstractions`](../Neox.Aspire.Hosting.Auth
 var google = builder.AddAuthProvider("provider-google")
     .Google(); // creates parameter provider-google-project-id (Choice of ADC-visible projects)
 
-// Or bind an existing parameter:
-// .Google(o => o.ProjectId = builder.AddParameter("my-project"));
-
 var web = google.AddAppRegistration("web", "MyApp-Local")
     .WithLocalhostRedirectUri(7281, "/signin-oidc"); // model only — not applied to Google
 
 builder.AddProject<Projects.Api>("api")
-    .WithAuth(web);
+    .WithAuth(web); // GoogleAuthAppRegistrationResource → AUTH_GOOGLE_*
 ```
 
 Then run `aspire do` / `aspire deploy`. Pipeline: `prereq-provider-google-auth` → `prereq-providers-auth` → `prereq-{app}-auth` → `plan-{app}-auth` → `provision-{app}-auth` → `deploy-auth` (shared on `auth-ops`).

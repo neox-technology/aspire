@@ -4,18 +4,19 @@ using Aspire.Hosting.ApplicationModel;
 namespace Neox.Aspire.Hosting.Auth;
 
 /// <summary>
-/// Fluent configuration for <see cref="AuthAppResource"/> desired registration settings.
+/// Fluent configuration for <see cref="AuthAppRegistrationResource"/> desired registration settings.
 /// Redirect URIs are a flat list; Entra Graph platform buckets use typed overloads in EntraId.
 /// </summary>
-public static class AuthAppResourceExtensions
+public static class AuthAppRegistrationResourceExtensions
 {
     /// <summary>
     /// Adds a localhost redirect URI (<c>https://localhost</c>, optional port and path).
     /// </summary>
-    public static IResourceBuilder<AuthAppResource> WithLocalhostRedirectUri(
-        this IResourceBuilder<AuthAppResource> builder,
+    public static IResourceBuilder<T> WithLocalhostRedirectUri<T>(
+        this IResourceBuilder<T> builder,
         int? port = null,
         string? path = null)
+        where T : AuthAppRegistrationResource
     {
         ArgumentNullException.ThrowIfNull(builder);
 
@@ -40,9 +41,10 @@ public static class AuthAppResourceExtensions
     /// <summary>
     /// Adds an absolute redirect URI literal to the Auth app desired state.
     /// </summary>
-    public static IResourceBuilder<AuthAppResource> WithRedirectUri(
-        this IResourceBuilder<AuthAppResource> builder,
+    public static IResourceBuilder<T> WithRedirectUri<T>(
+        this IResourceBuilder<T> builder,
         string uri)
+        where T : AuthAppRegistrationResource
     {
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentException.ThrowIfNullOrWhiteSpace(uri);
@@ -63,10 +65,11 @@ public static class AuthAppResourceExtensions
     /// Adds a redirect URI whose base comes from an Aspire parameter, with an optional path
     /// concatenated at resolution time.
     /// </summary>
-    public static IResourceBuilder<AuthAppResource> WithRedirectUri(
-        this IResourceBuilder<AuthAppResource> builder,
+    public static IResourceBuilder<T> WithRedirectUri<T>(
+        this IResourceBuilder<T> builder,
         IResourceBuilder<ParameterResource> uri,
         string? path = null)
+        where T : AuthAppRegistrationResource
     {
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(uri);

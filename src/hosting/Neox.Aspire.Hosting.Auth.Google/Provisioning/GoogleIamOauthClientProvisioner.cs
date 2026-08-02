@@ -63,7 +63,7 @@ public sealed class GoogleIamOauthClientProvisioner : IGoogleIamOauthClientProvi
         return new GoogleIamOauthClientProvisioner(http, credential, configuration);
     }
 
-    public async Task<GoogleOauthClientPlan> PlanAsync(AuthAppResource app, CancellationToken cancellationToken)
+    public async Task<GoogleOauthClientPlan> PlanAsync(GoogleAuthAppRegistrationResource app, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(app);
 
@@ -98,7 +98,7 @@ public sealed class GoogleIamOauthClientProvisioner : IGoogleIamOauthClientProvi
     }
 
     public Task<GoogleProvisionResult> ProvisionAsync(
-        AuthAppResource app,
+        GoogleAuthAppRegistrationResource app,
         GoogleOauthClientPlan plan,
         CancellationToken cancellationToken)
     {
@@ -123,7 +123,7 @@ public sealed class GoogleIamOauthClientProvisioner : IGoogleIamOauthClientProvi
 
     private async Task<string> ResolveProjectIdAsync(
         GoogleAuthOpsResource google,
-        AuthAppResource app,
+        GoogleAuthAppRegistrationResource app,
         CancellationToken cancellationToken)
     {
         if (app.TenantIdParameter is not null)
@@ -156,7 +156,7 @@ public sealed class GoogleIamOauthClientProvisioner : IGoogleIamOauthClientProvi
             "Google project id is required. Set Google options ProjectId parameter, Parameters__{provider}-project-id, or GOOGLE_CLOUD_PROJECT.");
     }
 
-    private static string? ResolveBoundClientId(AuthAppResource app)
+    private static string? ResolveBoundClientId(GoogleAuthAppRegistrationResource app)
     {
         if (app.ClientIdParameter is not null
             && TryGetResolvedParameterValue(app.ClientIdParameter, out var fromParam)

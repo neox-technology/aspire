@@ -4,7 +4,7 @@ using Aspire.Hosting.ApplicationModel;
 namespace Neox.Aspire.Hosting.Auth;
 
 internal sealed class ApiExpositionBuilder(
-    IResourceBuilder<AuthAppResource> appBuilder) : IApiExpositionBuilder
+    IResourceBuilder<EntraAuthAppRegistrationResource> appBuilder) : IApiExpositionBuilder
 {
     public IResourceBuilder<ScopeApiExposition> AddScopeWithAdminConsent(
         string name,

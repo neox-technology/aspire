@@ -4,16 +4,16 @@ using Aspire.Hosting.ApplicationModel;
 namespace Neox.Aspire.Hosting.Auth;
 
 /// <summary>
-/// Entra-specific fluent configuration for <see cref="AuthAppResource"/>.
+/// Entra-specific fluent configuration for <see cref="EntraAuthAppRegistrationResource"/>.
 /// </summary>
-public static class EntraAuthAppResourceExtensions
+public static class EntraAuthAppRegistrationResourceExtensions
 {
     /// <summary>
     /// Adds a localhost redirect URI into the Entra Graph platform bucket
     /// (<see cref="AuthApplicationType"/>).
     /// </summary>
-    public static IResourceBuilder<AuthAppResource> WithLocalhostRedirectUri(
-        this IResourceBuilder<AuthAppResource> builder,
+    public static IResourceBuilder<EntraAuthAppRegistrationResource> WithLocalhostRedirectUri(
+        this IResourceBuilder<EntraAuthAppRegistrationResource> builder,
         AuthApplicationType redirectUriType,
         int? port = null,
         string? path = null)
@@ -29,7 +29,7 @@ public static class EntraAuthAppResourceExtensions
             ? "https://localhost"
             : $"https://localhost:{port.Value}";
 
-        var normalizedPath = AuthAppResourceExtensions.NormalizePath(path);
+        var normalizedPath = AuthAppRegistrationResourceExtensions.NormalizePath(path);
         if (normalizedPath is not null)
         {
             uri += normalizedPath;
@@ -41,8 +41,8 @@ public static class EntraAuthAppResourceExtensions
     /// <summary>
     /// Adds an absolute redirect URI into the Entra Graph platform bucket.
     /// </summary>
-    public static IResourceBuilder<AuthAppResource> WithRedirectUri(
-        this IResourceBuilder<AuthAppResource> builder,
+    public static IResourceBuilder<EntraAuthAppRegistrationResource> WithRedirectUri(
+        this IResourceBuilder<EntraAuthAppRegistrationResource> builder,
         AuthApplicationType redirectUriType,
         string uri)
     {
@@ -66,8 +66,8 @@ public static class EntraAuthAppResourceExtensions
     /// <summary>
     /// Adds a parameter-based redirect URI into the Entra Graph platform bucket.
     /// </summary>
-    public static IResourceBuilder<AuthAppResource> WithRedirectUri(
-        this IResourceBuilder<AuthAppResource> builder,
+    public static IResourceBuilder<EntraAuthAppRegistrationResource> WithRedirectUri(
+        this IResourceBuilder<EntraAuthAppRegistrationResource> builder,
         AuthApplicationType redirectUriType,
         IResourceBuilder<ParameterResource> uri,
         string? path = null)
@@ -75,7 +75,7 @@ public static class EntraAuthAppResourceExtensions
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(uri);
 
-        var entry = AuthRedirectUri.FromParameter(uri.Resource, AuthAppResourceExtensions.NormalizePath(path));
+        var entry = AuthRedirectUri.FromParameter(uri.Resource, AuthAppRegistrationResourceExtensions.NormalizePath(path));
         builder.Resource.AddRedirectUri(entry);
         AddEntraPlatform(builder, redirectUriType, entry);
         return builder;
@@ -85,8 +85,8 @@ public static class EntraAuthAppResourceExtensions
     /// Sets the desired Entra supported account types (Graph <c>signInAudience</c>).
     /// When omitted, AuthOps defaults to <see cref="SupportedAccountsType.SingleTenant"/>.
     /// </summary>
-    public static IResourceBuilder<AuthAppResource> WithSupportedAccounts(
-        this IResourceBuilder<AuthAppResource> builder,
+    public static IResourceBuilder<EntraAuthAppRegistrationResource> WithSupportedAccounts(
+        this IResourceBuilder<EntraAuthAppRegistrationResource> builder,
         SupportedAccountsType supportedAccounts)
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -99,8 +99,8 @@ public static class EntraAuthAppResourceExtensions
     /// <summary>
     /// Exposes an API with Application ID URI <paramref name="url"/> and optional scopes.
     /// </summary>
-    public static IResourceBuilder<AuthAppResource> WithApiExposition(
-        this IResourceBuilder<AuthAppResource> builder,
+    public static IResourceBuilder<EntraAuthAppRegistrationResource> WithApiExposition(
+        this IResourceBuilder<EntraAuthAppRegistrationResource> builder,
         string url,
         Action<IApiExpositionBuilder> configure)
     {
@@ -124,8 +124,8 @@ public static class EntraAuthAppResourceExtensions
     /// Exposes an API with Application ID URI <c>api://{ClientId}</c> (resolved after ClientId is known)
     /// and optional scopes.
     /// </summary>
-    public static IResourceBuilder<AuthAppResource> WithApiExposition(
-        this IResourceBuilder<AuthAppResource> builder,
+    public static IResourceBuilder<EntraAuthAppRegistrationResource> WithApiExposition(
+        this IResourceBuilder<EntraAuthAppRegistrationResource> builder,
         Action<IApiExpositionBuilder> configure)
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -140,7 +140,7 @@ public static class EntraAuthAppResourceExtensions
     /// Exposes an Entra app role on this Auth app.
     /// </summary>
     public static IResourceBuilder<AppRoleApiExposition> WithAppRoleExposition(
-        this IResourceBuilder<AuthAppResource> builder,
+        this IResourceBuilder<EntraAuthAppRegistrationResource> builder,
         AllowedMemberType allowedMemberType,
         string value,
         string description)
@@ -175,8 +175,8 @@ public static class EntraAuthAppResourceExtensions
     /// <summary>
     /// Consumes a previously exposed scope or app role (Graph <c>requiredResourceAccess</c>).
     /// </summary>
-    public static IResourceBuilder<AuthAppResource> WithApiPermission<TApiExposition>(
-        this IResourceBuilder<AuthAppResource> builder,
+    public static IResourceBuilder<EntraAuthAppRegistrationResource> WithApiPermission<TApiExposition>(
+        this IResourceBuilder<EntraAuthAppRegistrationResource> builder,
         IResourceBuilder<TApiExposition> exposition)
         where TApiExposition : ApiExposition
     {
@@ -191,8 +191,8 @@ public static class EntraAuthAppResourceExtensions
     /// Consumes a first-party well-known API permission (e.g. <c>MicrosoftGraph.Delegated.UserRead</c>)
     /// as Graph <c>requiredResourceAccess</c>.
     /// </summary>
-    public static IResourceBuilder<AuthAppResource> WithApiPermission(
-        this IResourceBuilder<AuthAppResource> builder,
+    public static IResourceBuilder<EntraAuthAppRegistrationResource> WithApiPermission(
+        this IResourceBuilder<EntraAuthAppRegistrationResource> builder,
         WellKnownApiPermission permission)
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -203,7 +203,7 @@ public static class EntraAuthAppResourceExtensions
     }
 
     private static void AddEntraPlatform(
-        IResourceBuilder<AuthAppResource> builder,
+        IResourceBuilder<EntraAuthAppRegistrationResource> builder,
         AuthApplicationType redirectUriType,
         AuthRedirectUri entry)
     {

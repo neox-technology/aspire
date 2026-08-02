@@ -67,7 +67,7 @@ public static class GoogleAuthOpsExtensions
 
     internal static void RegisterAppPipelineSteps(
         IResourceBuilder<GoogleAuthOpsResource> provider,
-        IResourceBuilder<AuthAppResource> appBuilder)
+        IResourceBuilder<GoogleAuthAppRegistrationResource> appBuilder)
     {
         var app = appBuilder.Resource;
         var prereqName = AuthOpsExtensions.GetPrereqAppAuthStepName(app.Name);
@@ -175,6 +175,57 @@ public static class GoogleAuthOpsExtensions
         });
 
         AuthOpsExtensions.EnsureDeployAuthGate(provider.ApplicationBuilder);
+    }
+
+    /// <summary>
+    /// Injects generic <c>AUTH_GOOGLE_*</c> environment variables from a Google Auth app registration.
+    /// </summary>
+    public static IResourceBuilder<T> WithAuth<T>(
+        this IResourceBuilder<T> builder,
+        IResourceBuilder<GoogleAuthAppRegistrationResource> authApp,
+        Action<AuthEnvOptions>? configure = null)
+        where T : IResourceWithEnvironment
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(authApp);
+        return WithAuth(builder, authApp.Resource, configure);
+    }
+
+    /// <summary>
+    /// Injects generic <c>AUTH_GOOGLE_*</c> environment variables from a Google Auth app registration.
+    /// </summary>
+    public static IResourceBuilder<T> WithAuth<T>(
+        this IResourceBuilder<T> builder,
+        GoogleAuthAppRegistrationResource authApp,
+        Action<AuthEnvOptions>? configure = null)
+        where T : IResourceWithEnvironment
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(authApp);
+
+        var envOptions = new AuthEnvOptions();
+        configure?.Invoke(envOptions);
+        var prefix = string.IsNullOrWhiteSpace(envOptions.Prefix)
+            ? authApp.DefaultEnvPrefix
+            : envOptions.Prefix!;
+
+        builder.WithEnvironment(envOptions.ResolveName(AuthOutput.TenantId, prefix), authApp.TenantIdParameter);
+        builder.WithEnvironment(envOptions.ResolveName(AuthOutput.ClientId, prefix), authApp.ClientIdParameter);
+
+        if (envOptions.IncludeClientSecret == true)
+        {
+            builder.WithEnvironment(
+                envOptions.ResolveName(AuthOutput.ClientSecret, prefix),
+                authApp.ClientSecretParameter);
+        }
+
+        if (envOptions.IncludeAuthority && authApp.Provider.AuthorityExpression is { } authority)
+        {
+            var authorityName = envOptions.ResolveName(AuthOutput.Authority, prefix);
+            builder.WithEnvironment(authorityName, authority(authApp.TenantIdParameter));
+        }
+
+        return builder;
     }
 
     private static IGoogleIamOauthClientProvisioner ResolveProvisioner(IServiceProvider services) =>

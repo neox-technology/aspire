@@ -4,7 +4,7 @@ internal sealed class FakeEntraGraphAppProvisioner : IEntraGraphAppProvisioner
 {
     public AuthAppRegistrationPlan? LastPlan { get; private set; }
 
-    public Task<AuthAppRegistrationPlan> PlanAsync(AuthAppResource app, CancellationToken cancellationToken)
+    public Task<AuthAppRegistrationPlan> PlanAsync(EntraAuthAppRegistrationResource app, CancellationToken cancellationToken)
     {
         var desiredIdentifierUris = EntraApiExpositionApplicator.CollectDesiredIdentifierUris(app);
         var desiredScopes = EntraApiExpositionApplicator.CollectDesiredScopes(app);
@@ -53,7 +53,7 @@ internal sealed class FakeEntraGraphAppProvisioner : IEntraGraphAppProvisioner
     }
 
     public Task<EntraProvisionResult> ProvisionAsync(
-        AuthAppResource app,
+        EntraAuthAppRegistrationResource app,
         AuthAppRegistrationPlan plan,
         CancellationToken cancellationToken)
     {

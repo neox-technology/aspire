@@ -1,6 +1,8 @@
 # Neox.Aspire.Hosting.Auth.Abstractions
 
-Core **AuthOps** types for Aspire hosting: `AuthOpsResourceBase` / shared `AuthOpsResource`, `prereq-providers-auth` and `deploy-auth` gates, `prereq|plan|provision-{app}-auth` step name helpers, and generic `WithAuth` environment injection (`AUTH_*`).
+Core **AuthOps** types for Aspire hosting: `AuthOpsResourceBase` / shared `AuthOpsResource`, abstract `AuthAppRegistrationResource`, `prereq-providers-auth` and `deploy-auth` gates, and `prereq|plan|provision-{app}-auth` step name helpers.
+
+**`WithAuth` is not in this package** — each provider package owns typed binding (`EntraAuthAppRegistrationResource`, `GoogleAuthAppRegistrationResource`).
 
 Consumers typically reference a provider package such as [`Neox.Aspire.Hosting.Auth.EntraId`](../Neox.Aspire.Hosting.Auth.EntraId/README.md) or [`Neox.Aspire.Hosting.Auth.Google`](../Neox.Aspire.Hosting.Auth.Google/README.md), which depend on this package.
 

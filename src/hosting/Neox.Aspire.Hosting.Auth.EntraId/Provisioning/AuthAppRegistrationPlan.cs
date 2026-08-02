@@ -191,7 +191,7 @@ public sealed class AuthAppRegistrationExistingSnapshot
 }
 
 /// <summary>
-/// Stores the latest <see cref="AuthAppRegistrationPlan"/> on an <see cref="AuthAppResource"/>.
+/// Stores the latest <see cref="AuthAppRegistrationPlan"/> on an <see cref="EntraAuthAppRegistrationResource"/>.
 /// </summary>
 public sealed class AuthAppRegistrationPlanAnnotation(AuthAppRegistrationPlan plan) : IResourceAnnotation
 {

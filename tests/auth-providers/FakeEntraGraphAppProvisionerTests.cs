@@ -12,7 +12,7 @@ public class FakeEntraGraphAppProvisionerTests
         {
             TenantIdParameter = CreateParameter("tenant", "tenant-1")
         };
-        var app = new AuthAppResource("web", provider, "Web")
+        var app = new EntraAuthAppRegistrationResource("web", provider, "Web")
         {
             TenantIdParameter = provider.TenantIdParameter
         };
@@ -36,7 +36,7 @@ public class FakeEntraGraphAppProvisionerTests
         {
             TenantIdParameter = CreateParameter("tenant", "tenant-1")
         };
-        var app = new AuthAppResource("spa", provider, "Spa")
+        var app = new EntraAuthAppRegistrationResource("spa", provider, "Spa")
         {
             TenantIdParameter = provider.TenantIdParameter
         };

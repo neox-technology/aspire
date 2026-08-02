@@ -140,7 +140,7 @@ public sealed class AuthRedirectUriTests
             web.WithLocalhostRedirectUri(port));
     }
 
-    private static (IDistributedApplicationBuilder Builder, IResourceBuilder<AuthAppResource> Web) CreateApp()
+    private static (IDistributedApplicationBuilder Builder, IResourceBuilder<EntraAuthAppRegistrationResource> Web) CreateApp()
     {
         var builder = DistributedApplication.CreateBuilder();
         var entra = builder.AddAuthProvider("provider").Entra();

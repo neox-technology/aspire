@@ -13,7 +13,7 @@ internal static class EntraRedirectUriApplicator
     /// Prefers Entra typed annotation entries; falls back to flat redirects as <see cref="AuthApplicationType.Web"/>.
     /// </summary>
     public static async Task<IReadOnlyList<AuthDesiredRedirectUri>> ResolveAsync(
-        AuthAppResource app,
+        EntraAuthAppRegistrationResource app,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(app);
@@ -120,7 +120,7 @@ internal static class EntraRedirectUriApplicator
     }
 
     private static async Task<string> ResolveUriAsync(
-        AuthAppResource app,
+        EntraAuthAppRegistrationResource app,
         AuthRedirectUri entry,
         CancellationToken cancellationToken)
     {

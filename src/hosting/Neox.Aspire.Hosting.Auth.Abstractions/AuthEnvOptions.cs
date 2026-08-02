@@ -1,12 +1,12 @@
 namespace Neox.Aspire.Hosting.Auth;
 
 /// <summary>
-/// Options for <see cref="AuthOpsExtensions.WithAuth{T}"/> env injection.
+/// Options for generic <c>AUTH_*</c> env injection (Google and other non-Identity.Web providers).
 /// </summary>
 public sealed class AuthEnvOptions
 {
     /// <summary>
-    /// Env var prefix (default from <see cref="AuthAppResource.DefaultEnvPrefix"/>).
+    /// Env var prefix (default from the registration resource's default prefix).
     /// </summary>
     public string? Prefix { get; set; }
 
@@ -52,6 +52,7 @@ public sealed class AuthEnvOptions
             AuthOutput.ClientSecret => "CLIENT_SECRET",
             AuthOutput.Authority => "AUTHORITY",
             AuthOutput.RedirectUri => "REDIRECT_URI",
+            AuthOutput.Instance => "INSTANCE",
             _ => throw new ArgumentOutOfRangeException(nameof(output), output, null)
         };
 

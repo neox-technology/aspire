@@ -20,6 +20,19 @@ export function isEntraConfigured(): boolean {
   )
 }
 
+export function getApiBaseUrl(): string {
+  return (
+    import.meta.env.VITE_API_BASE_URL?.trim() ||
+    import.meta.env.services__api__https__0?.trim() ||
+    import.meta.env.services__api__http__0?.trim() ||
+    ''
+  )
+}
+
+export function getApiScope(): string {
+  return import.meta.env.VITE_API_SCOPE?.trim() || ''
+}
+
 export function createMsalConfig(): Configuration {
   const clientId = requiredEnv('VITE_ENTRA_CLIENT_ID')
   const tenantId = requiredEnv('VITE_ENTRA_TENANT_ID')
@@ -44,6 +57,16 @@ export function createMsalConfig(): Configuration {
   }
 }
 
+export function getLoginRequest(): RedirectRequest {
+  const apiScope = getApiScope()
+  return {
+    scopes: apiScope
+      ? ['openid', 'profile', 'email', apiScope]
+      : ['openid', 'profile', 'email'],
+  }
+}
+
+/** @deprecated Prefer getLoginRequest() which includes the API scope when configured. */
 export const loginRequest: RedirectRequest = {
   scopes: ['openid', 'profile', 'email'],
 }
@@ -64,4 +87,46 @@ export async function getMsalInstance(): Promise<PublicClientApplication> {
     }
   }
   return msalInstance
+}
+
+export type MeProfile = {
+  id?: string
+  displayName?: string
+  mail?: string
+  userPrincipalName?: string
+}
+
+export async function fetchMe(): Promise<MeProfile> {
+  const msal = await getMsalInstance()
+  const account = msal.getActiveAccount()
+  if (!account) {
+    throw new Error('Not signed in.')
+  }
+
+  const apiScope = getApiScope()
+  if (!apiScope) {
+    throw new Error('Missing VITE_API_SCOPE.')
+  }
+
+  const baseUrl = getApiBaseUrl()
+  if (!baseUrl) {
+    throw new Error('Missing API base URL (VITE_API_BASE_URL or services__api__).')
+  }
+
+  const token = await msal.acquireTokenSilent({
+    account,
+    scopes: [apiScope],
+  })
+
+  const response = await fetch(new URL('/me', baseUrl).toString(), {
+    headers: {
+      Authorization: `Bearer ${token.accessToken}`,
+    },
+  })
+
+  if (!response.ok) {
+    throw new Error(`API /me failed: ${response.status} ${response.statusText}`)
+  }
+
+  return (await response.json()) as MeProfile
 }

@@ -38,7 +38,7 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
         return new EntraGraphAppProvisioner(graph, configuration);
     }
 
-    public async Task<AuthAppRegistrationPlan> PlanAsync(AuthAppResource app, CancellationToken cancellationToken)
+    public async Task<AuthAppRegistrationPlan> PlanAsync(EntraAuthAppRegistrationResource app, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(app);
 
@@ -139,7 +139,7 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
     }
 
     public async Task<EntraProvisionResult> ProvisionAsync(
-        AuthAppResource app,
+        EntraAuthAppRegistrationResource app,
         AuthAppRegistrationPlan plan,
         CancellationToken cancellationToken)
     {
@@ -356,7 +356,7 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
             hasDeclaredPermissions: false);
 
     private async Task ApplyExpositionAndPermissionsAsync(
-        AuthAppResource app,
+        EntraAuthAppRegistrationResource app,
         AuthAppRegistrationPlan plan,
         string objectId,
         string clientId,
@@ -426,7 +426,7 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
     }
 
     private static IReadOnlyList<AuthDesiredRequiredResourceAccess> RemapPermissionIdsFromExposerPlans(
-        AuthAppResource app,
+        EntraAuthAppRegistrationResource app,
         IReadOnlyList<AuthDesiredRequiredResourceAccess> desired)
     {
         var result = new List<AuthDesiredRequiredResourceAccess>();
@@ -499,7 +499,7 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
                 : d).ToList();
     }
 
-    private static string? TryResolveClientId(AuthAppResource app)
+    private static string? TryResolveClientId(EntraAuthAppRegistrationResource app)
     {
         if (app.ClientIdParameter is not null
             && TryGetResolvedParameterValue(app.ClientIdParameter, out var fromParam)
@@ -519,7 +519,7 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
         return null;
     }
 
-    private static string? ResolveAdoptClientId(AuthAppResource app)
+    private static string? ResolveAdoptClientId(EntraAuthAppRegistrationResource app)
     {
         if (app.ClientIdParameter is not null
             && TryGetResolvedParameterValue(app.ClientIdParameter, out var fromParam))
@@ -588,7 +588,7 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
 
     private async Task<string> ResolveTenantIdAsync(
         EntraAuthOpsResource entra,
-        AuthAppResource app,
+        EntraAuthAppRegistrationResource app,
         CancellationToken cancellationToken)
     {
         _ = entra;

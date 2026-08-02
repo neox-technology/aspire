@@ -3,7 +3,7 @@ using Aspire.Hosting.ApplicationModel;
 namespace Neox.Aspire.Hosting.Auth;
 
 /// <summary>
-/// Desired redirect URI on an <see cref="AuthAppResource"/> — either a literal absolute URI
+/// Desired redirect URI on an <see cref="AuthAppRegistrationResource"/> — either a literal absolute URI
 /// or a parameter (optional path concatenated at resolution time). Platform buckets (Web/Spa/Native)
 /// are Entra-specific and live on typed overloads in the EntraId package.
 /// </summary>

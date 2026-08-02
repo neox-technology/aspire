@@ -101,7 +101,7 @@ public class GoogleAuthProviderApiTests
 
         var steps = new List<PipelineStep>();
         foreach (var resource in builder.Resources.Where(static r =>
-                     r is AuthOpsResource or AuthOpsResourceBase or AuthAppResource))
+                     r is AuthOpsResource or AuthOpsResourceBase or GoogleAuthAppRegistrationResource))
         {
             foreach (var annotation in resource.Annotations.OfType<PipelineStepAnnotation>())
             {

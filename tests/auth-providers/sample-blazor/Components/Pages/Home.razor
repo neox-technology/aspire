@@ -1,22 +1,54 @@
 @page "/"
+@using Microsoft.Identity.Abstractions
+@attribute [Authorize]
+@inject IDownstreamApi DownstreamApi
 
 <PageTitle>Auth sample Blazor</PageTitle>
 
 <h1>AuthOps sample — Blazor Server</h1>
 
-<p>Workload Entra settings injected by <code>WithAuth</code> (multi-app prefix <code>AUTH_ENTRA_WEB_*</code>):</p>
-
-<ul>
-    <li><strong>AUTH_ENTRA_WEB_TENANT_ID</strong>: <code>@(Env("AUTH_ENTRA_WEB_TENANT_ID"))</code></li>
-    <li><strong>AUTH_ENTRA_WEB_CLIENT_ID</strong>: <code>@(Env("AUTH_ENTRA_WEB_CLIENT_ID"))</code></li>
-    <li><strong>AUTH_ENTRA_WEB_AUTHORITY</strong>: <code>@(Env("AUTH_ENTRA_WEB_AUTHORITY"))</code></li>
-    <li><strong>AUTH_ENTRA_WEB_CLIENT_SECRET</strong>: <code>@(SecretPresent("AUTH_ENTRA_WEB_CLIENT_SECRET"))</code></li>
-</ul>
+@if (_error is not null)
+{
+    <p class="error">@_error</p>
+}
+else if (_me is null)
+{
+    <p>Loading user profile from API <code>/me</code>…</p>
+}
+else
+{
+    <p>Signed-in user (via API → Microsoft Graph):</p>
+    <ul>
+        <li><strong>Id</strong>: <code>@_me.Id</code></li>
+        <li><strong>Display name</strong>: <code>@_me.DisplayName</code></li>
+        <li><strong>Mail</strong>: <code>@_me.Mail</code></li>
+        <li><strong>UPN</strong>: <code>@_me.UserPrincipalName</code></li>
+    </ul>
+}
 
 @code {
-    private static string Env(string name) =>
-        Environment.GetEnvironmentVariable(name) is { Length: > 0 } value ? value : "(not set)";
+    private MeDto? _me;
+    private string? _error;
 
-    private static string SecretPresent(string name) =>
-        string.IsNullOrEmpty(Environment.GetEnvironmentVariable(name)) ? "(not set)" : "(set)";
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _me = await DownstreamApi.GetForUserAsync<MeDto>(
+                "SampleApi",
+                options => options.RelativePath = "me");
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private sealed class MeDto
+    {
+        public string? Id { get; set; }
+        public string? DisplayName { get; set; }
+        public string? Mail { get; set; }
+        public string? UserPrincipalName { get; set; }
+    }
 }

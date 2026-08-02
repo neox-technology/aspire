@@ -52,11 +52,11 @@ Packable libraries live under `src/`. Hosting packages use the `Neox.Aspire.Host
 |---------|------|
 | [`Neox.Aspire.EntityFrameworkCore.MigrationWorker`](src/Neox.Aspire.EntityFrameworkCore.MigrationWorker) | One-shot EF Core migration `BackgroundService` via `AddEfCoreMigrationService<TDbContext>()` |
 | [`Neox.Aspire.Hosting.Azure.CustomDomains`](src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains) | ACA custom domain ops (`WithAzureCustomDomainOps`, OctoDNS / managed certs via `aspire do`) |
-| [`Neox.Aspire.Hosting.Auth.Abstractions`](src/hosting/Neox.Aspire.Hosting.Auth.Abstractions) | AuthOps core — shared gates + generic `AUTH_*` via `WithAuth` |
-| [`Neox.Aspire.Hosting.Auth.EntraId`](src/hosting/Neox.Aspire.Hosting.Auth.EntraId) | AuthOps Entra — Graph app registrations + `.Entra(...)` |
-| [`Neox.Aspire.Hosting.Auth.Google`](src/hosting/Neox.Aspire.Hosting.Auth.Google) | AuthOps Google — adopt/bind ClientId + `.Google(...)` (in repo; not published to nuget.org yet) |
+| [`Neox.Aspire.Hosting.Auth.Abstractions`](src/hosting/Neox.Aspire.Hosting.Auth.Abstractions) | AuthOps core — shared gates + abstract `AuthAppRegistrationResource` |
+| [`Neox.Aspire.Hosting.Auth.EntraId`](src/hosting/Neox.Aspire.Hosting.Auth.EntraId) | AuthOps Entra — Graph app registrations + `WithAuth` → `AzureAd__*` |
+| [`Neox.Aspire.Hosting.Auth.Google`](src/hosting/Neox.Aspire.Hosting.Auth.Google) | AuthOps Google — adopt/bind ClientId + `WithAuth` → `AUTH_GOOGLE_*` (in repo; not published to nuget.org yet) |
 
-Tests: [`tests/efcore-migration-worker/`](tests/efcore-migration-worker/) (Aspire harnesses, Docker), [`tests/azure-custom-domains/`](tests/azure-custom-domains/) (unit + sample AppHost), and [`tests/auth-providers/`](tests/auth-providers/) (AuthOps unit tests + sample AppHost Blazor/ops). Specs: [`specs/`](specs/README.md).
+Tests: [`tests/efcore-migration-worker/`](tests/efcore-migration-worker/) (Aspire harnesses, Docker), [`tests/azure-custom-domains/`](tests/azure-custom-domains/) (unit + sample AppHost), and [`tests/auth-providers/`](tests/auth-providers/) (AuthOps unit tests + sample AppHost API/Blazor/ops). Specs: [`specs/`](specs/README.md).
 
 ### Build
 

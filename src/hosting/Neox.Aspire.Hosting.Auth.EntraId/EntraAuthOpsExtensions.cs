@@ -67,7 +67,7 @@ public static class EntraAuthOpsExtensions
 
     internal static void RegisterAppPipelineSteps(
         IResourceBuilder<EntraAuthOpsResource> provider,
-        IResourceBuilder<AuthAppResource> appBuilder)
+        IResourceBuilder<EntraAuthAppRegistrationResource> appBuilder)
     {
         var app = appBuilder.Resource;
         var prereqName = AuthOpsExtensions.GetPrereqAppAuthStepName(app.Name);
@@ -186,6 +186,53 @@ public static class EntraAuthOpsExtensions
         });
 
         AuthOpsExtensions.EnsureDeployAuthGate(provider.ApplicationBuilder);
+    }
+
+    /// <summary>
+    /// Injects Microsoft.Identity.Web <c>AzureAd__*</c> environment variables from an Entra app registration.
+    /// </summary>
+    public static IResourceBuilder<T> WithAuth<T>(
+        this IResourceBuilder<T> builder,
+        IResourceBuilder<EntraAuthAppRegistrationResource> authApp,
+        Action<EntraAuthEnvOptions>? configure = null)
+        where T : IResourceWithEnvironment
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(authApp);
+        return WithAuth(builder, authApp.Resource, configure);
+    }
+
+    /// <summary>
+    /// Injects Microsoft.Identity.Web <c>AzureAd__*</c> environment variables from an Entra app registration.
+    /// </summary>
+    public static IResourceBuilder<T> WithAuth<T>(
+        this IResourceBuilder<T> builder,
+        EntraAuthAppRegistrationResource authApp,
+        Action<EntraAuthEnvOptions>? configure = null)
+        where T : IResourceWithEnvironment
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(authApp);
+
+        var envOptions = new EntraAuthEnvOptions();
+        configure?.Invoke(envOptions);
+
+        if (envOptions.IncludeInstance)
+        {
+            builder.WithEnvironment(envOptions.ResolveName(AuthOutput.Instance), envOptions.Instance);
+        }
+
+        builder.WithEnvironment(envOptions.ResolveName(AuthOutput.TenantId), authApp.TenantIdParameter);
+        builder.WithEnvironment(envOptions.ResolveName(AuthOutput.ClientId), authApp.ClientIdParameter);
+
+        if (envOptions.IncludeClientSecret == true)
+        {
+            builder.WithEnvironment(
+                envOptions.ResolveName(AuthOutput.ClientSecret),
+                authApp.ClientSecretParameter);
+        }
+
+        return builder;
     }
 
     private static IEntraGraphAppProvisioner ResolveProvisioner(IServiceProvider services) =>
