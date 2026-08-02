@@ -13,8 +13,14 @@ var entra = builder.AddAuthProvider("auth-provider-entra")
 // Or bind an existing parameter:
 // .Entra(o => o.TenantId = builder.AddParameter("my-tenant"));
 
-var web = entra.AddAppRegistration("web", "MyApp-Local");
-// Future: web.WithRedirectUris(...).WithApplicationType(...);
+var web = entra.AddAppRegistration("web", "MyApp-Local")
+    .WithLocalhostRedirectUri(AuthApplicationType.Web, 7281, "/signin-oidc");
+// web.WithRedirectUri(AuthApplicationType.Web, "https://contoso.example/signin-oidc");
+// web.WithRedirectUri(AuthApplicationType.Spa, builder.AddParameter("public-base-url"), "/");
+// Future: web.WithApplicationType(...);
+
+// Redirect URIs are applied on Graph create/adopt during plan|provision-{app}-auth
+// (Web → web.redirectUris, Spa → spa.redirectUris, Native → publicClient.redirectUris).
 
 builder.AddProject<Projects.Api>("api")
     .WithAuth(web);
@@ -28,7 +34,7 @@ Each app **ClientId** parameter (`{provider}-{app}-client-id`) prompts as a **Ch
 
 After interactive resolution (and again after `provision-{app}-auth`), AuthOps persists tenant / ClientId into Aspire deployment state under `Parameters:{parameterName}` (same contract as Aspire `ParameterProcessor`) so a later `aspire do` does not re-prompt. The create sentinel is never persisted as ClientId — only the real app id after provision.
 
-`plan-{app}-auth` resolves create vs existing (read-only Graph) and compares the desired DisplayName. `provision-{app}-auth` applies that plan (minimal create = DisplayName only in this revision).
+`plan-{app}-auth` resolves create vs existing (read-only Graph) and compares desired DisplayName and redirect URIs. `provision-{app}-auth` applies that plan (create includes DisplayName + redirect URIs; adopt may patch DisplayName and/or redirect URIs).
 
 ## Environment variables
 

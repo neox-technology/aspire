@@ -10,8 +10,11 @@ var entra = builder.AddAuthProvider("provider-entra")
     .Entra();
 
 // Auth app resource names must differ from workload resources (Aspire unique names).
-var webAuth = entra.AddAppRegistration("appregistration-web", "AuthSample-Blazor");
-var spaAuth = entra.AddAppRegistration("appregistration-spa", "AuthSample-Ops");
+var webAuth = entra.AddAppRegistration("appregistration-web", "AuthSample-Blazor")
+    .WithLocalhostRedirectUri(AuthApplicationType.Web, path: "signin-oidc");
+
+var spaAuth = entra.AddAppRegistration("appregistration-spa", "AuthSample-Ops")
+    .WithLocalhostRedirectUri(AuthApplicationType.Spa);
 
 // HTTP workloads must be Container Apps (not Jobs): Jobs have no ingress, so
 // launchSettings / Vite "http" endpoints KeyNotFound during ACA Bicep generation.

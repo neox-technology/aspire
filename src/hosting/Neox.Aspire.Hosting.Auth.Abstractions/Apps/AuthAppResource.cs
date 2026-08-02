@@ -41,6 +41,20 @@ public sealed class AuthAppResource : Resource
     /// </summary>
     public ParameterResource ClientSecretParameter { get; internal set; } = null!;
 
+    private readonly List<AuthRedirectUri> _redirectUris = [];
+
+    /// <summary>
+    /// Desired redirect URIs accumulated via <c>WithRedirectUri</c> / <c>WithLocalhostRedirectUri</c>.
+    /// Graph apply and env emit are not wired yet.
+    /// </summary>
+    public IReadOnlyList<AuthRedirectUri> RedirectUris => _redirectUris;
+
+    internal void AddRedirectUri(AuthRedirectUri redirectUri)
+    {
+        ArgumentNullException.ThrowIfNull(redirectUri);
+        _redirectUris.Add(redirectUri);
+    }
+
     /// <summary>
     /// Default env prefix for a single app: <c>AUTH_{PROVIDER}</c>; for multiple apps: <c>AUTH_{PROVIDER}_{APP}</c>.
     /// </summary>

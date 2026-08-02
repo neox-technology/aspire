@@ -54,6 +54,8 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
         }
 
         var tenantId = await ResolveTenantIdAsync(entra, app, cancellationToken).ConfigureAwait(false);
+        var desiredRedirects = await EntraRedirectUriApplicator.ResolveAsync(app, cancellationToken)
+            .ConfigureAwait(false);
         var adoptClientId = ResolveAdoptClientId(app);
 
         if (!string.IsNullOrWhiteSpace(adoptClientId))
@@ -62,13 +64,13 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
                 ?? throw new InvalidOperationException(
                     $"No Entra application found with client id '{adoptClientId}'.");
 
-            return BuildAdoptPlan(tenantId, app.DisplayName, existing);
+            return BuildAdoptPlan(tenantId, app.DisplayName, existing, desiredRedirects);
         }
 
         var byName = await FindByDisplayNameAsync(app.DisplayName, cancellationToken).ConfigureAwait(false);
         if (byName is not null)
         {
-            return BuildAdoptPlan(tenantId, app.DisplayName, byName);
+            return BuildAdoptPlan(tenantId, app.DisplayName, byName, desiredRedirects);
         }
 
         return new AuthAppRegistrationPlan
@@ -76,6 +78,7 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
             Mode = AuthAppRegistrationPlanMode.Create,
             TenantId = tenantId,
             DesiredDisplayName = app.DisplayName,
+            DesiredRedirectUris = desiredRedirects,
             Existing = null,
             Actions = [AuthAppRegistrationPlanAction.CreateApplication]
         };
@@ -91,7 +94,10 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
 
         if (plan.Actions.Contains(AuthAppRegistrationPlanAction.CreateApplication))
         {
-            var created = await CreateApplicationAsync(plan.DesiredDisplayName, cancellationToken)
+            var created = await CreateApplicationAsync(
+                    plan.DesiredDisplayName,
+                    plan.DesiredRedirectUris,
+                    cancellationToken)
                 .ConfigureAwait(false);
 
             return new EntraProvisionResult
@@ -107,9 +113,18 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
             ?? throw new InvalidOperationException(
                 $"Auth app '{app.Name}' plan is Adopt but has no existing snapshot.");
 
-        if (plan.Actions.Contains(AuthAppRegistrationPlanAction.UpdateDisplayName))
+        if (plan.Actions.Contains(AuthAppRegistrationPlanAction.UpdateDisplayName)
+            || plan.Actions.Contains(AuthAppRegistrationPlanAction.UpdateRedirectUris))
         {
-            await PatchDisplayNameAsync(existing.ObjectId, plan.DesiredDisplayName, cancellationToken)
+            await PatchApplicationAsync(
+                    existing.ObjectId,
+                    plan.Actions.Contains(AuthAppRegistrationPlanAction.UpdateDisplayName)
+                        ? plan.DesiredDisplayName
+                        : null,
+                    plan.Actions.Contains(AuthAppRegistrationPlanAction.UpdateRedirectUris)
+                        ? plan.DesiredRedirectUris
+                        : null,
+                    cancellationToken)
                 .ConfigureAwait(false);
         }
 
@@ -125,34 +140,47 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
     private static AuthAppRegistrationPlan BuildAdoptPlan(
         string tenantId,
         string desiredDisplayName,
-        Application existing)
+        Application existing,
+        IReadOnlyList<AuthDesiredRedirectUri> desiredRedirects)
     {
         var objectId = existing.Id
             ?? throw new InvalidOperationException("Graph application missing object id.");
         var appId = existing.AppId
             ?? throw new InvalidOperationException("Graph application missing AppId.");
 
+        var existingRedirects = EntraRedirectUriApplicator.Extract(existing);
         var snapshot = new AuthAppRegistrationExistingSnapshot
         {
             ObjectId = objectId,
             AppId = appId,
-            DisplayName = existing.DisplayName
+            DisplayName = existing.DisplayName,
+            RedirectUris = existingRedirects
         };
 
-        var displayNameDiffers = !string.Equals(
-            existing.DisplayName,
-            desiredDisplayName,
-            StringComparison.Ordinal);
+        var actions = new List<AuthAppRegistrationPlanAction>();
+        if (!string.Equals(existing.DisplayName, desiredDisplayName, StringComparison.Ordinal))
+        {
+            actions.Add(AuthAppRegistrationPlanAction.UpdateDisplayName);
+        }
+
+        if (EntraRedirectUriApplicator.Differ(desiredRedirects, existingRedirects))
+        {
+            actions.Add(AuthAppRegistrationPlanAction.UpdateRedirectUris);
+        }
+
+        if (actions.Count == 0)
+        {
+            actions.Add(AuthAppRegistrationPlanAction.None);
+        }
 
         return new AuthAppRegistrationPlan
         {
             Mode = AuthAppRegistrationPlanMode.Adopt,
             TenantId = tenantId,
             DesiredDisplayName = desiredDisplayName,
+            DesiredRedirectUris = desiredRedirects,
             Existing = snapshot,
-            Actions = displayNameDiffers
-                ? [AuthAppRegistrationPlanAction.UpdateDisplayName]
-                : [AuthAppRegistrationPlanAction.None]
+            Actions = actions
         };
     }
 
@@ -283,7 +311,10 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
         return page?.Value?.FirstOrDefault();
     }
 
-    private async Task<Application> CreateApplicationAsync(string displayName, CancellationToken cancellationToken)
+    private async Task<Application> CreateApplicationAsync(
+        string displayName,
+        IReadOnlyList<AuthDesiredRedirectUri> redirectUris,
+        CancellationToken cancellationToken)
     {
         var application = new Application
         {
@@ -291,6 +322,7 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
             SignInAudience = "AzureADMyOrg",
             Notes = $"neox-aspire-auth:{NeoxMarkerExtension}"
         };
+        EntraRedirectUriApplicator.Apply(application, redirectUris);
 
         var created = await _graph.Applications.PostAsync(application, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
@@ -298,12 +330,23 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
         return created ?? throw new InvalidOperationException("Graph Applications.PostAsync returned null.");
     }
 
-    private async Task PatchDisplayNameAsync(
+    private async Task PatchApplicationAsync(
         string objectId,
-        string displayName,
+        string? displayName,
+        IReadOnlyList<AuthDesiredRedirectUri>? redirectUris,
         CancellationToken cancellationToken)
     {
-        var patch = new Application { DisplayName = displayName };
+        var patch = new Application();
+        if (displayName is not null)
+        {
+            patch.DisplayName = displayName;
+        }
+
+        if (redirectUris is not null)
+        {
+            EntraRedirectUriApplicator.Apply(patch, redirectUris);
+        }
+
         await _graph.Applications[objectId].PatchAsync(patch, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
     }

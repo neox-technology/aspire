@@ -23,6 +23,12 @@ public sealed class AuthAppRegistrationPlan
     public required string DesiredDisplayName { get; init; }
 
     /// <summary>
+    /// Resolved redirect URIs from <c>WithRedirectUri</c> / <c>WithLocalhostRedirectUri</c>
+    /// (<see cref="AuthApplicationType.Api"/> entries are omitted — Graph has no redirect bucket).
+    /// </summary>
+    public IReadOnlyList<AuthDesiredRedirectUri> DesiredRedirectUris { get; init; } = [];
+
+    /// <summary>
     /// Snapshot of the existing Graph application when <see cref="Mode"/> is <see cref="AuthAppRegistrationPlanMode.Adopt"/>.
     /// </summary>
     public AuthAppRegistrationExistingSnapshot? Existing { get; init; }
@@ -56,7 +62,17 @@ public enum AuthAppRegistrationPlanAction
 {
     None,
     CreateApplication,
-    UpdateDisplayName
+    UpdateDisplayName,
+    UpdateRedirectUris
+}
+
+/// <summary>
+/// Resolved redirect URI ready for Graph compare / apply.
+/// </summary>
+public sealed class AuthDesiredRedirectUri
+{
+    public required AuthApplicationType Type { get; init; }
+    public required string Uri { get; init; }
 }
 
 /// <summary>
@@ -67,6 +83,11 @@ public sealed class AuthAppRegistrationExistingSnapshot
     public required string ObjectId { get; init; }
     public required string AppId { get; init; }
     public string? DisplayName { get; init; }
+
+    /// <summary>
+    /// Existing redirect URIs grouped by platform (Web / Spa / Native).
+    /// </summary>
+    public IReadOnlyList<AuthDesiredRedirectUri> RedirectUris { get; init; } = [];
 }
 
 /// <summary>
