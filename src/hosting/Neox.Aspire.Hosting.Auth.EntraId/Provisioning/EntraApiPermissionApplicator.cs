@@ -22,45 +22,18 @@ internal static class EntraApiPermissionApplicator
         var result = new List<AuthDesiredRequiredResourceAccess>();
         foreach (var annotation in app.Annotations.OfType<ApiPermissionAnnotation>())
         {
-            var exposition = annotation.Exposition;
-            var resourceAppId = resolveExposerClientId(exposition.Owner);
-            if (string.IsNullOrWhiteSpace(resourceAppId))
+            if (TryResolveDesired(annotation.PermissionResource, resolveExposerClientId, out var entry))
             {
-                // Exposer not provisioned yet — plan will still flag update when any permission is declared
-                // and resourceAppId is unknown at adopt-compare time; create path applies after DependsOn.
-                continue;
-            }
-
-            switch (exposition)
-            {
-                case ScopeApiExposition scope:
-                    result.Add(new AuthDesiredRequiredResourceAccess
-                    {
-                        ResourceAppId = resourceAppId,
-                        PermissionId = scope.PermissionId,
-                        Type = "Scope"
-                    });
-                    break;
-                case AppRoleApiExposition role:
-                    result.Add(new AuthDesiredRequiredResourceAccess
-                    {
-                        ResourceAppId = resourceAppId,
-                        PermissionId = role.RoleId,
-                        Type = "Role"
-                    });
-                    break;
+                result.Add(entry);
             }
         }
 
         foreach (var annotation in app.Annotations.OfType<WellKnownApiPermissionAnnotation>())
         {
-            var permission = annotation.Permission;
-            result.Add(new AuthDesiredRequiredResourceAccess
+            if (TryResolveDesired(annotation.PermissionResource, resolveExposerClientId, out var entry))
             {
-                ResourceAppId = permission.ResourceAppId,
-                PermissionId = permission.PermissionId,
-                Type = permission.Type
-            });
+                result.Add(entry);
+            }
         }
 
         return result;
@@ -69,6 +42,82 @@ internal static class EntraApiPermissionApplicator
     public static bool HasDeclaredPermissions(EntraAuthAppRegistrationResource app) =>
         app.Annotations.OfType<ApiPermissionAnnotation>().Any() ||
         app.Annotations.OfType<WellKnownApiPermissionAnnotation>().Any();
+
+    /// <summary>
+    /// Resolves the desired Graph entry for one permission child (with exposer-plan remap when available).
+    /// </summary>
+    public static bool TryResolveDesired(
+        ApiPermissionResource permission,
+        Func<EntraAuthAppRegistrationResource, string?> resolveExposerClientId,
+        out AuthDesiredRequiredResourceAccess desired)
+    {
+        ArgumentNullException.ThrowIfNull(permission);
+        ArgumentNullException.ThrowIfNull(resolveExposerClientId);
+
+        if (permission.WellKnownPermission is { } wellKnown)
+        {
+            desired = new AuthDesiredRequiredResourceAccess
+            {
+                ResourceAppId = wellKnown.ResourceAppId,
+                PermissionId = wellKnown.PermissionId,
+                Type = wellKnown.Type
+            };
+            return true;
+        }
+
+        if (permission.Exposition is not { } exposition)
+        {
+            desired = null!;
+            return false;
+        }
+
+        var resourceAppId = resolveExposerClientId(exposition.Owner);
+        if (string.IsNullOrWhiteSpace(resourceAppId))
+        {
+            desired = null!;
+            return false;
+        }
+
+        desired = new AuthDesiredRequiredResourceAccess
+        {
+            ResourceAppId = resourceAppId,
+            PermissionId = ResolvePermissionId(exposition),
+            Type = exposition is AppRoleApiExposition ? "Role" : "Scope"
+        };
+        return true;
+    }
+
+    /// <summary>Stable compare key: <c>resourceAppId|permissionId|type</c>.</summary>
+    public static string FormatKey(AuthDesiredRequiredResourceAccess entry) => Key(entry);
+
+    /// <summary>
+    /// Permission id from exposer plan remap by value when available; otherwise model Guid.
+    /// </summary>
+    public static Guid ResolvePermissionId(ApiExposition exposition)
+    {
+        ArgumentNullException.ThrowIfNull(exposition);
+
+        var exposerPlan = exposition.Owner.Annotations
+            .OfType<AuthAppRegistrationPlanAnnotation>()
+            .LastOrDefault()
+            ?.Plan;
+
+        switch (exposition)
+        {
+            case ScopeApiExposition scope:
+                return exposerPlan?.DesiredScopes
+                    .FirstOrDefault(s => string.Equals(s.Value, scope.ScopeValue, StringComparison.Ordinal))
+                    ?.Id
+                    ?? scope.PermissionId;
+            case AppRoleApiExposition role:
+                return exposerPlan?.DesiredAppRoles
+                    .FirstOrDefault(r => string.Equals(r.Value, role.Value, StringComparison.Ordinal))
+                    ?.Id
+                    ?? role.RoleId;
+            default:
+                return Guid.Empty;
+        }
+    }
 
     public static IReadOnlyList<AuthDesiredRequiredResourceAccess> Extract(Application application)
     {

@@ -43,9 +43,9 @@ Adds dashboard child resource `{app}-clientsecret` (e.g. `appregistration-api-cl
 
 In Aspire run mode, Entra AuthOps resources start as **Waiting**, then publish **Running** + Healthy/Unhealthy from Microsoft Graph probes:
 
-- Scopes / app roles — present on the Graph app (and Waiting while the parent app registration is not Healthy)
+- Scopes / app roles / API permissions (`{app}-apiperm-{value}`) — present on the Graph app (and Waiting while the parent app registration is not Healthy); API permissions check consumer `requiredResourceAccess`
 - `{app}-clientsecret` — Waiting until parent Healthy and secret set; Healthy when secret is in AppHost (not part of parent worst-wins)
-- App registrations — ClientId set and app exists; children aggregated with worst-wins (Unhealthy > Waiting > Healthy)
+- App registrations — ClientId set and app exists; children (scopes, roles, API permissions) aggregated with worst-wins (Unhealthy > Waiting > Healthy)
 - Provider — TenantId set; aggregates app registrations
 - `auth-ops` — aggregates Entra providers
 

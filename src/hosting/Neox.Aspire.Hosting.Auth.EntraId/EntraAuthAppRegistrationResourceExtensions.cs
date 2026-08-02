@@ -223,6 +223,7 @@ public static class EntraAuthAppRegistrationResourceExtensions
 
     /// <summary>
     /// Consumes a previously exposed scope or app role (Graph <c>requiredResourceAccess</c>).
+    /// Adds a dashboard child <c>{app}-apiperm-{value}</c>.
     /// </summary>
     public static IResourceBuilder<EntraAuthAppRegistrationResource> WithApiPermission<TApiExposition>(
         this IResourceBuilder<EntraAuthAppRegistrationResource> builder,
@@ -232,13 +233,28 @@ public static class EntraAuthAppRegistrationResourceExtensions
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(exposition);
 
-        builder.WithAnnotation(new ApiPermissionAnnotation(exposition.Resource));
+        var app = builder.Resource;
+        var value = exposition.Resource switch
+        {
+            ScopeApiExposition scope => scope.ScopeValue,
+            AppRoleApiExposition role => role.Value,
+            _ => exposition.Resource.Name
+        };
+        var resourceName = $"{app.Name}-apiperm-{ApiExpositionBuilder.Sanitize(value)}";
+        var permissionResource = new ApiPermissionResource(resourceName, app, exposition.Resource);
+
+        builder.WithAnnotation(new ApiPermissionAnnotation(permissionResource));
+        builder.ApplicationBuilder.AddResource(permissionResource)
+            .ExcludeFromManifest()
+            .WithParentRelationship(builder.Resource)
+            .WithInitialState(AuthDashboardSnapshots.Waiting("AuthApiPermission"));
+
         return builder;
     }
 
     /// <summary>
     /// Consumes a first-party well-known API permission (e.g. <c>MicrosoftGraph.Delegated.UserRead</c>)
-    /// as Graph <c>requiredResourceAccess</c>.
+    /// as Graph <c>requiredResourceAccess</c>. Adds a dashboard child <c>{app}-apiperm-{value}</c>.
     /// </summary>
     public static IResourceBuilder<EntraAuthAppRegistrationResource> WithApiPermission(
         this IResourceBuilder<EntraAuthAppRegistrationResource> builder,
@@ -247,7 +263,16 @@ public static class EntraAuthAppRegistrationResourceExtensions
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(permission);
 
-        builder.WithAnnotation(new WellKnownApiPermissionAnnotation(permission));
+        var app = builder.Resource;
+        var resourceName = $"{app.Name}-apiperm-{ApiExpositionBuilder.Sanitize(permission.Value)}";
+        var permissionResource = new ApiPermissionResource(resourceName, app, permission);
+
+        builder.WithAnnotation(new WellKnownApiPermissionAnnotation(permissionResource));
+        builder.ApplicationBuilder.AddResource(permissionResource)
+            .ExcludeFromManifest()
+            .WithParentRelationship(builder.Resource)
+            .WithInitialState(AuthDashboardSnapshots.Waiting("AuthApiPermission"));
+
         return builder;
     }
 

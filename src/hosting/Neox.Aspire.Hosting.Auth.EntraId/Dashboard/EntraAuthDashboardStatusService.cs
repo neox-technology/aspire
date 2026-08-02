@@ -178,6 +178,7 @@ internal sealed class EntraAuthDashboardStatusService
         var expositions = app.Annotations.OfType<ExposedApiAnnotation>()
             .Select(a => a.Exposition)
             .ToList();
+        var apiPermissions = CollectApiPermissionResources(app);
 
         if (!AuthParameterResolution.TryGetResolvedValue(app.ClientIdParameter, services, out var clientId)
             || string.IsNullOrWhiteSpace(clientId)
@@ -196,6 +197,17 @@ internal sealed class EntraAuthDashboardStatusService
                 await AuthDashboardStatusPublisher.PublishAsync(
                         notifications,
                         exposition,
+                        AuthDashboardStatus.Waiting,
+                        description: "Waiting for parent app registration.",
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
+            foreach (var permission in apiPermissions)
+            {
+                await AuthDashboardStatusPublisher.PublishAsync(
+                        notifications,
+                        permission,
                         AuthDashboardStatus.Waiting,
                         description: "Waiting for parent app registration.",
                         cancellationToken)
@@ -269,8 +281,8 @@ internal sealed class EntraAuthDashboardStatusService
             }
         }
 
-        var childStatuses = new List<AuthDashboardStatus>(expositions.Count);
-        // Gate expositions on Graph existence only — redirect mismatch must not force children Waiting.
+        var childStatuses = new List<AuthDashboardStatus>(expositions.Count + apiPermissions.Count);
+        // Gate expositions/permissions on Graph existence only — redirect mismatch must not force children Waiting.
         var parentExists = graphExists;
 
         foreach (var exposition in expositions)
@@ -310,6 +322,47 @@ internal sealed class EntraAuthDashboardStatusService
             await AuthDashboardStatusPublisher.PublishAsync(
                     notifications,
                     exposition,
+                    childStatus,
+                    description,
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+            childStatuses.Add(childStatus);
+        }
+
+        foreach (var permission in apiPermissions)
+        {
+            AuthDashboardStatus childStatus;
+            string description;
+
+            if (!parentExists)
+            {
+                childStatus = AuthDashboardStatus.Waiting;
+                description = probeResult.Error is not null
+                    ? $"Waiting: parent Graph probe failed ({probeResult.Error})."
+                    : "Waiting for parent app registration to be healthy.";
+            }
+            else if (!EntraApiPermissionApplicator.TryResolveDesired(
+                         permission,
+                         exposer => ResolveExposerClientId(services, exposer),
+                         out var desired))
+            {
+                childStatus = AuthDashboardStatus.Waiting;
+                description = $"Waiting for exposer ClientId for permission '{permission.Value}'.";
+            }
+            else
+            {
+                var present = probeResult.RequiredResourceAccessKeys.Contains(
+                    EntraApiPermissionApplicator.FormatKey(desired));
+                childStatus = present ? AuthDashboardStatus.Healthy : AuthDashboardStatus.Unhealthy;
+                description = present
+                    ? $"API permission '{permission.Value}' present in Graph."
+                    : $"API permission '{permission.Value}' missing in Graph.";
+            }
+
+            await AuthDashboardStatusPublisher.PublishAsync(
+                    notifications,
+                    permission,
                     childStatus,
                     description,
                     cancellationToken)
@@ -424,6 +477,17 @@ internal sealed class EntraAuthDashboardStatusService
                 .ConfigureAwait(false);
         }
 
+        foreach (var permission in CollectApiPermissionResources(app))
+        {
+            await AuthDashboardStatusPublisher.PublishAsync(
+                    notifications,
+                    permission,
+                    AuthDashboardStatus.Waiting,
+                    description,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
         var secretResource = app.Annotations.OfType<ClientSecretAnnotation>().LastOrDefault()?.SecretResource;
         if (secretResource is not null)
         {
@@ -435,5 +499,29 @@ internal sealed class EntraAuthDashboardStatusService
                     cancellationToken)
                 .ConfigureAwait(false);
         }
+    }
+
+    private static List<ApiPermissionResource> CollectApiPermissionResources(
+        EntraAuthAppRegistrationResource app)
+    {
+        var result = new List<ApiPermissionResource>();
+        result.AddRange(app.Annotations.OfType<ApiPermissionAnnotation>().Select(a => a.PermissionResource));
+        result.AddRange(
+            app.Annotations.OfType<WellKnownApiPermissionAnnotation>().Select(a => a.PermissionResource));
+        return result;
+    }
+
+    private static string? ResolveExposerClientId(
+        IServiceProvider services,
+        EntraAuthAppRegistrationResource exposer)
+    {
+        if (!AuthParameterResolution.TryGetResolvedValue(exposer.ClientIdParameter, services, out var clientId)
+            || string.IsNullOrWhiteSpace(clientId)
+            || EntraAppRegistrationParameterPrompt.IsCreateSentinel(clientId))
+        {
+            return null;
+        }
+
+        return clientId;
     }
 }

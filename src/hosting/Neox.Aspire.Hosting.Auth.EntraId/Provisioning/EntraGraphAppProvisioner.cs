@@ -484,46 +484,13 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
         var result = new List<AuthDesiredRequiredResourceAccess>();
         foreach (var annotation in app.Annotations.OfType<ApiPermissionAnnotation>())
         {
-            var exposition = annotation.Exposition;
-            var exposerPlan = exposition.Owner.Annotations
-                .OfType<AuthAppRegistrationPlanAnnotation>()
-                .LastOrDefault()
-                ?.Plan;
-
-            Guid permissionId;
-            string type;
-            switch (exposition)
+            if (EntraApiPermissionApplicator.TryResolveDesired(
+                    annotation.PermissionResource,
+                    TryResolveClientId,
+                    out var entry))
             {
-                case ScopeApiExposition scope:
-                    type = "Scope";
-                    permissionId = exposerPlan?.DesiredScopes
-                        .FirstOrDefault(s => string.Equals(s.Value, scope.ScopeValue, StringComparison.Ordinal))
-                        ?.Id
-                        ?? scope.PermissionId;
-                    break;
-                case AppRoleApiExposition role:
-                    type = "Role";
-                    permissionId = exposerPlan?.DesiredAppRoles
-                        .FirstOrDefault(r => string.Equals(r.Value, role.Value, StringComparison.Ordinal))
-                        ?.Id
-                        ?? role.RoleId;
-                    break;
-                default:
-                    continue;
+                result.Add(entry);
             }
-
-            var resourceAppId = TryResolveClientId(exposition.Owner);
-            if (string.IsNullOrWhiteSpace(resourceAppId))
-            {
-                continue;
-            }
-
-            result.Add(new AuthDesiredRequiredResourceAccess
-            {
-                ResourceAppId = resourceAppId,
-                PermissionId = permissionId,
-                Type = type
-            });
         }
 
         return result.Count > 0 ? result : desired;

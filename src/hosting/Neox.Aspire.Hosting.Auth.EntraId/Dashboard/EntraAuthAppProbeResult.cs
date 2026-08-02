@@ -19,6 +19,13 @@ internal sealed class EntraAuthAppProbeResult
         new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
+    /// Graph <c>requiredResourceAccess</c> keys (<c>resourceAppId|permissionId|type</c>)
+    /// when the app exists; empty otherwise.
+    /// </summary>
+    public IReadOnlySet<string> RequiredResourceAccessKeys { get; init; } =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
     /// Redirect URIs extracted from Graph Web / Spa / PublicClient when the app exists;
     /// empty otherwise.
     /// </summary>

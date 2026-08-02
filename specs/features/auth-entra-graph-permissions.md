@@ -22,7 +22,7 @@ A Roslyn source generator (`Neox.Aspire.Hosting.Auth.EntraId.Generators.Internal
 
 - AppHost author wants Graph `User.Read` (delegated) and/or `User.Read.All` (application) on a consumer Auth app without hand-coding permission GUIDs.
 - `plan-{app}-auth` / `provision-{app}-auth` include those entries in Graph `requiredResourceAccess` (`ResourceAppId` = Microsoft Graph app id `00000003-0000-0000-c000-000000000000`, type `Scope` or `Role`).
-- Well-known Graph permissions do **not** add a `DependsOn` on another Auth app’s provision step (unlike consuming an in-model `ApiExposition`).
+- Well-known Graph permissions create an `AuthApiPermission` dashboard child under the consumer (same as in-model `WithApiPermission`) but do **not** add a `DependsOn` on another Auth app’s provision step (unlike consuming an in-model `ApiExposition`).
 - Maintainers refresh the catalogue when Microsoft adds/changes Graph permissions; CI builds remain offline-deterministic from the checked-in JSON.
 
 ## Routes (if UI)
@@ -40,7 +40,7 @@ None.
 - Other first-party Microsoft APIs (SharePoint, Exchange, legacy Azure AD Graph)
 - Automatic admin consent / consent URL generation
 - Resource-specific application permissions (RSAP)
-- Modeling Graph as an Aspire Auth app / dashboard child resource
+- Modeling Microsoft Graph itself as an Aspire Auth app registration resource
 - Automatic catalogue refresh in CI
 
 ## Acceptance criteria
@@ -50,7 +50,7 @@ None.
 - [x] Checked-in catalogue `Graph/microsoft-graph-permissions.json` lists Graph delegated scopes and application roles (`id`, `value`, display/description, `isEnabled`); disabled entries are not emitted.
 - [x] Generator emits `MicrosoftGraph` with nested `Delegated` and `Application` static `WellKnownApiPermission` properties (C# identifiers sanitized from permission `value`, e.g. `User.Read` → `UserRead`).
 - [x] `WellKnownApiPermission` carries `ResourceAppId`, `PermissionId`, `Type` (`Scope`|`Role`), and `Value`.
-- [x] `WithApiPermission(WellKnownApiPermission)` records a well-known permission annotation on the consumer Auth app; existing `WithApiPermission(IResourceBuilder<TApiExposition>)` remains unchanged.
+- [x] `WithApiPermission(WellKnownApiPermission)` records a well-known permission annotation on the consumer Auth app and creates child `{consumer}-apiperm-{value}` (`AuthApiPermission`); existing `WithApiPermission(IResourceBuilder<TApiExposition>)` remains fluent on the consumer app builder.
 - [x] `EntraApiPermissionApplicator` merges well-known permissions into desired `requiredResourceAccess` without resolving an exposer ClientId; provision `DependsOn` for exposers remains only for in-model expositions.
 - [x] Refresh tool `tools/microsoft-graph-permissions-catalog` can rewrite the JSON from the Microsoft Graph service principal (and/or an offline docs bootstrap).
 - [x] Unit tests cover catalogue parse/codegen and applicator collection for well-known permissions; sample AppHost binds at least one Graph permission. No live Graph in CI.

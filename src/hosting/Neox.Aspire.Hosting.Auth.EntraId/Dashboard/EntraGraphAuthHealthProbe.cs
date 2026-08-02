@@ -40,7 +40,7 @@ internal sealed class EntraGraphAuthHealthProbe : IEntraAuthHealthProbe
                 request.QueryParameters.Filter = $"appId eq '{EscapeOData(clientId)}'";
                 request.QueryParameters.Top = 1;
                 request.QueryParameters.Select =
-                    ["id", "appId", "api", "appRoles", "web", "spa", "publicClient"];
+                    ["id", "appId", "api", "appRoles", "web", "spa", "publicClient", "requiredResourceAccess"];
             }, cancellationToken).ConfigureAwait(false);
 
             var application = page?.Value?.FirstOrDefault();
@@ -59,12 +59,17 @@ internal sealed class EntraGraphAuthHealthProbe : IEntraAuthHealthProbe
                 .Where(v => !string.IsNullOrWhiteSpace(v))
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
+            var requiredAccessKeys = EntraApiPermissionApplicator.Extract(application)
+                .Select(EntraApiPermissionApplicator.FormatKey)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
             return new EntraAuthAppProbeResult
             {
                 Exists = true,
                 ObjectId = application.Id,
                 ScopeValues = scopes,
                 AppRoleValues = roles,
+                RequiredResourceAccessKeys = requiredAccessKeys,
                 RedirectUris = EntraRedirectUriApplicator.Extract(application)
             };
         }

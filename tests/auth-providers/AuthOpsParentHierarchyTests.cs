@@ -22,7 +22,9 @@ public class AuthOpsParentHierarchyTests
         var role = api.WithAppRoleExposition(
             AllowedMemberType.Applications, "Api.Caller", "Callers");
 
-        var web = entra.AddAppRegistration("appregistration-web", "Web");
+        var web = entra.AddAppRegistration("appregistration-web", "Web")
+            .WithApiPermission(scope!)
+            .WithApiPermission(MicrosoftGraph.Delegated.UserRead);
 
         var authOps = Assert.Single(builder.Resources.OfType<AuthOpsResource>());
         Assert.Equal(AuthOpsResource.DefaultResourceName, authOps.Name);
@@ -41,6 +43,18 @@ public class AuthOpsParentHierarchyTests
         AssertHasParentRelationship(scope.Resource, api.Resource);
         Assert.Same(api.Resource, role.Resource.Parent);
         AssertHasParentRelationship(role.Resource, api.Resource);
+
+        var inModelPerm = Assert.Single(
+            builder.Resources.OfType<ApiPermissionResource>(),
+            r => r.Name == "appregistration-web-apiperm-access-as-user");
+        Assert.Same(web.Resource, inModelPerm.Parent);
+        AssertHasParentRelationship(inModelPerm, web.Resource);
+
+        var graphPerm = Assert.Single(
+            builder.Resources.OfType<ApiPermissionResource>(),
+            r => r.Name == "appregistration-web-apiperm-user-read");
+        Assert.Same(web.Resource, graphPerm.Parent);
+        AssertHasParentRelationship(graphPerm, web.Resource);
 
         var tenant = Assert.Single(
             builder.Resources.OfType<ParameterResource>(),

@@ -23,6 +23,9 @@ public class EntraAuthDashboardStatusTests
             });
         var role = api.WithAppRoleExposition(
             AllowedMemberType.Applications, "Api.Caller", "Callers");
+        var web = entra.AddAppRegistration("appregistration-web", "Web")
+            .WithApiPermission(scope!)
+            .WithApiPermission(MicrosoftGraph.Delegated.UserRead);
 
         var authOps = Assert.Single(builder.Resources.OfType<AuthOpsResource>());
         AssertWaiting(authOps, "AuthOps");
@@ -31,6 +34,13 @@ public class EntraAuthDashboardStatusTests
         Assert.NotNull(scope);
         AssertWaiting(scope!.Resource, "AuthApiScope");
         AssertWaiting(role.Resource, "AuthAppRole");
+
+        var inModelPerm = Assert.Single(
+            web.Resource.Annotations.OfType<ApiPermissionAnnotation>()).PermissionResource;
+        var graphPerm = Assert.Single(
+            web.Resource.Annotations.OfType<WellKnownApiPermissionAnnotation>()).PermissionResource;
+        AssertWaiting(inModelPerm, "AuthApiPermission");
+        AssertWaiting(graphPerm, "AuthApiPermission");
     }
 
     [Fact]
@@ -205,6 +215,119 @@ public class EntraAuthDashboardStatusTests
         Assert.True(notifications.TryGetCurrentState(api.Resource.Name, out var appEvent));
         Assert.Equal(KnownResourceStates.Running, appEvent.Snapshot.State?.Text);
         Assert.Equal(HealthStatus.Unhealthy, appEvent.Snapshot.HealthStatus);
+    }
+
+    [Fact]
+    public async Task StatusService_ApiPermission_Present_IsHealthy()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var entra = builder.AddAuthProvider("provider-entra").Entra();
+        IResourceBuilder<ScopeApiExposition>? scope = null;
+        var api = entra.AddAppRegistration("api", "Api")
+            .WithApiExposition(a =>
+            {
+                scope = a.AddScopeWithAdminConsent("access_as_user", "Access", "Desc");
+            });
+        var web = entra.AddAppRegistration("web", "Web")
+            .WithApiPermission(scope!)
+            .WithApiPermission(MicrosoftGraph.Delegated.UserRead);
+
+        var scopePerm = Assert.Single(web.Resource.Annotations.OfType<ApiPermissionAnnotation>());
+        var graphPerm = Assert.Single(web.Resource.Annotations.OfType<WellKnownApiPermissionAnnotation>());
+        var scopeKey = EntraApiPermissionApplicator.FormatKey(new AuthDesiredRequiredResourceAccess
+        {
+            ResourceAppId = "api-client",
+            PermissionId = scope!.Resource.PermissionId,
+            Type = "Scope"
+        });
+        var graphKey = EntraApiPermissionApplicator.FormatKey(new AuthDesiredRequiredResourceAccess
+        {
+            ResourceAppId = MicrosoftGraph.AppId,
+            PermissionId = MicrosoftGraph.Delegated.UserRead.PermissionId,
+            Type = "Scope"
+        });
+
+        var probe = new FakeEntraAuthHealthProbe
+        {
+            Results =
+            {
+                ["api-client"] = new EntraAuthAppProbeResult
+                {
+                    Exists = true,
+                    ScopeValues = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "access_as_user" }
+                },
+                ["web-client"] = new EntraAuthAppProbeResult
+                {
+                    Exists = true,
+                    RequiredResourceAccessKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        scopeKey,
+                        graphKey
+                    }
+                }
+            }
+        };
+
+        await using var services = CreateStatusHost(builder.Resources, probe);
+        await AuthParameterValue.SetAsync(
+            services, entra.Resource.Resource.TenantIdParameter, "tenant-1", CancellationToken.None);
+        await AuthParameterValue.SetAsync(
+            services, api.Resource.ClientIdParameter, "api-client", CancellationToken.None);
+        await AuthParameterValue.SetAsync(
+            services, web.Resource.ClientIdParameter, "web-client", CancellationToken.None);
+
+        var statusService = services.GetRequiredService<EntraAuthDashboardStatusService>();
+        var model = services.GetRequiredService<DistributedApplicationModel>();
+        await statusService.RefreshAsync(services, model, CancellationToken.None);
+
+        var notifications = services.GetRequiredService<ResourceNotificationService>();
+        Assert.True(notifications.TryGetCurrentState(scopePerm.PermissionResource.Name, out var scopePermEvent));
+        Assert.Equal(HealthStatus.Healthy, scopePermEvent.Snapshot.HealthStatus);
+        Assert.True(notifications.TryGetCurrentState(graphPerm.PermissionResource.Name, out var graphPermEvent));
+        Assert.Equal(HealthStatus.Healthy, graphPermEvent.Snapshot.HealthStatus);
+        Assert.True(notifications.TryGetCurrentState(web.Resource.Name, out var webEvent));
+        Assert.Equal(HealthStatus.Healthy, webEvent.Snapshot.HealthStatus);
+    }
+
+    [Fact]
+    public async Task StatusService_ApiPermission_Missing_IsUnhealthy_AndAppUnhealthy()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var entra = builder.AddAuthProvider("provider-entra").Entra();
+        var web = entra.AddAppRegistration("web", "Web")
+            .WithApiPermission(MicrosoftGraph.Delegated.UserRead);
+
+        var graphPerm = Assert.Single(web.Resource.Annotations.OfType<WellKnownApiPermissionAnnotation>());
+
+        var probe = new FakeEntraAuthHealthProbe
+        {
+            Results =
+            {
+                ["web-client"] = new EntraAuthAppProbeResult
+                {
+                    Exists = true,
+                    RequiredResourceAccessKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                }
+            }
+        };
+
+        await using var services = CreateStatusHost(builder.Resources, probe);
+        await AuthParameterValue.SetAsync(
+            services, entra.Resource.Resource.TenantIdParameter, "tenant-1", CancellationToken.None);
+        await AuthParameterValue.SetAsync(
+            services, web.Resource.ClientIdParameter, "web-client", CancellationToken.None);
+
+        var statusService = services.GetRequiredService<EntraAuthDashboardStatusService>();
+        var model = services.GetRequiredService<DistributedApplicationModel>();
+        await statusService.RefreshAsync(services, model, CancellationToken.None);
+
+        var notifications = services.GetRequiredService<ResourceNotificationService>();
+        Assert.True(notifications.TryGetCurrentState(graphPerm.PermissionResource.Name, out var permEvent));
+        Assert.Equal(KnownResourceStates.Running, permEvent.Snapshot.State?.Text);
+        Assert.Equal(HealthStatus.Unhealthy, permEvent.Snapshot.HealthStatus);
+
+        Assert.True(notifications.TryGetCurrentState(web.Resource.Name, out var webEvent));
+        Assert.Equal(HealthStatus.Unhealthy, webEvent.Snapshot.HealthStatus);
     }
 
     [Fact]
