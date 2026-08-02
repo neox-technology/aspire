@@ -41,3 +41,4 @@ Each `specs/features/<slug>.md` file follows this skeleton:
 | [`efcore-migration-worker`](features/efcore-migration-worker.md) | implemented | EF Core migration worker + Aspire xUnit harnesses (SqlServer/Postgres/MySQL/Oracle) |
 | [`azure-custom-domains`](features/azure-custom-domains.md) | implemented | ACA custom domain ops (OctoDNS-in-Docker, managed certs, `aspire do`) |
 | [`auth-providers`](features/auth-providers.md) | implemented | AuthOps — Abstractions + EntraId packages (Graph) + generic `AUTH_*` env injection |
+| [`auth-entra-graph-permissions`](features/auth-entra-graph-permissions.md) | implemented | EntraId source-generated Microsoft Graph delegated/application `WithApiPermission` binds |
