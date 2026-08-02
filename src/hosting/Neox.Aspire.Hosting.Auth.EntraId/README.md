@@ -22,9 +22,11 @@ builder.AddProject<Projects.Api>("api")
 
 Then run `aspire do` / `aspire deploy`. Pipeline steps: `prereq-auth-provider-entra-auth` → `prereq-providers-auth` → `prereq-{app}-auth` → `plan-{app}-auth` → `provision-{app}-auth` → `deploy-auth` (`prereq-providers-auth` on shared `auth-ops`; provider prereq and `deploy-auth` on the `EntraAuthOpsResource`; app prereq / plan / provision on each `AuthAppResource`).
 
-The tenant parameter prompts as a **Choice** combobox (dashboard / CLI) listing Entra tenants the current Azure credential can access (`AllowCustomChoice` for a manual GUID).
+The tenant parameter prompts as a **Choice** combobox (dashboard / CLI) listing Entra tenants the current Azure credential can access (`AllowCustomChoice` for a manual GUID). The prompt label is `Entra tenant — {providerResourceName}` so multiple providers stay distinguishable.
 
-Each app **ClientId** parameter (`{provider}-{app}-client-id`) prompts as a **Choice** after the tenant is resolved: existing app registrations in that tenant (Graph, label `DisplayName — appId`, up to 200), **Create new application** (uses the `displayName` argument to `AddAppRegistration` — not an Aspire parameter), or enter a custom Client ID GUID (`AllowCustomChoice`). Listing requires management Graph permission `Application.Read.All`; on failure the Choice falls back to Create + Other only.
+Each app **ClientId** parameter (`{provider}-{app}-client-id`) prompts as a **Choice** after the tenant is resolved: existing app registrations in that tenant (Graph, label `DisplayName — appId`, up to 200), **Create new application** (uses the `displayName` argument to `AddAppRegistration` — not an Aspire parameter), or enter a custom Client ID GUID (`AllowCustomChoice`). The prompt label is `Entra app — {appName} ({displayName})`. Listing requires management Graph permission `Application.Read.All`; on failure the Choice falls back to Create + Other only.
+
+After interactive resolution (and again after `provision-{app}-auth`), AuthOps persists tenant / ClientId into Aspire deployment state under `Parameters:{parameterName}` (same contract as Aspire `ParameterProcessor`) so a later `aspire do` does not re-prompt. The create sentinel is never persisted as ClientId — only the real app id after provision.
 
 `plan-{app}-auth` resolves create vs existing (read-only Graph) and compares the desired DisplayName. `provision-{app}-auth` applies that plan (minimal create = DisplayName only in this revision).
 

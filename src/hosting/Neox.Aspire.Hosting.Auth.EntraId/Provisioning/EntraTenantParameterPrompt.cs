@@ -11,13 +11,23 @@ namespace Neox.Aspire.Hosting.Auth;
 /// </summary>
 internal static class EntraTenantParameterPrompt
 {
+    internal static string FormatLabel(string providerResourceName) =>
+        $"Entra tenant — {providerResourceName}";
+
+    internal static string FormatDescription(bool hasTenants, string providerResourceName, string parameterName) =>
+        hasTenants
+            ? $"Select an Entra tenant for Auth provider '{providerResourceName}' (parameter '{parameterName}'). Use arrow keys, or Other for a custom GUID."
+            : $"Enter the Entra tenant id (GUID) for Auth provider '{providerResourceName}' (parameter '{parameterName}'). Tenant enumeration was empty or failed.";
+
     public static async Task EnsureReadyAsync(
         IServiceProvider services,
         ParameterResource tenantParameter,
+        string providerResourceName,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(tenantParameter);
+        ArgumentException.ThrowIfNullOrWhiteSpace(providerResourceName);
 
         // Prefetch before ParameterProcessor builds the interaction input.
         var tenants = await EntraTenantEnumerator.TryGetTenantOptionsAsync(cancellationToken: cancellationToken)
@@ -28,10 +38,8 @@ internal static class EntraTenantParameterPrompt
         {
             Name = parameter.Name,
             InputType = tenants.Count > 0 ? InputType.Choice : InputType.Text,
-            Label = "Entra tenant",
-            Description = tenants.Count > 0
-                ? "Select an Entra tenant you can access (arrow keys), or Other for a custom GUID."
-                : "Enter the Entra tenant id (GUID). Tenant enumeration was empty or failed.",
+            Label = FormatLabel(providerResourceName),
+            Description = FormatDescription(tenants.Count > 0, providerResourceName, parameter.Name),
             Required = true,
             AllowCustomChoice = tenants.Count > 0,
             Options = tenants.Count > 0 ? tenants : null

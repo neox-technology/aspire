@@ -25,7 +25,11 @@ internal sealed class EntraAuthProviderBuilder(
             app.GetParameterName("client-id"),
             defaultValue: null,
             secret: false);
-        EntraAppRegistrationParameterPrompt.ConfigureClientIdChoiceInput(clientId, displayName);
+        EntraAppRegistrationParameterPrompt.ConfigureClientIdChoiceInput(
+            clientId,
+            name,
+            displayName,
+            provider.Name);
 
         var clientSecret = AuthOpsExtensions.GetOrAddParameter(
             applicationBuilder,

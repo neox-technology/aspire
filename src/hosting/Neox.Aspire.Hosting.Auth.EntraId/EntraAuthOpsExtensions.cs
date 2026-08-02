@@ -47,7 +47,20 @@ public static class EntraAuthOpsExtensions
                 await EntraTenantParameterPrompt.EnsureReadyAsync(
                     context.Services,
                     entra.TenantIdParameter,
+                    entra.Name,
                     context.CancellationToken).ConfigureAwait(false);
+
+                var tenantId = await entra.TenantIdParameter
+                    .GetValueAsync(context.CancellationToken)
+                    .ConfigureAwait(false);
+                if (!string.IsNullOrWhiteSpace(tenantId))
+                {
+                    await AuthParameterValue.SetAsync(
+                        context.Services,
+                        entra.TenantIdParameter,
+                        tenantId!,
+                        context.CancellationToken).ConfigureAwait(false);
+                }
             }
         });
     }
@@ -105,8 +118,22 @@ public static class EntraAuthOpsExtensions
                     context.Services,
                     app.ClientIdParameter,
                     app.TenantIdParameter,
+                    app.Name,
                     app.DisplayName,
+                    provider.Resource.Name,
                     context.CancellationToken).ConfigureAwait(false);
+
+                var clientId = await app.ClientIdParameter
+                    .GetValueAsync(context.CancellationToken)
+                    .ConfigureAwait(false);
+                if (!EntraAppRegistrationParameterPrompt.IsCreateSentinel(clientId))
+                {
+                    await AuthParameterValue.SetAsync(
+                        context.Services,
+                        app.ClientIdParameter,
+                        clientId!,
+                        context.CancellationToken).ConfigureAwait(false);
+                }
             }
         });
 

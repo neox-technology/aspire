@@ -6,10 +6,16 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Neox.Aspire.Hosting.Auth;
 
 /// <summary>
-/// Sets Aspire parameter values produced by AuthOps provision (workload ClientId / secret / tenant).
+/// Sets Aspire parameter values produced by AuthOps (workload ClientId / secret / tenant)
+/// and persists them using the same deployment-state contract as <c>ParameterProcessor</c>.
 /// </summary>
 internal static class AuthParameterValue
 {
+    /// <summary>
+    /// Aspire stores each parameter under section <c>Parameters:{parameterName}</c> via <see cref="DeploymentStateSection.SetValue"/>.
+    /// </summary>
+    internal static string GetParametersSectionName(string parameterName) => $"Parameters:{parameterName}";
+
     public static async Task SetAsync(
         IServiceProvider services,
         ParameterResource parameter,
@@ -98,8 +104,12 @@ internal static class AuthParameterValue
             return;
         }
 
-        var section = await stateManager.AcquireSectionAsync("Auth", cancellationToken).ConfigureAwait(false);
-        section.Data[parameterName] = value;
+        // Match Aspire ParameterProcessor: section name is ConfigurationKey ("Parameters:{name}"),
+        // value stored via SetValue (root key ""), not a custom "Auth" bag keyed by name.
+        var section = await stateManager
+            .AcquireSectionAsync(GetParametersSectionName(parameterName), cancellationToken)
+            .ConfigureAwait(false);
+        section.SetValue(value);
         await stateManager.SaveSectionAsync(section, cancellationToken).ConfigureAwait(false);
     }
 #pragma warning restore ASPIREPIPELINES002

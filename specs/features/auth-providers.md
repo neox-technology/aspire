@@ -28,6 +28,7 @@ Consumers reference **`Neox.Aspire.Hosting.Auth.EntraId`** (pulls Abstractions t
 - **Create path:** `prereq-{app}-auth` Choice selects create (or ClientId unset) → `plan-{app}-auth` plans a create → `provision-{app}-auth` creates a minimal Entra application using `DisplayName`, writes ClientId into the Aspire parameter, then `WithAuth` wires `AUTH_ENTRA_*` env on the consumer.
 - **Adopt path:** ClientId parameter set (interactive Choice / `Parameters__*`) → `plan-{app}-auth` GET + compare desired vs existing (DisplayName for now) → `provision-{app}-auth` applies plan actions only; bind existing ClientId/TenantId.
 - **Idempotent re-run:** plan finds the app via ClientId and/or DisplayName + Neox marker; provision applies only planned actions.
+- **Remember selections:** after interactive tenant / ClientId resolution (and after provision), AuthOps persists values into Aspire deployment state under `Parameters:{parameterName}` (same contract as `ParameterProcessor`) so a later `aspire do` does not re-prompt; create sentinel is never persisted as ClientId.
 - Management credentials (Graph) stay separate from workload ClientId/ClientSecret; secrets are never logged or written into manifests.
 - Unit tests under `tests/auth-providers/` use fakes (no live Graph / no `az`).
 
@@ -78,6 +79,9 @@ None — `aspire do` / `aspire deploy` pipeline steps only. No dashboard `WithCo
 - [x] Unit tests assert AuthOps pipeline graph (`prereq-{resource}-auth` → `prereq-providers-auth` → `prereq-{app}-auth` → `plan-{app}-auth` → `provision-{app}-auth`).
 - [x] Sample AppHost (`tests/auth-providers/sample-apphost/`) wires Blazor Web + Vite Spa via AuthOps; Auth app resource names stay distinct from workload resources (`blazor`/`ops`); CI smoke is `dotnet build` only (no live Graph).
 - [x] Glossary terms for AuthOps promoted in [`domain-glossary`](domain-glossary.md).
+- [x] Tenant and ClientId Choice labels identify the Auth provider resource and Auth app (`Entra tenant — {provider}`, `Entra app — {app} ({displayName})`).
+- [x] Resolved tenant (and non-sentinel ClientId) are persisted via `IDeploymentStateManager` section `Parameters:{parameterName}` + `SetValue` after prereq (and again after provision with the real ClientId); create sentinel is never written as ClientId.
+- [x] Unit tests cover deployment-state section key / `SetValue` and prompt labels.
 
 ## Terminology
 
@@ -169,12 +173,18 @@ Shared gate `prereq-providers-auth` is hosted on **`AuthOpsResource`** (`auth-op
 
 `{app}` is the Auth app resource name slug (same dash rules as other Neox steps).
 
+#### `prereq-{providerResource}-auth` behavior (tenant)
+
+1. Prompt `{provider}-tenant-id` as Choice + `AllowCustomChoice` of ARM tenants; Label = `Entra tenant — {providerResourceName}`.
+2. After resolution, persist the tenant value to deployment state section `Parameters:{parameterName}` via `SetValue` (Aspire-compatible).
+
 #### `prereq-{app}-auth` behavior
 
-1. Prompt `{provider}-{app}-client-id` as Choice + `AllowCustomChoice`: option **Create new application** (sentinel), options for existing app registrations in the **already resolved** tenant (Graph `Applications`, key = ClientId / `appId`, label = `DisplayName — appId`, cap 200), or paste a custom ClientId GUID.
+1. Prompt `{provider}-{app}-client-id` as Choice + `AllowCustomChoice`: option **Create new application** (sentinel), options for existing app registrations in the **already resolved** tenant (Graph `Applications`, key = ClientId / `appId`, label = `DisplayName — appId`, cap 200), or paste a custom ClientId GUID. Prompt Label = `Entra app — {appName} ({displayName})`.
 2. Prefetch uses a tenant-scoped management credential; on Graph failure / missing `Application.Read.All`, Options fall back to Create only (custom GUID still via Other).
 3. `DisplayName` is a required argument to `AddAppRegistration` (not an Aspire parameter).
 4. Create sentinel must not be persisted as a real ClientId; plan/provision treat it as create path.
+5. After resolution, persist ClientId only when it is not the create sentinel (`Parameters:{parameterName}` + `SetValue`).
 
 #### `plan-{app}-auth` behavior
 
@@ -187,7 +197,7 @@ Shared gate `prereq-providers-auth` is hosted on **`AuthOpsResource`** (`auth-op
 #### `provision-{app}-auth` behavior
 
 1. Apply plan actions only: create minimal application (`DisplayName` + Neox marker), or PATCH display name, or bind existing.
-2. Persist ClientId / TenantId into parameters. No client-secret create/rotate in this revision.
+2. Persist ClientId / TenantId into parameters and deployment state (`Parameters:{parameterName}` + `SetValue`, never the create sentinel). No client-secret create/rotate in this revision.
 3. Do not re-diff Graph; trust the plan from `plan-{app}-auth` (recompute only if annotation missing).
 
 ### Interactive vs non-interactive
@@ -228,4 +238,4 @@ src/hosting/Neox.Aspire.Hosting.Auth.EntraId/
 3. Update tests/READMEs; build + unit tests.
 4. Status → `implemented`.
 
-This revision (`AddAppRegistration` + plan owns compare) is **`implemented`**.
+This revision (parameter persist + prompt labels) is **`implemented`**.

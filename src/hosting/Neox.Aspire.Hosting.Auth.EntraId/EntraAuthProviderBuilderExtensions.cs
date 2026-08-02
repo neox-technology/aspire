@@ -38,7 +38,7 @@ public static class EntraAuthProviderBuilderExtensions
                 defaultValue: null,
                 secret: false);
 
-        ConfigureTenantChoiceInput(tenantParam);
+        ConfigureTenantChoiceInput(tenantParam, name);
         resource.TenantIdParameter = tenantParam.Resource;
 
         var providerBuilder = applicationBuilder.AddResource(resource)
@@ -55,7 +55,9 @@ public static class EntraAuthProviderBuilderExtensions
         return new EntraAuthProviderBuilder(applicationBuilder, providerBuilder);
     }
 
-    private static void ConfigureTenantChoiceInput(IResourceBuilder<ParameterResource> tenantParam)
+    private static void ConfigureTenantChoiceInput(
+        IResourceBuilder<ParameterResource> tenantParam,
+        string providerResourceName)
     {
         if (tenantParam.Resource.Annotations.OfType<InputGeneratorAnnotation>().Any())
         {
@@ -66,8 +68,11 @@ public static class EntraAuthProviderBuilderExtensions
         {
             Name = parameter.Name,
             InputType = InputType.Choice,
-            Label = "Entra tenant",
-            Description = "Select an Entra tenant you can access, or enter a tenant id (GUID).",
+            Label = EntraTenantParameterPrompt.FormatLabel(providerResourceName),
+            Description = EntraTenantParameterPrompt.FormatDescription(
+                hasTenants: true,
+                providerResourceName,
+                parameter.Name),
             Required = true,
             AllowCustomChoice = true,
             Options = [],

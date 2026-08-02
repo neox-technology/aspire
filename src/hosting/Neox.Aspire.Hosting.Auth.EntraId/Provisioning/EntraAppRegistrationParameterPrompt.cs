@@ -20,11 +20,29 @@ internal static class EntraAppRegistrationParameterPrompt
         string.IsNullOrWhiteSpace(value)
         || string.Equals(value, CreateSentinel, StringComparison.Ordinal);
 
+    internal static string FormatLabel(string appName, string? displayName) =>
+        string.IsNullOrWhiteSpace(displayName)
+            ? $"Entra app — {appName}"
+            : $"Entra app — {appName} ({displayName})";
+
+    internal static string FormatDescription(
+        bool hasApps,
+        string providerResourceName,
+        string appName,
+        string parameterName) =>
+        hasApps
+            ? $"Select an existing app registration for '{appName}' on provider '{providerResourceName}' (parameter '{parameterName}'). Create for a new one, or Other for a custom Client ID (GUID)."
+            : $"Select Create to provision a new app registration for '{appName}' on provider '{providerResourceName}' (parameter '{parameterName}'), or Other for an existing Client ID (GUID). App list was empty or Graph enumeration failed (needs Application.Read.All).";
+
     public static void ConfigureClientIdChoiceInput(
         IResourceBuilder<ParameterResource> clientIdParam,
-        string? displayNameForCreate)
+        string appName,
+        string? displayNameForCreate,
+        string providerResourceName)
     {
         ArgumentNullException.ThrowIfNull(clientIdParam);
+        ArgumentException.ThrowIfNullOrWhiteSpace(appName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(providerResourceName);
 
         if (clientIdParam.Resource.Annotations.OfType<InputGeneratorAnnotation>().Any())
         {
@@ -35,9 +53,12 @@ internal static class EntraAppRegistrationParameterPrompt
         {
             Name = parameter.Name,
             InputType = InputType.Choice,
-            Label = "Entra application (Client ID)",
-            Description =
-                "Select Create to provision a new app registration, pick an existing app, or enter a Client ID (GUID).",
+            Label = FormatLabel(appName, displayNameForCreate),
+            Description = FormatDescription(
+                hasApps: false,
+                providerResourceName,
+                appName,
+                parameter.Name),
             Required = true,
             AllowCustomChoice = true,
             Options = BuildOptions(displayNameForCreate, apps: [])
@@ -48,12 +69,16 @@ internal static class EntraAppRegistrationParameterPrompt
         IServiceProvider services,
         ParameterResource clientIdParameter,
         ParameterResource tenantIdParameter,
+        string appName,
         string? displayNameForCreate,
+        string providerResourceName,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(clientIdParameter);
         ArgumentNullException.ThrowIfNull(tenantIdParameter);
+        ArgumentException.ThrowIfNullOrWhiteSpace(appName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(providerResourceName);
 
         var tenantId = await TryGetTenantIdAsync(tenantIdParameter, cancellationToken).ConfigureAwait(false);
         var apps = string.IsNullOrWhiteSpace(tenantId)
@@ -68,10 +93,12 @@ internal static class EntraAppRegistrationParameterPrompt
         {
             Name = parameter.Name,
             InputType = InputType.Choice,
-            Label = "Entra application (Client ID)",
-            Description = apps.Count > 0
-                ? "Select an existing app registration (arrow keys), Create for a new one, or Other for a custom Client ID (GUID)."
-                : "Select Create to provision a new app registration, or Other for an existing Client ID (GUID). App list was empty or Graph enumeration failed (needs Application.Read.All).",
+            Label = FormatLabel(appName, displayNameForCreate),
+            Description = FormatDescription(
+                apps.Count > 0,
+                providerResourceName,
+                appName,
+                parameter.Name),
             Required = true,
             AllowCustomChoice = true,
             Options = BuildOptions(displayNameForCreate, apps)
