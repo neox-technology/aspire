@@ -56,6 +56,7 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
         var tenantId = await ResolveTenantIdAsync(entra, app, cancellationToken).ConfigureAwait(false);
         var desiredRedirects = await EntraRedirectUriApplicator.ResolveAsync(app, cancellationToken)
             .ConfigureAwait(false);
+        var desiredSignInAudience = SupportedAccountsMapping.GetDesiredSignInAudience(app);
         var adoptClientId = ResolveAdoptClientId(app);
 
         if (!string.IsNullOrWhiteSpace(adoptClientId))
@@ -64,13 +65,13 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
                 ?? throw new InvalidOperationException(
                     $"No Entra application found with client id '{adoptClientId}'.");
 
-            return BuildAdoptPlan(tenantId, app.DisplayName, existing, desiredRedirects);
+            return BuildAdoptPlan(tenantId, app.DisplayName, desiredSignInAudience, existing, desiredRedirects);
         }
 
         var byName = await FindByDisplayNameAsync(app.DisplayName, cancellationToken).ConfigureAwait(false);
         if (byName is not null)
         {
-            return BuildAdoptPlan(tenantId, app.DisplayName, byName, desiredRedirects);
+            return BuildAdoptPlan(tenantId, app.DisplayName, desiredSignInAudience, byName, desiredRedirects);
         }
 
         return new AuthAppRegistrationPlan
@@ -78,6 +79,7 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
             Mode = AuthAppRegistrationPlanMode.Create,
             TenantId = tenantId,
             DesiredDisplayName = app.DisplayName,
+            DesiredSignInAudience = desiredSignInAudience,
             DesiredRedirectUris = desiredRedirects,
             Existing = null,
             Actions = [AuthAppRegistrationPlanAction.CreateApplication]
@@ -96,6 +98,7 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
         {
             var created = await CreateApplicationAsync(
                     plan.DesiredDisplayName,
+                    plan.DesiredSignInAudience,
                     plan.DesiredRedirectUris,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -114,12 +117,16 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
                 $"Auth app '{app.Name}' plan is Adopt but has no existing snapshot.");
 
         if (plan.Actions.Contains(AuthAppRegistrationPlanAction.UpdateDisplayName)
-            || plan.Actions.Contains(AuthAppRegistrationPlanAction.UpdateRedirectUris))
+            || plan.Actions.Contains(AuthAppRegistrationPlanAction.UpdateRedirectUris)
+            || plan.Actions.Contains(AuthAppRegistrationPlanAction.UpdateSignInAudience))
         {
             await PatchApplicationAsync(
                     existing.ObjectId,
                     plan.Actions.Contains(AuthAppRegistrationPlanAction.UpdateDisplayName)
                         ? plan.DesiredDisplayName
+                        : null,
+                    plan.Actions.Contains(AuthAppRegistrationPlanAction.UpdateSignInAudience)
+                        ? plan.DesiredSignInAudience
                         : null,
                     plan.Actions.Contains(AuthAppRegistrationPlanAction.UpdateRedirectUris)
                         ? plan.DesiredRedirectUris
@@ -137,9 +144,10 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
         };
     }
 
-    private static AuthAppRegistrationPlan BuildAdoptPlan(
+    internal static AuthAppRegistrationPlan BuildAdoptPlan(
         string tenantId,
         string desiredDisplayName,
+        string desiredSignInAudience,
         Application existing,
         IReadOnlyList<AuthDesiredRedirectUri> desiredRedirects)
     {
@@ -154,6 +162,7 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
             ObjectId = objectId,
             AppId = appId,
             DisplayName = existing.DisplayName,
+            SignInAudience = existing.SignInAudience,
             RedirectUris = existingRedirects
         };
 
@@ -161,6 +170,11 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
         if (!string.Equals(existing.DisplayName, desiredDisplayName, StringComparison.Ordinal))
         {
             actions.Add(AuthAppRegistrationPlanAction.UpdateDisplayName);
+        }
+
+        if (!string.Equals(existing.SignInAudience, desiredSignInAudience, StringComparison.Ordinal))
+        {
+            actions.Add(AuthAppRegistrationPlanAction.UpdateSignInAudience);
         }
 
         if (EntraRedirectUriApplicator.Differ(desiredRedirects, existingRedirects))
@@ -178,6 +192,7 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
             Mode = AuthAppRegistrationPlanMode.Adopt,
             TenantId = tenantId,
             DesiredDisplayName = desiredDisplayName,
+            DesiredSignInAudience = desiredSignInAudience,
             DesiredRedirectUris = desiredRedirects,
             Existing = snapshot,
             Actions = actions
@@ -313,13 +328,14 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
 
     private async Task<Application> CreateApplicationAsync(
         string displayName,
+        string signInAudience,
         IReadOnlyList<AuthDesiredRedirectUri> redirectUris,
         CancellationToken cancellationToken)
     {
         var application = new Application
         {
             DisplayName = displayName,
-            SignInAudience = "AzureADMyOrg",
+            SignInAudience = signInAudience,
             Notes = $"neox-aspire-auth:{NeoxMarkerExtension}"
         };
         EntraRedirectUriApplicator.Apply(application, redirectUris);
@@ -333,6 +349,7 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
     private async Task PatchApplicationAsync(
         string objectId,
         string? displayName,
+        string? signInAudience,
         IReadOnlyList<AuthDesiredRedirectUri>? redirectUris,
         CancellationToken cancellationToken)
     {
@@ -340,6 +357,11 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
         if (displayName is not null)
         {
             patch.DisplayName = displayName;
+        }
+
+        if (signInAudience is not null)
+        {
+            patch.SignInAudience = signInAudience;
         }
 
         if (redirectUris is not null)

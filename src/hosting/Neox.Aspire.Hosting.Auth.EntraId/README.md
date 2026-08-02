@@ -14,13 +14,15 @@ var entra = builder.AddAuthProvider("auth-provider-entra")
 // .Entra(o => o.TenantId = builder.AddParameter("my-tenant"));
 
 var web = entra.AddAppRegistration("web", "MyApp-Local")
-    .WithLocalhostRedirectUri(AuthApplicationType.Web, 7281, "/signin-oidc");
+    .WithLocalhostRedirectUri(AuthApplicationType.Web, 7281, "/signin-oidc")
+    .WithSupportedAccounts(SupportedAccountsType.SingleTenant); // default; MultiTenant / MultiTenantAndPersonal / PersonalMicrosoftAccount
 // web.WithRedirectUri(AuthApplicationType.Web, "https://contoso.example/signin-oidc");
 // web.WithRedirectUri(AuthApplicationType.Spa, builder.AddParameter("public-base-url"), "/");
 // Future: web.WithApplicationType(...);
 
 // Redirect URIs are applied on Graph create/adopt during plan|provision-{app}-auth
 // (Web → web.redirectUris, Spa → spa.redirectUris, Native → publicClient.redirectUris).
+// Supported accounts map to Graph signInAudience (default AzureADMyOrg / SingleTenant).
 
 builder.AddProject<Projects.Api>("api")
     .WithAuth(web);
@@ -34,7 +36,7 @@ Each app **ClientId** parameter (`{provider}-{app}-client-id`) prompts as a **Ch
 
 After interactive resolution (and again after `provision-{app}-auth`), AuthOps persists tenant / ClientId into Aspire deployment state under `Parameters:{parameterName}` (same contract as Aspire `ParameterProcessor`) so a later `aspire do` does not re-prompt. The create sentinel is never persisted as ClientId — only the real app id after provision.
 
-`plan-{app}-auth` resolves create vs existing (read-only Graph) and compares desired DisplayName and redirect URIs. `provision-{app}-auth` applies that plan (create includes DisplayName + redirect URIs; adopt may patch DisplayName and/or redirect URIs).
+`plan-{app}-auth` resolves create vs existing (read-only Graph) and compares desired DisplayName, redirect URIs, and `signInAudience`. `provision-{app}-auth` applies that plan (create includes DisplayName + redirect URIs + `signInAudience`; adopt may patch those when they differ).
 
 ## Environment variables
 
@@ -55,7 +57,7 @@ Override prefix / mapping with `WithAuth(app, env => { env.Prefix = "..."; })`.
 
 ## Adopt an existing registration
 
-Choose an existing app in the ClientId Choice prompt, or set `Parameters__{provider}-{app}-client-id` to the ClientId GUID. Plan compares DisplayName; provision binds (and patches DisplayName when it differs). No client-secret create/rotate in this revision.
+Choose an existing app in the ClientId Choice prompt, or set `Parameters__{provider}-{app}-client-id` to the ClientId GUID. Plan compares DisplayName, redirect URIs, and `signInAudience`; provision binds (and patches when they differ). No client-secret create/rotate in this revision.
 
 ## Management vs workload credentials
 

@@ -23,6 +23,12 @@ public sealed class AuthAppRegistrationPlan
     public required string DesiredDisplayName { get; init; }
 
     /// <summary>
+    /// Desired Graph <c>signInAudience</c> from <c>WithSupportedAccounts</c>
+    /// (default <c>AzureADMyOrg</c>).
+    /// </summary>
+    public string DesiredSignInAudience { get; init; } = SupportedAccountsMapping.DefaultSignInAudience;
+
+    /// <summary>
     /// Resolved redirect URIs from <c>WithRedirectUri</c> / <c>WithLocalhostRedirectUri</c>
     /// (<see cref="AuthApplicationType.Api"/> entries are omitted — Graph has no redirect bucket).
     /// </summary>
@@ -63,7 +69,8 @@ public enum AuthAppRegistrationPlanAction
     None,
     CreateApplication,
     UpdateDisplayName,
-    UpdateRedirectUris
+    UpdateRedirectUris,
+    UpdateSignInAudience
 }
 
 /// <summary>
@@ -83,6 +90,11 @@ public sealed class AuthAppRegistrationExistingSnapshot
     public required string ObjectId { get; init; }
     public required string AppId { get; init; }
     public string? DisplayName { get; init; }
+
+    /// <summary>
+    /// Existing Graph <c>signInAudience</c>.
+    /// </summary>
+    public string? SignInAudience { get; init; }
 
     /// <summary>
     /// Existing redirect URIs grouped by platform (Web / Spa / Native).

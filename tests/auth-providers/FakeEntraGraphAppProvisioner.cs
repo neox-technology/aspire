@@ -11,6 +11,7 @@ internal sealed class FakeEntraGraphAppProvisioner : IEntraGraphAppProvisioner
             Mode = AuthAppRegistrationPlanMode.Create,
             TenantId = "tenant-from-param",
             DesiredDisplayName = app.DisplayName,
+            DesiredSignInAudience = SupportedAccountsMapping.GetDesiredSignInAudience(app),
             Existing = null,
             Actions = [AuthAppRegistrationPlanAction.CreateApplication]
         };
