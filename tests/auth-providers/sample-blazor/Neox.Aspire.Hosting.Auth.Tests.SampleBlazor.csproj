@@ -7,4 +7,10 @@
     <WarnOnPackingNonPackableProject>false</WarnOnPackingNonPackableProject>
     <RootNamespace>Neox.Aspire.Hosting.Auth.Tests.SampleBlazor</RootNamespace>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Identity.Web" Version="3.14.1" />
+    <PackageReference Include="Microsoft.Identity.Web.UI" Version="3.14.1" />
+    <PackageReference Include="Microsoft.Identity.Web.DownstreamApi" Version="3.14.1" />
+  </ItemGroup>
 </Project>

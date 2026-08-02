@@ -42,7 +42,7 @@ public static class SupportedAccountsMapping
     /// Desired supported accounts from <see cref="SupportedAccountsAnnotation"/>, or
     /// <see cref="SupportedAccountsType.SingleTenant"/> when absent.
     /// </summary>
-    public static SupportedAccountsType GetDesired(AuthAppResource app)
+    public static SupportedAccountsType GetDesired(EntraAuthAppRegistrationResource app)
     {
         ArgumentNullException.ThrowIfNull(app);
         return app.Annotations.OfType<SupportedAccountsAnnotation>().FirstOrDefault()?.SupportedAccounts
@@ -52,6 +52,6 @@ public static class SupportedAccountsMapping
     /// <summary>
     /// Desired Graph <c>signInAudience</c> for the Auth app.
     /// </summary>
-    public static string GetDesiredSignInAudience(AuthAppResource app) =>
+    public static string GetDesiredSignInAudience(EntraAuthAppRegistrationResource app) =>
         ToSignInAudience(GetDesired(app));
 }

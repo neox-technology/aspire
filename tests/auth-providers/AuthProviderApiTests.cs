@@ -52,21 +52,11 @@ public class AuthProviderApiTests
         api.WithAuth(web);
         api.WithAuth(web, env =>
         {
-            env.Prefix = "CUSTOM";
+            env.Section = "CustomAd";
             env.Map(AuthOutput.ClientId, "MY_CLIENT_ID");
         });
 
         Assert.NotNull(api.Resource);
-    }
-
-    [Fact]
-    public void AuthApp_DefaultEnvPrefix_SingleApp_IsShortForm()
-    {
-        var builder = DistributedApplication.CreateBuilder();
-        var entra = builder.AddAuthProvider("entra").Entra();
-        var web = entra.AddAppRegistration("web", "Web");
-
-        Assert.Equal("AUTH_ENTRA", web.Resource.DefaultEnvPrefix);
     }
 
     [Fact]
@@ -76,7 +66,7 @@ public class AuthProviderApiTests
     }
 
     [Fact]
-    public void WithAuth_Default_OmitsClientSecretEnv()
+    public void WithAuth_Default_EmitsAzureAdInstanceTenantAndClientId()
     {
         var builder = DistributedApplication.CreateBuilder();
         var tenant = builder.AddParameter("t", "t");
@@ -86,7 +76,7 @@ public class AuthProviderApiTests
         var ops = builder.AddContainer("ops", "mcr.microsoft.com/dotnet/runtime", "10.0");
         ops.WithAuth(spa);
 
-        // TenantId + ClientId + Authority (no ClientSecret)
+        // Instance + TenantId + ClientId (no ClientSecret)
         Assert.Equal(3, ops.Resource.Annotations.OfType<EnvironmentCallbackAnnotation>().Count());
     }
 
@@ -101,20 +91,36 @@ public class AuthProviderApiTests
         var ops = builder.AddContainer("ops", "mcr.microsoft.com/dotnet/runtime", "10.0");
         ops.WithAuth(spa, env => env.IncludeClientSecret = true);
 
-        // TenantId + ClientId + ClientSecret + Authority
+        // Instance + TenantId + ClientId + ClientSecret
         Assert.Equal(4, ops.Resource.Annotations.OfType<EnvironmentCallbackAnnotation>().Count());
     }
 
     [Fact]
-    public void AuthApp_DefaultEnvPrefix_MultiApp_IncludesAppSlug()
+    public void WithAuth_IncludeInstanceFalse_OmitsInstance()
     {
         var builder = DistributedApplication.CreateBuilder();
-        var entra = builder.AddAuthProvider("entra").Entra();
-        var web = entra.AddAppRegistration("web", "Web");
-        var api = entra.AddAppRegistration("api", "Api");
+        var tenant = builder.AddParameter("t", "t");
+        var entra = builder.AddAuthProvider("entra").Entra(o => o.TenantId = tenant);
+        var spa = entra.AddAppRegistration("spa", "Spa");
 
-        Assert.Equal("AUTH_ENTRA_WEB", web.Resource.DefaultEnvPrefix);
-        Assert.Equal("AUTH_ENTRA_API", api.Resource.DefaultEnvPrefix);
+        var ops = builder.AddContainer("ops", "mcr.microsoft.com/dotnet/runtime", "10.0");
+        ops.WithAuth(spa, env =>
+        {
+            env.IncludeInstance = false;
+            env.Map(AuthOutput.TenantId, "VITE_ENTRA_TENANT_ID");
+            env.Map(AuthOutput.ClientId, "VITE_ENTRA_CLIENT_ID");
+        });
+
+        Assert.Equal(2, ops.Resource.Annotations.OfType<EnvironmentCallbackAnnotation>().Count());
+    }
+
+    [Fact]
+    public void EntraAuthEnvOptions_Map_OverridesNames()
+    {
+        var options = new EntraAuthEnvOptions();
+        options.Map(AuthOutput.ClientId, "MY_CLIENT_ID");
+        Assert.Equal("MY_CLIENT_ID", options.ResolveName(AuthOutput.ClientId));
+        Assert.Equal("AzureAd__TenantId", options.ResolveName(AuthOutput.TenantId));
     }
 
     [Fact]
@@ -256,7 +262,7 @@ public class AuthProviderApiTests
 
         var steps = new List<PipelineStep>();
         foreach (var resource in builder.Resources.Where(static r =>
-                     r is AuthOpsResource or AuthOpsResourceBase or AuthAppResource))
+                     r is AuthOpsResource or AuthOpsResourceBase or EntraAuthAppRegistrationResource))
         {
             foreach (var annotation in resource.Annotations.OfType<PipelineStepAnnotation>())
             {

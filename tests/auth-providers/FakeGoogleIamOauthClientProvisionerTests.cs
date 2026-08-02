@@ -12,7 +12,7 @@ public class FakeGoogleIamOauthClientProvisionerTests
         {
             ProjectIdParameter = CreateParameter("project", "proj-1")
         };
-        var app = new AuthAppResource("web", provider, "Web")
+        var app = new GoogleAuthAppRegistrationResource("web", provider, "Web")
         {
             TenantIdParameter = provider.ProjectIdParameter,
             ClientIdParameter = CreateParameter("client", "bound-client-id")
@@ -38,7 +38,7 @@ public class FakeGoogleIamOauthClientProvisionerTests
         {
             ProjectIdParameter = CreateParameter("project", "proj-1")
         };
-        var app = new AuthAppResource("spa", provider, "Spa")
+        var app = new GoogleAuthAppRegistrationResource("spa", provider, "Spa")
         {
             TenantIdParameter = provider.ProjectIdParameter,
             ClientIdParameter = CreateParameter("client", GoogleOauthClientParameterPrompt.CreateSentinel)
@@ -58,7 +58,7 @@ public class FakeGoogleIamOauthClientProvisionerTests
         {
             ProjectIdParameter = CreateParameter("project", "proj-1")
         };
-        var app = new AuthAppResource("spa", provider, "Spa")
+        var app = new GoogleAuthAppRegistrationResource("spa", provider, "Spa")
         {
             TenantIdParameter = provider.ProjectIdParameter,
             ClientIdParameter = new ParameterResource("client", _ => throw new InvalidOperationException("unset"), secret: false)

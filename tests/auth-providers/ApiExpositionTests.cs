@@ -116,6 +116,12 @@ public class ApiExpositionTests
 
         var permission = Assert.Single(web.Resource.Annotations.OfType<ApiPermissionAnnotation>());
         Assert.Same(scope!.Resource, permission.Exposition);
+        Assert.Equal("web-apiperm-s", permission.PermissionResource.Name);
+        Assert.Same(web.Resource, permission.PermissionResource.Parent);
+        Assert.Contains(
+            permission.PermissionResource.Annotations.OfType<ResourceRelationshipAnnotation>(),
+            a => a.Type == "Parent" && ReferenceEquals(a.Resource, web.Resource));
+        Assert.Contains(builder.Resources, r => ReferenceEquals(r, permission.PermissionResource));
     }
 
     [Fact]
@@ -135,6 +141,11 @@ public class ApiExpositionTests
         Assert.Equal(MicrosoftGraph.AppId, wellKnown[0].Permission.ResourceAppId);
         Assert.Equal("User.Read.All", wellKnown[1].Permission.Value);
         Assert.Equal("Role", wellKnown[1].Permission.Type);
+        Assert.Equal("web-apiperm-user-read", wellKnown[0].PermissionResource.Name);
+        Assert.Equal("web-apiperm-user-read-all", wellKnown[1].PermissionResource.Name);
+        Assert.Same(web.Resource, wellKnown[0].PermissionResource.Parent);
+        Assert.Contains(builder.Resources, r => ReferenceEquals(r, wellKnown[0].PermissionResource));
+        Assert.Contains(builder.Resources, r => ReferenceEquals(r, wellKnown[1].PermissionResource));
     }
 
     [Fact]

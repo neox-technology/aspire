@@ -17,15 +17,19 @@
 
   <ItemGroup>
     <Compile Remove="sample-apphost/**" />
+    <Compile Remove="sample-api/**" />
     <Compile Remove="sample-blazor/**" />
     <Compile Remove="sample-ops/**" />
     <Content Remove="sample-apphost/**" />
+    <Content Remove="sample-api/**" />
     <Content Remove="sample-blazor/**" />
     <Content Remove="sample-ops/**" />
     <None Remove="sample-apphost/**" />
+    <None Remove="sample-api/**" />
     <None Remove="sample-blazor/**" />
     <None Remove="sample-ops/**" />
     <None Include="sample-apphost/**" />
+    <None Include="sample-api/**" />
     <None Include="sample-blazor/**" />
     <None Include="sample-ops/**" />
   </ItemGroup>

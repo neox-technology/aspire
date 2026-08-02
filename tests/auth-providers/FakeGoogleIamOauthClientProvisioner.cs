@@ -4,7 +4,7 @@ internal sealed class FakeGoogleIamOauthClientProvisioner : IGoogleIamOauthClien
 {
     public GoogleOauthClientPlan? LastPlan { get; private set; }
 
-    public async Task<GoogleOauthClientPlan> PlanAsync(AuthAppResource app, CancellationToken cancellationToken)
+    public async Task<GoogleOauthClientPlan> PlanAsync(GoogleAuthAppRegistrationResource app, CancellationToken cancellationToken)
     {
         string? clientId = null;
         try
@@ -37,7 +37,7 @@ internal sealed class FakeGoogleIamOauthClientProvisioner : IGoogleIamOauthClien
     }
 
     public Task<GoogleProvisionResult> ProvisionAsync(
-        AuthAppResource app,
+        GoogleAuthAppRegistrationResource app,
         GoogleOauthClientPlan plan,
         CancellationToken cancellationToken)
     {

@@ -25,7 +25,11 @@ public static class EntraAuthProviderBuilderExtensions
         var applicationBuilder = builder.ApplicationBuilder;
         var name = builder.Name;
 
+        applicationBuilder.AddEntraAuthDashboardServices();
+
         var authOps = AuthOpsExtensions.EnsureAuthOpsResource(applicationBuilder);
+        // Entra owns dashboard status for auth-ops; start Waiting until probes run.
+        authOps.WithInitialState(AuthDashboardSnapshots.Waiting("AuthOps"));
 
         var resource = new EntraAuthOpsResource(name, authOps.Resource)
         {
@@ -46,12 +50,7 @@ public static class EntraAuthProviderBuilderExtensions
         var providerBuilder = applicationBuilder.AddResource(resource)
             .ExcludeFromManifest()
             .WithParentRelationship(authOps)
-            .WithInitialState(new CustomResourceSnapshot
-            {
-                ResourceType = "AuthProvider",
-                State = KnownResourceStates.Running,
-                Properties = []
-            });
+            .WithInitialState(AuthDashboardSnapshots.Waiting("AuthProvider"));
 
         tenantParam.WithParentRelationship(providerBuilder);
 

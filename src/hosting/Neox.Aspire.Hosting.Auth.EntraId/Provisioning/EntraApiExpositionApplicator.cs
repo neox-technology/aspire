@@ -8,7 +8,7 @@ namespace Neox.Aspire.Hosting.Auth;
 /// </summary>
 internal static class EntraApiExpositionApplicator
 {
-    public static IReadOnlyList<AuthDesiredIdentifierUri> CollectDesiredIdentifierUris(AuthAppResource app)
+    public static IReadOnlyList<AuthDesiredIdentifierUri> CollectDesiredIdentifierUris(EntraAuthAppRegistrationResource app)
     {
         ArgumentNullException.ThrowIfNull(app);
 
@@ -33,7 +33,7 @@ internal static class EntraApiExpositionApplicator
             .ToList();
     }
 
-    public static IReadOnlyList<AuthDesiredOauth2PermissionScope> CollectDesiredScopes(AuthAppResource app)
+    public static IReadOnlyList<AuthDesiredOauth2PermissionScope> CollectDesiredScopes(EntraAuthAppRegistrationResource app)
     {
         ArgumentNullException.ThrowIfNull(app);
 
@@ -53,7 +53,7 @@ internal static class EntraApiExpositionApplicator
             .ToList();
     }
 
-    public static IReadOnlyList<AuthDesiredAppRole> CollectDesiredAppRoles(AuthAppResource app)
+    public static IReadOnlyList<AuthDesiredAppRole> CollectDesiredAppRoles(EntraAuthAppRegistrationResource app)
     {
         ArgumentNullException.ThrowIfNull(app);
 

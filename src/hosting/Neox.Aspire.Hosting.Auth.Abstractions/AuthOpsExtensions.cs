@@ -7,7 +7,7 @@ using Aspire.Hosting.Pipelines;
 namespace Neox.Aspire.Hosting.Auth;
 
 /// <summary>
-/// AuthOps binding and shared helpers (<c>WithAuth</c>, plan/provision/prereq step names, gates).
+/// AuthOps shared helpers (plan/provision/prereq step names, gates). Provider packages own <c>WithAuth</c>.
 /// </summary>
 public static class AuthOpsExtensions
 {
@@ -56,57 +56,6 @@ public static class AuthOpsExtensions
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(appName);
         return $"provision-{appName}-auth";
-    }
-
-    /// <summary>
-    /// Injects generic <c>AUTH_*</c> environment variables from an Auth app's workload parameters.
-    /// </summary>
-    public static IResourceBuilder<T> WithAuth<T>(
-        this IResourceBuilder<T> builder,
-        IResourceBuilder<AuthAppResource> authApp,
-        Action<AuthEnvOptions>? configure = null)
-        where T : IResourceWithEnvironment
-    {
-        ArgumentNullException.ThrowIfNull(builder);
-        ArgumentNullException.ThrowIfNull(authApp);
-        return WithAuth(builder, authApp.Resource, configure);
-    }
-
-    /// <summary>
-    /// Injects generic <c>AUTH_*</c> environment variables from an Auth app's workload parameters.
-    /// </summary>
-    public static IResourceBuilder<T> WithAuth<T>(
-        this IResourceBuilder<T> builder,
-        AuthAppResource authApp,
-        Action<AuthEnvOptions>? configure = null)
-        where T : IResourceWithEnvironment
-    {
-        ArgumentNullException.ThrowIfNull(builder);
-        ArgumentNullException.ThrowIfNull(authApp);
-
-        var envOptions = new AuthEnvOptions();
-        configure?.Invoke(envOptions);
-        var prefix = string.IsNullOrWhiteSpace(envOptions.Prefix)
-            ? authApp.DefaultEnvPrefix
-            : envOptions.Prefix!;
-
-        builder.WithEnvironment(envOptions.ResolveName(AuthOutput.TenantId, prefix), authApp.TenantIdParameter);
-        builder.WithEnvironment(envOptions.ResolveName(AuthOutput.ClientId, prefix), authApp.ClientIdParameter);
-
-        if (envOptions.IncludeClientSecret == true)
-        {
-            builder.WithEnvironment(
-                envOptions.ResolveName(AuthOutput.ClientSecret, prefix),
-                authApp.ClientSecretParameter);
-        }
-
-        if (envOptions.IncludeAuthority && authApp.Provider.AuthorityExpression is { } authority)
-        {
-            var authorityName = envOptions.ResolveName(AuthOutput.Authority, prefix);
-            builder.WithEnvironment(authorityName, authority(authApp.TenantIdParameter));
-        }
-
-        return builder;
     }
 
     internal static IResourceBuilder<AuthOpsResource> EnsureAuthOpsResource(

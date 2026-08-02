@@ -3,7 +3,7 @@ using Aspire.Hosting.ApplicationModel;
 namespace Neox.Aspire.Hosting.Auth;
 
 /// <summary>
-/// Desired Entra supported account types for an <see cref="AuthAppResource"/>.
+/// Desired Entra supported account types for an <see cref="EntraAuthAppRegistrationResource"/>.
 /// </summary>
 public sealed class SupportedAccountsAnnotation(SupportedAccountsType supportedAccounts) : IResourceAnnotation
 {
