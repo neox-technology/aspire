@@ -18,6 +18,12 @@ internal sealed class EntraAuthAppProbeResult
     public IReadOnlySet<string> AppRoleValues { get; init; } =
         new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Redirect URIs extracted from Graph Web / Spa / PublicClient when the app exists;
+    /// empty otherwise.
+    /// </summary>
+    public IReadOnlyList<AuthDesiredRedirectUri> RedirectUris { get; init; } = [];
+
     public static EntraAuthAppProbeResult Missing() => new() { Exists = false };
 
     public static EntraAuthAppProbeResult Failed(string error) =>

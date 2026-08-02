@@ -23,7 +23,7 @@ Consumers reference a provider package (EntraId or Google), which pulls Abstract
 - App registration configuration uses **`AddAppRegistration(name, displayName)`** plus `WithXxx` methods (no options bag). Abstractions redirects are a flat list; Entra typed overloads map to Graph Web/Spa/Native buckets (`AuthApplicationType.Api` ignored). Supported account types: `WithSupportedAccounts(SupportedAccountsType)` → Graph `signInAudience` (default single-tenant). API exposition: `WithApiExposition` / `WithAppRoleExposition` → Graph `identifierUris`, `oauth2PermissionScopes`, `appRoles`; consume via `WithApiPermission` → Graph `requiredResourceAccess`. Well-known Microsoft Graph permissions: see [`auth-entra-graph-permissions`](auth-entra-graph-permissions.md).
 - `WithAuth` is **provider-scoped** and typed to the concrete registration resource (`EntraAuthAppRegistrationResource`, `GoogleAuthAppRegistrationResource`).
 - **Entra client secret:** `WithClientSecret(param?)` opts into workload secret bind + UI create. Adds a dashboard child resource `{app}-clientsecret` (`EntraClientSecretResource`) with command `create-client-secret`. Optional `param` overrides the auto `{provider}-{app}-client-secret`; omit to keep the auto secret parameter (parented under the child resource). Pipeline never calls Graph `addPassword` — it only resolves the parameter value in memory for env. AppHost run mode: when the `{app}-clientsecret` resource is Waiting (parent Healthy, secret empty), a dashboard notification invites create (retries until `IInteractionService` is available); prompt asks for secret **name** + **lifetime** (6/12/24 months); Graph `addPassword` sets `EndDateTime`; one-shot value persisted via `AuthParameterValue` (`Parameters:{name}`).
-- **Dashboard status (Entra):** AuthOps resources publish `Waiting` or `Running` + `HealthStatus` (`Healthy` / `Unhealthy`) via `ResourceNotificationService`. Leaf existence is probed with Microsoft Graph; parents aggregate children with **worst-wins** (Unhealthy > Waiting > Healthy). Google resources stay static `Running` (no dashboard probe in this revision). App registrations expose a dashboard `WithCommand` that runs plan + provision.
+- **Dashboard status (Entra):** AuthOps resources publish `Waiting` or `Running` + `HealthStatus` (`Healthy` / `Unhealthy`) via `ResourceNotificationService`. Leaf existence is probed with Microsoft Graph (including redirect URI buckets); parents aggregate children with **worst-wins** (Unhealthy > Waiting > Healthy). App registrations are Unhealthy when Graph redirect URIs differ from desired-state. Google resources stay static `Running` (no dashboard probe in this revision). App registrations expose a dashboard `WithCommand` that runs plan + provision.
 
 ## User scenarios
 
@@ -98,6 +98,7 @@ Consumers reference a provider package (EntraId or Google), which pulls Abstract
 - [x] `{app}-clientsecret` publishes Waiting/Healthy independently (missing secret does not Unhealthy the Auth app).
 - [x] Unit tests cover annotation / child resource hierarchy / WithAuth emit, fake `addPassword` + `EndDateTime`, lifetime preset mapping, pipeline non-invocation, and persistence section key.
 - [x] `WithLocalhostRedirectUri` / `WithRedirectUri` accumulate desired redirect URIs on the registration resource.
+- [x] `WithLocalhostRedirectUri` accepts `LocalhostRedirectScheme` (`Https` default, `Http`, `Both`); `Both` registers http and https for the same port/path.
 - [x] Unit tests cover redirect URI accumulation, localhost defaults, parameter+path, validation, and Graph redirect apply helpers.
 - [x] `plan-{app}-auth` / `provision-{app}-auth` resolve redirect URIs and apply them on Graph create; adopt plans `UpdateRedirectUris` when Web/Spa/Native buckets differ (`AuthApplicationType.Api` entries are ignored for Graph).
 - [x] Pipeline steps match **Pipeline step contracts** below; tags include `auth-ops`; `deploy-auth` is required by Aspire `deploy`.
@@ -121,7 +122,8 @@ Consumers reference a provider package (EntraId or Google), which pulls Abstract
 - [x] Entra AuthOps resources (`auth-ops` when Entra is registered, Entra provider, Entra app registrations, `AuthApiScope`, `AuthAppRole`) use initial dashboard state `Waiting` (not static `Running`).
 - [x] Entra dashboard lifecycle publishes `Waiting` or `Running` + `HealthStatus` Healthy/Unhealthy via `ResourceNotificationService` (Graph read probes; no mutating writes on refresh).
 - [x] `AuthApiScope` / `AuthAppRole`: `Waiting` while parent app is not Running+Healthy; otherwise Healthy when the matching Graph scope/app role `value` exists, Unhealthy when missing or Graph probe fails.
-- [x] `EntraAuthAppRegistrationResource`: `Waiting` when ClientId is unset / create sentinel; otherwise Healthy when the app exists in Graph and child expositions aggregate Healthy; Unhealthy when the app is missing, Graph fails, or a child is Unhealthy; `Waiting` when a child is Waiting (worst-wins).
+- [x] `EntraAuthAppRegistrationResource`: `Waiting` when ClientId is unset / create sentinel, or a redirect URI parameter is unresolved; otherwise Healthy when the app exists in Graph, redirect URIs match desired (`EntraRedirectUriApplicator.Differ`), and child expositions aggregate Healthy; Unhealthy when the app is missing, Graph fails, redirect URIs differ from Graph, or a child is Unhealthy; `Waiting` when a child is Waiting (worst-wins). Exposition children stay gated on Graph existence (not redirect mismatch).
+- [x] Dashboard probe selects Graph `web` / `spa` / `publicClient` and compares redirect desired-state with the same `Differ` helper as plan/provision.
 - [x] `EntraAuthOpsResource`: `Waiting` when TenantId is unset; otherwise aggregates child app registrations with worst-wins (no Auth children + tenant set → Healthy).
 - [x] `AuthOpsResource` (with Entra): aggregates Entra provider resources with worst-wins.
 - [x] Worst-wins aggregation (Auth children only, not parameters): Unhealthy > Waiting > Healthy.
@@ -143,7 +145,7 @@ See [`domain-glossary`](domain-glossary.md). Feature-local API names below until
 | Namespace (both) | `Neox.Aspire.Hosting.Auth` |
 | Product vocabulary | AuthOps |
 | Provider API | `AddAuthProvider`, `AuthOpsResourceBase`, `.Entra(...)` → `EntraAuthOpsResource` (EntraId) |
-| App API | `AddAppRegistration(name, displayName)`, abstract `AuthAppRegistrationResource`, `EntraAuthAppRegistrationResource`, `WithRedirectUri` / `WithLocalhostRedirectUri`, `WithSupportedAccounts`, `WithApiExposition` / `WithAppRoleExposition` / `WithApiPermission`, Entra `WithClientSecret(param?)` |
+| App API | `AddAppRegistration(name, displayName)`, abstract `AuthAppRegistrationResource`, `EntraAuthAppRegistrationResource`, `WithRedirectUri` / `WithLocalhostRedirectUri` (`LocalhostRedirectScheme`), `WithSupportedAccounts`, `WithApiExposition` / `WithAppRoleExposition` / `WithApiPermission`, Entra `WithClientSecret(param?)` |
 | Binding API | Entra `WithAuth` → `AzureAd__*` (Identity.Web); Google `WithAuth` → `AUTH_GOOGLE_*` |
 | Provisioner | `EntraGraphAppProvisioner` (`PlanAsync` / `ProvisionAsync` / `AddPasswordCredentialAsync`) in EntraId |
 | Unit tests | `tests/auth-providers/` |
@@ -249,7 +251,7 @@ src/hosting/Neox.Aspire.Hosting.Auth.EntraId/
 | Resource | Waiting | Running + Healthy | Running + Unhealthy |
 |----------|---------|-------------------|---------------------|
 | `AuthApiScope` / `AuthAppRole` | Default; parent app not Running+Healthy | Scope/role `value` present on Graph app | Parent Healthy but entry missing / Graph error |
-| `EntraAuthAppRegistration` | ClientId unset / create sentinel | App exists in Graph **and** children aggregate Healthy | App missing / Graph error / child Unhealthy; child Waiting → Waiting |
+| `EntraAuthAppRegistration` | ClientId unset / create sentinel; redirect URI parameter unresolved | App exists in Graph, redirect URIs match desired, **and** children aggregate Healthy | App missing / Graph error / redirect URIs differ / child Unhealthy; child Waiting → Waiting |
 | `EntraAuthOpsResource` | TenantId unset | Children apps aggregate Healthy | Worst-wins children |
 | `AuthOpsResource` | Providers aggregate Waiting | Providers aggregate Healthy | Worst-wins Entra providers |
 

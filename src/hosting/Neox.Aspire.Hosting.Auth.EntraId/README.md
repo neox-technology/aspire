@@ -12,7 +12,7 @@ var entra = builder.AddAuthProvider("auth-provider-entra")
 
 var web = entra.AddAppRegistration("web", "MyApp-Local")
     .WithClientSecret() // opt-in: emit AzureAd__ClientSecret + UI create when app exists
-    .WithLocalhostRedirectUri(AuthApplicationType.Web, 7281, "/signin-oidc")
+    .WithLocalhostRedirectUri(AuthApplicationType.Web, 7281, "/signin-oidc") // scheme: Https default; use Both for http+https
     .WithSupportedAccounts(SupportedAccountsType.SingleTenant);
 
 builder.AddProject<Projects.Api>("api")

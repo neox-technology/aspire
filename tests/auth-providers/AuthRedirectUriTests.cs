@@ -52,6 +52,40 @@ public sealed class AuthRedirectUriTests
     }
 
     [Fact]
+    public void WithLocalhostRedirectUri_HttpScheme()
+    {
+        var (_, web) = CreateApp();
+
+        web.WithLocalhostRedirectUri(7281, "/callback", LocalhostRedirectScheme.Http);
+
+        var entry = Assert.Single(web.Resource.RedirectUris);
+        Assert.Equal("http://localhost:7281/callback", entry.Literal);
+    }
+
+    [Fact]
+    public void WithLocalhostRedirectUri_HttpsScheme_Explicit()
+    {
+        var (_, web) = CreateApp();
+
+        web.WithLocalhostRedirectUri(scheme: LocalhostRedirectScheme.Https);
+
+        var entry = Assert.Single(web.Resource.RedirectUris);
+        Assert.Equal("https://localhost", entry.Literal);
+    }
+
+    [Fact]
+    public void WithLocalhostRedirectUri_BothSchemes()
+    {
+        var (_, web) = CreateApp();
+
+        web.WithLocalhostRedirectUri(7281, "signin-oidc", LocalhostRedirectScheme.Both);
+
+        Assert.Equal(2, web.Resource.RedirectUris.Count);
+        Assert.Equal("http://localhost:7281/signin-oidc", web.Resource.RedirectUris[0].Literal);
+        Assert.Equal("https://localhost:7281/signin-oidc", web.Resource.RedirectUris[1].Literal);
+    }
+
+    [Fact]
     public void WithRedirectUri_Literal_StoresAbsoluteUri()
     {
         var (_, web) = CreateApp();
@@ -112,6 +146,24 @@ public sealed class AuthRedirectUriTests
         Assert.Equal(AuthApplicationType.Web, typed.Entries[0].Type);
         Assert.Equal(AuthApplicationType.Spa, typed.Entries[1].Type);
         Assert.Equal(AuthApplicationType.Native, typed.Entries[2].Type);
+    }
+
+    [Fact]
+    public void Entra_TypedLocalhost_BothSchemes_RecordTwoPlatformEntries()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var entra = builder.AddAuthProvider("provider").Entra();
+        var web = entra.AddAppRegistration("web", "Web");
+
+        web.WithLocalhostRedirectUri(AuthApplicationType.Spa, 5173, path: null, LocalhostRedirectScheme.Both);
+
+        Assert.Equal(2, web.Resource.RedirectUris.Count);
+        Assert.Equal("http://localhost:5173", web.Resource.RedirectUris[0].Literal);
+        Assert.Equal("https://localhost:5173", web.Resource.RedirectUris[1].Literal);
+
+        var typed = Assert.Single(web.Resource.Annotations.OfType<EntraRedirectUrisAnnotation>());
+        Assert.Equal(2, typed.Entries.Count);
+        Assert.All(typed.Entries, e => Assert.Equal(AuthApplicationType.Spa, e.Type));
     }
 
     [Theory]

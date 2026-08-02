@@ -10,32 +10,27 @@ namespace Neox.Aspire.Hosting.Auth;
 public static class AuthAppRegistrationResourceExtensions
 {
     /// <summary>
-    /// Adds a localhost redirect URI (<c>https://localhost</c>, optional port and path).
+    /// Adds one or more localhost redirect URIs (<c>http</c> and/or <c>https</c>, optional port and path).
     /// </summary>
+    /// <param name="builder">Auth app registration builder.</param>
+    /// <param name="port">Optional localhost port (1–65535).</param>
+    /// <param name="path">Optional path (leading <c>/</c> normalized).</param>
+    /// <param name="scheme">URI scheme(s); defaults to <see cref="LocalhostRedirectScheme.Https"/>.</param>
     public static IResourceBuilder<T> WithLocalhostRedirectUri<T>(
         this IResourceBuilder<T> builder,
         int? port = null,
-        string? path = null)
+        string? path = null,
+        LocalhostRedirectScheme scheme = LocalhostRedirectScheme.Https)
         where T : AuthAppRegistrationResource
     {
         ArgumentNullException.ThrowIfNull(builder);
 
-        if (port is < 1 or > 65535)
+        foreach (var uri in BuildLocalhostUris(port, path, scheme))
         {
-            throw new ArgumentOutOfRangeException(nameof(port), port, "Port must be between 1 and 65535 when specified.");
+            WithRedirectUri(builder, uri);
         }
 
-        var uri = port is null
-            ? "https://localhost"
-            : $"https://localhost:{port.Value}";
-
-        var normalizedPath = NormalizePath(path);
-        if (normalizedPath is not null)
-        {
-            uri += normalizedPath;
-        }
-
-        return WithRedirectUri(builder, uri);
+        return builder;
     }
 
     /// <summary>
@@ -77,6 +72,46 @@ public static class AuthAppRegistrationResourceExtensions
         builder.Resource.AddRedirectUri(
             AuthRedirectUri.FromParameter(uri.Resource, NormalizePath(path)));
         return builder;
+    }
+
+    /// <summary>
+    /// Builds localhost redirect URI literals for the given port, path, and scheme.
+    /// </summary>
+    internal static IReadOnlyList<string> BuildLocalhostUris(
+        int? port,
+        string? path,
+        LocalhostRedirectScheme scheme)
+    {
+        if (port is < 1 or > 65535)
+        {
+            throw new ArgumentOutOfRangeException(nameof(port), port, "Port must be between 1 and 65535 when specified.");
+        }
+
+        var schemes = scheme switch
+        {
+            LocalhostRedirectScheme.Https => new[] { Uri.UriSchemeHttps },
+            LocalhostRedirectScheme.Http => new[] { Uri.UriSchemeHttp },
+            LocalhostRedirectScheme.Both => new[] { Uri.UriSchemeHttp, Uri.UriSchemeHttps },
+            _ => throw new ArgumentOutOfRangeException(nameof(scheme), scheme, "Unknown localhost redirect scheme.")
+        };
+
+        var normalizedPath = NormalizePath(path);
+        var uris = new string[schemes.Length];
+        for (var i = 0; i < schemes.Length; i++)
+        {
+            var uri = port is null
+                ? $"{schemes[i]}://localhost"
+                : $"{schemes[i]}://localhost:{port.Value}";
+
+            if (normalizedPath is not null)
+            {
+                uri += normalizedPath;
+            }
+
+            uris[i] = uri;
+        }
+
+        return uris;
     }
 
     /// <summary>

@@ -41,7 +41,7 @@ var webAuth = entra.AddAppRegistration("appregistration-web", "AuthSample-Blazor
 // SPA is a public client.
 var spaAuth = entra.AddAppRegistration("appregistration-spa", "AuthSample-Ops")
     .WithClientSecret()
-    .WithLocalhostRedirectUri(AuthApplicationType.Spa)
+    .WithLocalhostRedirectUri(AuthApplicationType.Spa, scheme: LocalhostRedirectScheme.Http)
     .WithApiPermission(accessAsUser!);
 
 // HTTP workloads must be Container Apps (not Jobs): Jobs have no ingress, so

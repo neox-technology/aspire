@@ -229,19 +229,56 @@ internal sealed class EntraAuthDashboardStatusService
         services.GetService<EntraClientSecretNotificationCoordinator>()
             ?.TryNotify(services, app, probeResult, cancellationToken);
 
-        var ownStatus = probeResult.Exists && probeResult.Error is null
+        var graphExists = probeResult.Exists && probeResult.Error is null;
+        var ownStatus = graphExists
             ? AuthDashboardStatus.Healthy
             : AuthDashboardStatus.Unhealthy;
+        string? ownDescription = graphExists
+            ? $"App '{clientId}' found in Graph."
+            : probeResult.Error ?? $"App '{clientId}' not found in Graph.";
+
+        if (graphExists)
+        {
+            IReadOnlyList<AuthDesiredRedirectUri> desiredRedirects;
+            try
+            {
+                desiredRedirects = await EntraRedirectUriApplicator.ResolveAsync(app, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger?.LogDebug(
+                    ex,
+                    "Entra AuthOps redirect URI resolve pending for app '{App}'.",
+                    app.Name);
+
+                await PublishWaitingTreeAsync(
+                        notifications,
+                        app,
+                        $"Waiting for redirect URI parameter: {ex.Message}",
+                        cancellationToken)
+                    .ConfigureAwait(false);
+
+                return AuthDashboardStatus.Waiting;
+            }
+
+            if (EntraRedirectUriApplicator.Differ(desiredRedirects, probeResult.RedirectUris))
+            {
+                ownStatus = AuthDashboardStatus.Unhealthy;
+                ownDescription = "Redirect URIs differ from Graph.";
+            }
+        }
 
         var childStatuses = new List<AuthDashboardStatus>(expositions.Count);
-        var parentHealthy = ownStatus == AuthDashboardStatus.Healthy;
+        // Gate expositions on Graph existence only — redirect mismatch must not force children Waiting.
+        var parentExists = graphExists;
 
         foreach (var exposition in expositions)
         {
             AuthDashboardStatus childStatus;
             string description;
 
-            if (!parentHealthy)
+            if (!parentExists)
             {
                 childStatus = AuthDashboardStatus.Waiting;
                 description = probeResult.Error is not null
@@ -286,27 +323,23 @@ internal sealed class EntraAuthDashboardStatusService
                 services,
                 notifications,
                 app,
-                parentHealthy,
+                parentHealthy: parentExists,
                 waitingForClientId: false,
                 applicationObjectId: probeResult.ObjectId,
                 cancellationToken)
             .ConfigureAwait(false);
 
-        // App status: own existence + children (worst-wins). Missing app is Unhealthy even if no children.
+        // App status: own existence + redirect match + children (worst-wins).
         var aggregatedChildren = AuthStatusAggregator.WorstWins(
             childStatuses,
             whenEmpty: AuthDashboardStatus.Healthy);
         var appStatus = AuthStatusAggregator.WorstWins([ownStatus, aggregatedChildren]);
 
-        var appDescription = ownStatus == AuthDashboardStatus.Healthy
-            ? $"App '{clientId}' found in Graph."
-            : probeResult.Error ?? $"App '{clientId}' not found in Graph.";
-
         await AuthDashboardStatusPublisher.PublishAsync(
                 notifications,
                 app,
                 appStatus,
-                description: appDescription,
+                description: ownDescription,
                 cancellationToken)
             .ConfigureAwait(false);
 

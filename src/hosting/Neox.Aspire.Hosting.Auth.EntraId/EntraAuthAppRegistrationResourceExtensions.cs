@@ -67,33 +67,29 @@ public static class EntraAuthAppRegistrationResourceExtensions
     }
 
     /// <summary>
-    /// Adds a localhost redirect URI into the Entra Graph platform bucket
+    /// Adds one or more localhost redirect URIs into the Entra Graph platform bucket
     /// (<see cref="AuthApplicationType"/>).
     /// </summary>
+    /// <param name="builder">Entra Auth app registration builder.</param>
+    /// <param name="redirectUriType">Graph platform bucket (Web / Spa / Native).</param>
+    /// <param name="port">Optional localhost port (1–65535).</param>
+    /// <param name="path">Optional path (leading <c>/</c> normalized).</param>
+    /// <param name="scheme">URI scheme(s); defaults to <see cref="LocalhostRedirectScheme.Https"/>.</param>
     public static IResourceBuilder<EntraAuthAppRegistrationResource> WithLocalhostRedirectUri(
         this IResourceBuilder<EntraAuthAppRegistrationResource> builder,
         AuthApplicationType redirectUriType,
         int? port = null,
-        string? path = null)
+        string? path = null,
+        LocalhostRedirectScheme scheme = LocalhostRedirectScheme.Https)
     {
         ArgumentNullException.ThrowIfNull(builder);
 
-        if (port is < 1 or > 65535)
+        foreach (var uri in AuthAppRegistrationResourceExtensions.BuildLocalhostUris(port, path, scheme))
         {
-            throw new ArgumentOutOfRangeException(nameof(port), port, "Port must be between 1 and 65535 when specified.");
+            WithRedirectUri(builder, redirectUriType, uri);
         }
 
-        var uri = port is null
-            ? "https://localhost"
-            : $"https://localhost:{port.Value}";
-
-        var normalizedPath = AuthAppRegistrationResourceExtensions.NormalizePath(path);
-        if (normalizedPath is not null)
-        {
-            uri += normalizedPath;
-        }
-
-        return WithRedirectUri(builder, redirectUriType, uri);
+        return builder;
     }
 
     /// <summary>

@@ -207,6 +207,130 @@ public class EntraAuthDashboardStatusTests
         Assert.Equal(HealthStatus.Unhealthy, appEvent.Snapshot.HealthStatus);
     }
 
+    [Fact]
+    public async Task StatusService_RedirectUrisMatch_AppHealthy()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var entra = builder.AddAuthProvider("provider-entra").Entra();
+        var web = entra.AddAppRegistration("web", "Web")
+            .WithLocalhostRedirectUri(AuthApplicationType.Web, 7281, "/signin-oidc");
+
+        var probe = new FakeEntraAuthHealthProbe
+        {
+            Results =
+            {
+                ["client-1"] = new EntraAuthAppProbeResult
+                {
+                    Exists = true,
+                    RedirectUris =
+                    [
+                        new AuthDesiredRedirectUri
+                        {
+                            Type = AuthApplicationType.Web,
+                            Uri = "https://localhost:7281/signin-oidc"
+                        }
+                    ]
+                }
+            }
+        };
+
+        await using var services = CreateStatusHost(builder.Resources, probe);
+        await AuthParameterValue.SetAsync(
+            services, entra.Resource.Resource.TenantIdParameter, "tenant-1", CancellationToken.None);
+        await AuthParameterValue.SetAsync(
+            services, web.Resource.ClientIdParameter, "client-1", CancellationToken.None);
+
+        var statusService = services.GetRequiredService<EntraAuthDashboardStatusService>();
+        var model = services.GetRequiredService<DistributedApplicationModel>();
+        await statusService.RefreshAsync(services, model, CancellationToken.None);
+
+        var notifications = services.GetRequiredService<ResourceNotificationService>();
+        Assert.True(notifications.TryGetCurrentState(web.Resource.Name, out var appEvent));
+        Assert.Equal(HealthStatus.Healthy, appEvent.Snapshot.HealthStatus);
+    }
+
+    [Fact]
+    public async Task StatusService_RedirectUrisMismatch_AppUnhealthy_ScopeStillHealthy()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var entra = builder.AddAuthProvider("provider-entra").Entra();
+        IResourceBuilder<ScopeApiExposition>? scope = null;
+        var api = entra.AddAppRegistration("api", "Api")
+            .WithLocalhostRedirectUri(AuthApplicationType.Web, 7281, "/signin-oidc")
+            .WithApiExposition(a =>
+            {
+                scope = a.AddScopeWithAdminConsent("access_as_user", "Access", "Desc");
+            });
+
+        var probe = new FakeEntraAuthHealthProbe
+        {
+            Results =
+            {
+                ["client-1"] = new EntraAuthAppProbeResult
+                {
+                    Exists = true,
+                    ScopeValues = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "access_as_user" },
+                    RedirectUris = [] // desired localhost missing in Graph
+                }
+            }
+        };
+
+        await using var services = CreateStatusHost(builder.Resources, probe);
+        await AuthParameterValue.SetAsync(
+            services, entra.Resource.Resource.TenantIdParameter, "tenant-1", CancellationToken.None);
+        await AuthParameterValue.SetAsync(
+            services, api.Resource.ClientIdParameter, "client-1", CancellationToken.None);
+
+        var statusService = services.GetRequiredService<EntraAuthDashboardStatusService>();
+        var model = services.GetRequiredService<DistributedApplicationModel>();
+        await statusService.RefreshAsync(services, model, CancellationToken.None);
+
+        var notifications = services.GetRequiredService<ResourceNotificationService>();
+        Assert.True(notifications.TryGetCurrentState(api.Resource.Name, out var appEvent));
+        Assert.Equal(KnownResourceStates.Running, appEvent.Snapshot.State?.Text);
+        Assert.Equal(HealthStatus.Unhealthy, appEvent.Snapshot.HealthStatus);
+        Assert.Contains(
+            appEvent.Snapshot.HealthReports,
+            r => r.Description == "Redirect URIs differ from Graph.");
+
+        Assert.NotNull(scope);
+        Assert.True(notifications.TryGetCurrentState(scope!.Resource.Name, out var scopeEvent));
+        Assert.Equal(HealthStatus.Healthy, scopeEvent.Snapshot.HealthStatus);
+    }
+
+    [Fact]
+    public async Task StatusService_RedirectUriParameterUnresolved_AppWaiting()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var entra = builder.AddAuthProvider("provider-entra").Entra();
+        var baseUrl = builder.AddParameter("redirect-base");
+        var web = entra.AddAppRegistration("web", "Web")
+            .WithRedirectUri(AuthApplicationType.Web, baseUrl, "/callback");
+
+        var probe = new FakeEntraAuthHealthProbe
+        {
+            Results =
+            {
+                ["client-1"] = new EntraAuthAppProbeResult { Exists = true }
+            }
+        };
+
+        await using var services = CreateStatusHost(builder.Resources, probe);
+        await AuthParameterValue.SetAsync(
+            services, entra.Resource.Resource.TenantIdParameter, "tenant-1", CancellationToken.None);
+        await AuthParameterValue.SetAsync(
+            services, web.Resource.ClientIdParameter, "client-1", CancellationToken.None);
+        // Intentionally do not set redirect-base.
+
+        var statusService = services.GetRequiredService<EntraAuthDashboardStatusService>();
+        var model = services.GetRequiredService<DistributedApplicationModel>();
+        await statusService.RefreshAsync(services, model, CancellationToken.None);
+
+        var notifications = services.GetRequiredService<ResourceNotificationService>();
+        Assert.True(notifications.TryGetCurrentState(web.Resource.Name, out var appEvent));
+        Assert.Equal(KnownResourceStates.Waiting, appEvent.Snapshot.State?.Text);
+    }
+
     private static void AssertWaiting(IResource resource, string resourceType)
     {
         var initial = resource.Annotations.OfType<ResourceSnapshotAnnotation>().LastOrDefault()
