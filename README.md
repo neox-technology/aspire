@@ -86,8 +86,8 @@ Branch model: `feature/*` → `develop`; `release/*` / `hotfix/*` → `main`; `m
 | Push `feature/**` | [`.github/workflows/gitflow-auto-pr.yml`](.github/workflows/gitflow-auto-pr.yml) | Auto-PR → `develop` |
 | Push `release/**` / `hotfix/**` | same | Auto-PR → `main` |
 | Merge `feature/**` → `develop` | [`.github/workflows/gitflow-cleanup-feature.yml`](.github/workflows/gitflow-cleanup-feature.yml) | Delete feature branch |
-| `workflow_dispatch` on `develop` | [`.github/workflows/gitflow-start-release.yml`](.github/workflows/gitflow-start-release.yml) | Cut `release/x.y.z` + PR → `main` |
-| Merge `release/**` / `hotfix/**` → `main` | [`.github/workflows/gitflow-finish.yml`](.github/workflows/gitflow-finish.yml) | Tag `vX.Y.Z`, GitHub Release, sync PR `main` → `develop`, delete branch |
+| `workflow_dispatch` on `develop` | [`.github/workflows/gitflow-start-release.yml`](.github/workflows/gitflow-start-release.yml) | Cut `release/x.y.z` or `release/x.y.z-preview.N` from [`eng/Versions.props`](eng/Versions.props) + PR → `main` |
+| Merge `release/**` / `hotfix/**` → `main` | [`.github/workflows/gitflow-finish.yml`](.github/workflows/gitflow-finish.yml) | Tag `v` + branch version (prerelease if suffix), GitHub Release, sync PR `main` → `develop`, delete branch |
 | PR → `develop` or `main` | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | Build, test, pack (`*-ci` versions); no NuGet push |
 | Push / merge to `main` | [`.github/workflows/publish-nuget.yml`](.github/workflows/publish-nuget.yml) | Pack with `OfficialBuildId` + push to nuget.org |
 
