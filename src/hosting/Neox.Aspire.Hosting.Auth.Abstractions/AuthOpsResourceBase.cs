@@ -5,14 +5,24 @@ namespace Neox.Aspire.Hosting.Auth;
 /// <summary>
 /// Abstract non-container Aspire resource representing an identity <c>provider</c> used by AuthOps.
 /// </summary>
-public abstract class AuthOpsResourceBase : Resource
+public abstract class AuthOpsResourceBase : Resource, IResourceWithParent<AuthOpsResource>
 {
     private readonly List<AuthAppResource> _apps = [];
+    private readonly AuthOpsResource _authOpsParent;
 
-    protected AuthOpsResourceBase(string name)
+    protected AuthOpsResourceBase(string name, AuthOpsResource authOpsParent)
         : base(name)
     {
+        ArgumentNullException.ThrowIfNull(authOpsParent);
+        _authOpsParent = authOpsParent;
     }
+
+    /// <summary>
+    /// Shared AuthOps marker resource (<c>auth-ops</c>) that owns this provider in the dashboard hierarchy.
+    /// </summary>
+    public AuthOpsResource Parent => _authOpsParent;
+
+    IResource IResourceWithParent.Parent => Parent;
 
     /// <summary>
     /// Stable provider slug used in <c>AUTH_{SLUG}_*</c> env vars (e.g. <c>entra</c>).

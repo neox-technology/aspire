@@ -18,11 +18,24 @@ var web = entra.AddAppRegistration("web", "MyApp-Local")
     .WithSupportedAccounts(SupportedAccountsType.SingleTenant); // default; MultiTenant / MultiTenantAndPersonal / PersonalMicrosoftAccount
 // web.WithRedirectUri(AuthApplicationType.Web, "https://contoso.example/signin-oidc");
 // web.WithRedirectUri(AuthApplicationType.Spa, builder.AddParameter("public-base-url"), "/");
-// Future: web.WithApplicationType(...);
+
+// Expose an API (Application ID URI defaults to api://{ClientId}) + consume from another Auth app:
+// IResourceBuilder<ScopeApiExposition>? accessAsUser = null;
+// var api = entra.AddAppRegistration("api", "MyApi-Local")
+//     .WithApiExposition(a =>
+//     {
+//         accessAsUser = a.AddScopeWithAdminAndUserConsent(
+//             "access_as_user", "Access API", "Access as the user.",
+//             "Access API", "Allow access on your behalf.");
+//     });
+// var apiCaller = api.WithAppRoleExposition(AllowedMemberType.Applications, "Api.Caller", "Caller apps");
+// web.WithApiPermission(accessAsUser!).WithApiPermission(apiCaller);
 
 // Redirect URIs are applied on Graph create/adopt during plan|provision-{app}-auth
 // (Web → web.redirectUris, Spa → spa.redirectUris, Native → publicClient.redirectUris).
 // Supported accounts map to Graph signInAudience (default AzureADMyOrg / SingleTenant).
+// WithApiExposition → identifierUris + oauth2PermissionScopes; WithAppRoleExposition → appRoles;
+// WithApiPermission → requiredResourceAccess (consumer DependsOn exposer provision).
 
 builder.AddProject<Projects.Api>("api")
     .WithAuth(web);
@@ -36,7 +49,33 @@ Each app **ClientId** parameter (`{provider}-{app}-client-id`) prompts as a **Ch
 
 After interactive resolution (and again after `provision-{app}-auth`), AuthOps persists tenant / ClientId into Aspire deployment state under `Parameters:{parameterName}` (same contract as Aspire `ParameterProcessor`) so a later `aspire do` does not re-prompt. The create sentinel is never persisted as ClientId — only the real app id after provision.
 
-`plan-{app}-auth` resolves create vs existing (read-only Graph) and compares desired DisplayName, redirect URIs, and `signInAudience`. `provision-{app}-auth` applies that plan (create includes DisplayName + redirect URIs + `signInAudience`; adopt may patch those when they differ).
+`plan-{app}-auth` resolves create vs existing (read-only Graph) and compares desired DisplayName, redirect URIs, `signInAudience`, identifier URIs, OAuth2 scopes, app roles, and `requiredResourceAccess`. `provision-{app}-auth` applies that plan (create includes DisplayName + redirect URIs + `signInAudience`, then patches identifier URIs / scopes / appRoles when configured; adopt may patch those and API permissions when they differ). When an Auth app uses `WithApiPermission` against another Auth app's exposition, its provision step depends on the exposer's provision step.
+
+## API exposition and permissions
+
+```csharp
+IResourceBuilder<ScopeApiExposition>? accessAsUser = null;
+
+var api = entra.AddAppRegistration("api", "MyApi-Local")
+    .WithApiExposition(a => // Application ID URI = api://{ClientId}
+    {
+        accessAsUser = a.AddScopeWithAdminAndUserConsent(
+            "access_as_user", "Access API", "Access as the signed-in user.",
+            "Access API", "Allow the app to access the API on your behalf.");
+        // a.AddScopeWithAdminConsent("admin.only", "Admin", "Admin only");
+    });
+// Or: .WithApiExposition("api://my-api", a => { ... });
+
+var apiCaller = api.WithAppRoleExposition(
+    AllowedMemberType.Applications, "Api.Caller", "Applications that call the API");
+
+var web = entra.AddAppRegistration("web", "MyApp-Local")
+    .WithLocalhostRedirectUri(AuthApplicationType.Web, 7281, "/signin-oidc")
+    .WithApiPermission(accessAsUser!)
+    .WithApiPermission(apiCaller);
+```
+
+Graph mapping: `identifierUris`, `api.oauth2PermissionScopes`, `appRoles`, consumer `requiredResourceAccess` (Scope / Role). Upsert only — AuthOps does not delete Graph entries outside the AppHost model.
 
 ## Environment variables
 
@@ -57,7 +96,7 @@ Override prefix / mapping with `WithAuth(app, env => { env.Prefix = "..."; })`.
 
 ## Adopt an existing registration
 
-Choose an existing app in the ClientId Choice prompt, or set `Parameters__{provider}-{app}-client-id` to the ClientId GUID. Plan compares DisplayName, redirect URIs, and `signInAudience`; provision binds (and patches when they differ). No client-secret create/rotate in this revision.
+Choose an existing app in the ClientId Choice prompt, or set `Parameters__{provider}-{app}-client-id` to the ClientId GUID. Plan compares DisplayName, redirect URIs, `signInAudience`, identifier URIs, scopes, app roles, and `requiredResourceAccess`; provision binds (and patches when they differ). No client-secret create/rotate in this revision.
 
 ## Management vs workload credentials
 
@@ -70,7 +109,7 @@ Choose an existing app in the ClientId Choice prompt, or set `Parameters__{provi
 
 Smoke sample under `tests/auth-providers/sample-apphost/`:
 
-- Auth apps: `AddAppRegistration("auth-appregistration-web", …)` / `AddAppRegistration("auth-appregistration-spa", …)` (names must differ from Aspire workload resources)
+- Auth apps: `appregistration-api` (scopes + app role), `appregistration-web` / `appregistration-spa` (redirect URIs + `WithApiPermission`)
 - Workloads: Blazor Server `blazor` (`AUTH_ENTRA_*`) and Vite/React `ops` (`VITE_ENTRA_*` via `WithAuth` maps)
 
 Build with `dotnet build` — no live Graph in CI.

@@ -5,7 +5,7 @@ namespace Neox.Aspire.Hosting.Auth;
 /// <summary>
 /// Logical app registration under an Auth provider.
 /// </summary>
-public sealed class AuthAppResource : Resource
+public sealed class AuthAppResource : Resource, IResourceWithParent<AuthOpsResourceBase>
 {
     public AuthAppResource(string name, AuthOpsResourceBase provider, string displayName)
         : base(name)
@@ -20,6 +20,11 @@ public sealed class AuthAppResource : Resource
     /// Parent Auth provider.
     /// </summary>
     public AuthOpsResourceBase Provider { get; }
+
+    /// <inheritdoc />
+    public AuthOpsResourceBase Parent => Provider;
+
+    IResource IResourceWithParent.Parent => Provider;
 
     /// <summary>
     /// Desired display name in the identity provider (from <c>AddAppRegistration</c>).

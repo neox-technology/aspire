@@ -9,12 +9,34 @@ builder.AddAzureContainerAppEnvironment("aca-env");
 var entra = builder.AddAuthProvider("provider-entra")
     .Entra();
 
+IResourceBuilder<ScopeApiExposition>? accessAsUser = null;
+
+// API Auth app: expose Application ID URI api://{ClientId}, a delegated scope, and an app role.
+var apiAuth = entra.AddAppRegistration("appregistration-api", "AuthSample-Api")
+    .WithApiExposition(api =>
+    {
+        accessAsUser = api.AddScopeWithAdminAndUserConsent(
+            "access_as_user",
+            "Access API",
+            "Allows the app to access the API as the signed-in user.",
+            "Access API",
+            "Allow the application to access AuthSample-Api on your behalf.");
+    });
+
+var apiCaller = apiAuth.WithAppRoleExposition(
+    AllowedMemberType.Applications,
+    "Api.Caller",
+    "Applications that call the API");
+
 // Auth app resource names must differ from workload resources (Aspire unique names).
 var webAuth = entra.AddAppRegistration("appregistration-web", "AuthSample-Blazor")
-    .WithLocalhostRedirectUri(AuthApplicationType.Web, path: "signin-oidc");
+    .WithLocalhostRedirectUri(AuthApplicationType.Web, path: "signin-oidc")
+    .WithApiPermission(accessAsUser!)
+    .WithApiPermission(apiCaller);
 
 var spaAuth = entra.AddAppRegistration("appregistration-spa", "AuthSample-Ops")
-    .WithLocalhostRedirectUri(AuthApplicationType.Spa);
+    .WithLocalhostRedirectUri(AuthApplicationType.Spa)
+    .WithApiPermission(accessAsUser!);
 
 // HTTP workloads must be Container Apps (not Jobs): Jobs have no ingress, so
 // launchSettings / Vite "http" endpoints KeyNotFound during ACA Bicep generation.

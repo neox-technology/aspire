@@ -4,7 +4,7 @@
 |-------|-------|
 | Slug | `auth-providers` |
 | Status | implemented |
-| Last code review | 2026-08-01 |
+| Last code review | 2026-08-02 |
 
 ## Summary
 
@@ -20,13 +20,14 @@ Consumers reference **`Neox.Aspire.Hosting.Auth.EntraId`** (pulls Abstractions t
 - Provisioning: **Entra only** (create/update application). Google / GitHub / generic OAuth2 are out of scope for v1.
 - Secret injection: **generic env only** (no ASP.NET Core `Authentication__Schemes__*` mapping).
 - Model mirrors DomainOps: provider resource → app registration → pipeline plan/provision → consumer bind.
-- App registration configuration uses **`AddAppRegistration(name, displayName)`** plus `WithXxx` methods (no options bag). Redirect URI desired-state: `WithLocalhostRedirectUri` / `WithRedirectUri` — applied on Graph create/adopt via `plan|provision-{app}-auth`. Supported account types: `WithSupportedAccounts(SupportedAccountsType)` → Graph `signInAudience` (default single-tenant).
+- App registration configuration uses **`AddAppRegistration(name, displayName)`** plus `WithXxx` methods (no options bag). Redirect URI desired-state: `WithLocalhostRedirectUri` / `WithRedirectUri` — applied on Graph create/adopt via `plan|provision-{app}-auth`. Supported account types: `WithSupportedAccounts(SupportedAccountsType)` → Graph `signInAudience` (default single-tenant). API exposition: `WithApiExposition` / `WithAppRoleExposition` → Graph `identifierUris`, `oauth2PermissionScopes`, `appRoles`; consume via `WithApiPermission` → Graph `requiredResourceAccess`.
 
 ## User scenarios
 
 - AppHost registers `AddAuthProvider("auth-provider-entra").Entra(...)`, defines one or more apps with `AddAppRegistration(name, displayName)`, binds consumers with `WithAuth(app)`; local interactive `aspire do` prompts unresolved parameters (tenant via Choice of accessible tenants; ClientId via Choice of Create + app registrations in that tenant + custom GUID); CI supplies `Parameters__*` / Azure credential with `--non-interactive`.
 - **Create path:** `prereq-{app}-auth` Choice selects create (or ClientId unset) → `plan-{app}-auth` plans a create → `provision-{app}-auth` creates a minimal Entra application using `DisplayName`, writes ClientId into the Aspire parameter, then `WithAuth` wires `AUTH_ENTRA_*` env on the consumer.
-- **Adopt path:** ClientId parameter set (interactive Choice / `Parameters__*`) → `plan-{app}-auth` GET + compare desired vs existing (DisplayName, redirect URIs, `signInAudience`) → `provision-{app}-auth` applies plan actions only; bind existing ClientId/TenantId.
+- **Adopt path:** ClientId parameter set (interactive Choice / `Parameters__*`) → `plan-{app}-auth` GET + compare desired vs existing (DisplayName, redirect URIs, `signInAudience`, identifier URIs, scopes, app roles, required resource access) → `provision-{app}-auth` applies plan actions only; bind existing ClientId/TenantId.
+- **API exposition:** an Auth app exposes scopes via `WithApiExposition` (optional Application ID URI; default `api://{ClientId}` resolved after ClientId is known) and app roles via `WithAppRoleExposition`; another Auth app consumes them with `WithApiPermission` (Graph `requiredResourceAccess`). `provision-{consumer}-auth` **DependsOn** `provision-{exposer}-auth` when a permission references an exposition owned by a different Auth app.
 - **Idempotent re-run:** plan finds the app via ClientId and/or DisplayName + Neox marker; provision applies only planned actions.
 - **Remember selections:** after interactive tenant / ClientId resolution (and after provision), AuthOps persists values into Aspire deployment state under `Parameters:{parameterName}` (same contract as `ParameterProcessor`) so a later `aspire do` does not re-prompt; create sentinel is never persisted as ClientId.
 - Management credentials (Graph) stay separate from workload ClientId/ClientSecret; secrets are never logged or written into manifests.
@@ -62,8 +63,14 @@ None — `aspire do` / `aspire deploy` pipeline steps only. No dashboard `WithCo
 - [x] Package `Neox.Aspire.Hosting.Auth.EntraId` under `src/hosting/Neox.Aspire.Hosting.Auth.EntraId/` (refs Abstractions + Graph/Azure).
 - [x] Former package id `Neox.Aspire.Hosting.Auth` removed (no shipping assembly with that id).
 - [x] `AddAuthProvider(name)` lives in Abstractions; `.Entra(configure)` is an EntraId extension on `IAuthProviderBuilder`.
-- [x] `AddAppRegistration(name, displayName)` models an Entra app registration (`AuthAppResource`) with required display name; no options bag (`WithRedirectUri` / `WithLocalhostRedirectUri` for redirect desired-state; `WithSupportedAccounts` for `signInAudience`; further `WithXxx` later).
+- [x] `AddAppRegistration(name, displayName)` models an Entra app registration (`AuthAppResource`) with required display name; no options bag (`WithRedirectUri` / `WithLocalhostRedirectUri` for redirect desired-state; `WithSupportedAccounts` for `signInAudience`; `WithApiExposition` / `WithAppRoleExposition` / `WithApiPermission` for API exposure and consumption).
 - [x] `WithSupportedAccounts(SupportedAccountsType)` sets desired Entra supported accounts on `AuthAppResource` (annotation; replace on re-call); default when omitted is `SingleTenant` (`AzureADMyOrg`).
+- [x] `WithApiExposition(url, configure)` / `WithApiExposition(configure)` expose an Application ID URI (`identifierUris`; default `api://{ClientId}` deferred until ClientId known) and scopes via `IApiExpositionBuilder.AddScopeWithAdminConsent` / `AddScopeWithAdminAndUserConsent` → `IResourceBuilder<ScopeApiExposition>`.
+- [x] `WithAppRoleExposition(AllowedMemberType, value, description)` exposes an app role → `IResourceBuilder<AppRoleApiExposition>`.
+- [x] `WithApiPermission<TApiExposition>(IResourceBuilder<TApiExposition>)` on a consumer Auth app records Graph `requiredResourceAccess` (Scope or Role) against the exposer app.
+- [x] `plan-{app}-auth` / `provision-{app}-auth` include identifier URIs, `oauth2PermissionScopes`, `appRoles`, and `requiredResourceAccess` (upsert without deleting Graph entries outside the model); create resolves deferred `api://{ClientId}` after AppId is known.
+- [x] When `WithApiPermission` references an exposition owned by another Auth app, `provision-{consumer}-auth` **DependsOn** `provision-{exposer}-auth`.
+- [x] Unit tests cover API exposition / app role / permission model accumulation, plan compare actions, and Fake provisioner desired fields; sample AppHost wires an API Auth app + `WithApiPermission` on the web Auth app.
 - [x] `plan-{app}-auth` / `provision-{app}-auth` include `signInAudience`: create uses desired audience; adopt plans `UpdateSignInAudience` when it differs and provision PATCHes it.
 - [x] `WithAuth(app)` / `WithAuth(app, env => …)` injects only generic `AUTH_*` (or custom prefix) via `WithEnvironment` late-bound to parameters — never resolves secrets at model build time; Authority uses provider `AuthorityExpression` (`ReferenceExpression`, Entra sets `login.microsoftonline.com/{tenant}`).
 - [x] `WithAuth` omits client secret unless `IncludeClientSecret == true`; no default redirect URI from app registration options.
@@ -72,6 +79,7 @@ None — `aspire do` / `aspire deploy` pipeline steps only. No dashboard `WithCo
 - [x] `plan-{app}-auth` / `provision-{app}-auth` resolve redirect URIs and apply them on Graph create; adopt plans `UpdateRedirectUris` when Web/Spa/Native buckets differ (`AuthApplicationType.Api` entries are ignored for Graph).
 - [x] Pipeline steps match **Pipeline step contracts** below; tags include `auth-ops`; `deploy-auth` is required by Aspire `deploy`.
 - [x] Shared `AuthOpsResource` (`auth-ops`) hosts noop gate `prereq-providers-auth` (fan-in of all `prereq-{providerResource}-auth`).
+- [x] Dashboard hierarchy: `auth-ops` → Entra provider → Auth apps → scopes/app roles; tenant parameter under provider; ClientId/ClientSecret under Auth app (`IResourceWithParent` + `WithParentRelationship`).
 - [x] `.Entra(...)` creates `EntraAuthOpsResource` (: `AuthOpsResourceBase`); provider prereq is `prereq-{providerResource.Name}-auth` (e.g. `prereq-auth-provider-entra-auth`).
 - [x] `EntraAuthProviderOptions.TenantId` is `IResourceBuilder<ParameterResource>?`; auto-creates `{name}-tenant-id` when null; parameter uses `WithCustomInput` Choice (+ `AllowCustomChoice`) of ARM tenants.
 - [x] Per Auth app, `prereq-{app}-auth` **DependsOn** `prereq-providers-auth`; ClientId parameter Choice (create sentinel + `AllowCustomChoice` GUID); `DisplayName` is a required `AddAppRegistration` argument (not a ParameterResource).
@@ -103,7 +111,7 @@ See [`domain-glossary`](domain-glossary.md). Feature-local API names below until
 | Namespace (both) | `Neox.Aspire.Hosting.Auth` |
 | Product vocabulary | AuthOps |
 | Provider API | `AddAuthProvider`, `AuthOpsResourceBase`, `.Entra(...)` → `EntraAuthOpsResource` (EntraId) |
-| App API | `AddAppRegistration(name, displayName)`, `AuthAppResource`, `WithRedirectUri` / `WithLocalhostRedirectUri`, `WithSupportedAccounts` |
+| App API | `AddAppRegistration(name, displayName)`, `AuthAppResource`, `WithRedirectUri` / `WithLocalhostRedirectUri`, `WithSupportedAccounts`, `WithApiExposition` / `WithAppRoleExposition` / `WithApiPermission` |
 | Binding API | `WithAuth`, env mapping options |
 | Provisioner | `EntraGraphAppProvisioner` (`PlanAsync` / `ProvisionAsync`) in EntraId |
 | Unit tests | `tests/auth-providers/` |
@@ -124,9 +132,22 @@ var entra = builder.AddAuthProvider("auth-provider-entra")
         // o.TenantId = builder.AddParameter("my-tenant");
     });
 
+var apiAppReg = entra.AddAppRegistration("api", "MyApi-Local");
+IResourceBuilder<ScopeApiExposition>? accessAsUser = null;
+apiAppReg.WithApiExposition(api =>
+{
+    accessAsUser = api.AddScopeWithAdminAndUserConsent(
+        "access_as_user", "Access API", "Allows access to the API as the signed-in user.",
+        "Access API", "Allow the app to access the API on your behalf.");
+});
+var apiCaller = apiAppReg.WithAppRoleExposition(
+    AllowedMemberType.Applications, "Api.Caller", "Applications that call the API");
+
 var webAppReg = entra.AddAppRegistration("web", "MyApp-Local")
     .WithLocalhostRedirectUri(AuthApplicationType.Web, 7281, "/signin-oidc")
-    .WithSupportedAccounts(SupportedAccountsType.SingleTenant); // default; MultiTenant / MultiTenantAndPersonal / PersonalMicrosoftAccount
+    .WithSupportedAccounts(SupportedAccountsType.SingleTenant) // default; MultiTenant / MultiTenantAndPersonal / PersonalMicrosoftAccount
+    .WithApiPermission(accessAsUser!)
+    .WithApiPermission(apiCaller);
 // webAppReg.WithRedirectUri(AuthApplicationType.Web, "https://contoso.example/signin-oidc");
 // webAppReg.WithRedirectUri(AuthApplicationType.Spa, builder.AddParameter("public-base-url"), "/");
 // Future: webAppReg.WithApplicationType(...); // app-level type; per-URI type is already on WithRedirectUri
@@ -178,7 +199,7 @@ Shared gate `prereq-providers-auth` is hosted on **`AuthOpsResource`** (`auth-op
 | `prereq-providers-auth` | Abstractions on `AuthOpsResource` (idempotent) | Fan-in of all `prereq-{providerResource}-auth` (noop) | Gate only | Dependency failure |
 | `prereq-{app}-auth` | `AddAppRegistration` on `AuthAppResource` (idempotent) | **DependsOn** `prereq-providers-auth` | ClientId parameter ready (Choice: Create + Graph apps in selected tenant + custom GUID); create uses `DisplayName` from `AddAppRegistration` | Missing interactive input |
 | `plan-{app}-auth` | `AddAppRegistration` (EntraId) | **DependsOn** `prereq-{app}-auth` | Create vs existing resolved; desired-vs-existing compared; plan attached (no mutating Graph writes) | Graph failure / missing adopt target / invalid DisplayName |
-| `provision-{app}-auth` | `AddAppRegistration` (EntraId) | **DependsOn** `plan-{app}-auth` | Plan applied (create DisplayName + redirects + signInAudience, or patch those, or noop bind); workload ClientId/TenantId set | Graph failure |
+| `provision-{app}-auth` | `AddAppRegistration` (EntraId) | **DependsOn** `plan-{app}-auth` (+ `provision-{exposer}-auth` when `WithApiPermission` references another Auth app) | Plan applied (create DisplayName + redirects + signInAudience + identifier URIs / scopes / appRoles; adopt may patch those + `requiredResourceAccess`; or noop bind); workload ClientId/TenantId set | Graph failure |
 | `deploy-auth` | EntraId gate on provider (idempotent) | all `provision-{app}-auth`; **RequiredBy** Aspire `deploy` | Gate only | Dependency failure |
 
 `{app}` is the Auth app resource name slug (same dash rules as other Neox steps).
@@ -204,11 +225,13 @@ Shared gate `prereq-providers-auth` is hosted on **`AuthOpsResource`** (`auth-op
 4. Compare desired `DisplayName` vs existing → plan `UpdateDisplayName` when it differs.
 5. Resolve desired redirect URIs (`WithRedirectUri` / `WithLocalhostRedirectUri`); compare Web/Spa/Native buckets → plan `UpdateRedirectUris` when they differ (`AuthApplicationType.Api` ignored).
 6. Resolve desired `signInAudience` from `WithSupportedAccounts` (default `AzureADMyOrg`); compare vs existing → plan `UpdateSignInAudience` when it differs.
-7. Attach `AuthAppRegistrationPlan` on the resource. **No** PATCH/POST/password.
+7. Resolve desired identifier URIs (`WithApiExposition`; deferred `api://{ClientId}` stays unresolved on create-path plan until ClientId known, or compared when adopt ClientId is known), scopes (`AddScope*`), and app roles (`WithAppRoleExposition`); compare vs existing → plan `UpdateIdentifierUris` / `UpdateOauth2PermissionScopes` / `UpdateAppRoles` when they differ (upsert by URI / scope `value` / role `value`; do not delete Graph entries outside the model).
+8. Resolve desired `requiredResourceAccess` from `WithApiPermission`; compare vs existing → plan `UpdateRequiredResourceAccess` when they differ (upsert; do not delete entries outside the model).
+9. Attach `AuthAppRegistrationPlan` on the resource. **No** PATCH/POST/password.
 
 #### `provision-{app}-auth` behavior
 
-1. Apply plan actions only: create application (`DisplayName` + Neox marker + redirect URIs + `signInAudience`), and/or PATCH display name / redirect URIs / `signInAudience`, or bind existing.
+1. Apply plan actions only: create application (`DisplayName` + Neox marker + redirect URIs + `signInAudience`), then set deferred identifier URI `api://{AppId}` / scopes / appRoles when planned; and/or PATCH display name / redirect URIs / `signInAudience` / identifier URIs / scopes / appRoles / `requiredResourceAccess`, or bind existing.
 2. Persist ClientId / TenantId into parameters and deployment state (`Parameters:{parameterName}` + `SetValue`, never the create sentinel). No client-secret create/rotate in this revision.
 3. Do not re-diff Graph; trust the plan from `plan-{app}-auth` (recompute only if annotation missing).
 
@@ -250,4 +273,4 @@ src/hosting/Neox.Aspire.Hosting.Auth.EntraId/
 3. Update tests/READMEs; build + unit tests.
 4. Status → `implemented`.
 
-This revision (`WithSupportedAccounts` → Graph `signInAudience`) is **`implemented`**.
+This revision (`WithApiExposition` / `WithAppRoleExposition` / `WithApiPermission`) is **`implemented`**.

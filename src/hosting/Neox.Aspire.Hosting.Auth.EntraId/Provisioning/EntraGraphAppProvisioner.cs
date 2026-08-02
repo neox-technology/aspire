@@ -57,6 +57,10 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
         var desiredRedirects = await EntraRedirectUriApplicator.ResolveAsync(app, cancellationToken)
             .ConfigureAwait(false);
         var desiredSignInAudience = SupportedAccountsMapping.GetDesiredSignInAudience(app);
+        var desiredIdentifierUris = EntraApiExpositionApplicator.CollectDesiredIdentifierUris(app);
+        var desiredScopes = EntraApiExpositionApplicator.CollectDesiredScopes(app);
+        var desiredAppRoles = EntraApiExpositionApplicator.CollectDesiredAppRoles(app);
+        var desiredPermissions = EntraApiPermissionApplicator.CollectDesired(app, TryResolveClientId);
         var adoptClientId = ResolveAdoptClientId(app);
 
         if (!string.IsNullOrWhiteSpace(adoptClientId))
@@ -65,13 +69,57 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
                 ?? throw new InvalidOperationException(
                     $"No Entra application found with client id '{adoptClientId}'.");
 
-            return BuildAdoptPlan(tenantId, app.DisplayName, desiredSignInAudience, existing, desiredRedirects);
+            return BuildAdoptPlan(
+                tenantId,
+                app.DisplayName,
+                desiredSignInAudience,
+                existing,
+                desiredRedirects,
+                desiredIdentifierUris,
+                desiredScopes,
+                desiredAppRoles,
+                desiredPermissions,
+                EntraApiPermissionApplicator.HasDeclaredPermissions(app));
         }
 
         var byName = await FindByDisplayNameAsync(app.DisplayName, cancellationToken).ConfigureAwait(false);
         if (byName is not null)
         {
-            return BuildAdoptPlan(tenantId, app.DisplayName, desiredSignInAudience, byName, desiredRedirects);
+            return BuildAdoptPlan(
+                tenantId,
+                app.DisplayName,
+                desiredSignInAudience,
+                byName,
+                desiredRedirects,
+                desiredIdentifierUris,
+                desiredScopes,
+                desiredAppRoles,
+                desiredPermissions,
+                EntraApiPermissionApplicator.HasDeclaredPermissions(app));
+        }
+
+        var createActions = new List<AuthAppRegistrationPlanAction>
+        {
+            AuthAppRegistrationPlanAction.CreateApplication
+        };
+        if (desiredIdentifierUris.Count > 0)
+        {
+            createActions.Add(AuthAppRegistrationPlanAction.UpdateIdentifierUris);
+        }
+
+        if (desiredScopes.Count > 0)
+        {
+            createActions.Add(AuthAppRegistrationPlanAction.UpdateOauth2PermissionScopes);
+        }
+
+        if (desiredAppRoles.Count > 0)
+        {
+            createActions.Add(AuthAppRegistrationPlanAction.UpdateAppRoles);
+        }
+
+        if (EntraApiPermissionApplicator.HasDeclaredPermissions(app))
+        {
+            createActions.Add(AuthAppRegistrationPlanAction.UpdateRequiredResourceAccess);
         }
 
         return new AuthAppRegistrationPlan
@@ -81,8 +129,12 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
             DesiredDisplayName = app.DisplayName,
             DesiredSignInAudience = desiredSignInAudience,
             DesiredRedirectUris = desiredRedirects,
+            DesiredIdentifierUris = desiredIdentifierUris,
+            DesiredScopes = desiredScopes,
+            DesiredAppRoles = desiredAppRoles,
+            DesiredRequiredResourceAccess = desiredPermissions,
             Existing = null,
-            Actions = [AuthAppRegistrationPlanAction.CreateApplication]
+            Actions = createActions
         };
     }
 
@@ -103,12 +155,29 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
                     cancellationToken)
                 .ConfigureAwait(false);
 
+            var clientId = created.AppId
+                ?? throw new InvalidOperationException("Created application missing AppId.");
+            var objectId = created.Id
+                ?? throw new InvalidOperationException("Created application missing object id.");
+
+            await ApplyExpositionAndPermissionsAsync(
+                    app,
+                    plan,
+                    objectId,
+                    clientId,
+                    existingIdentifierUris: [],
+                    existingScopes: [],
+                    existingAppRoles: [],
+                    existingPermissions: [],
+                    cancellationToken)
+                .ConfigureAwait(false);
+
             return new EntraProvisionResult
             {
                 TenantId = plan.TenantId,
-                ClientId = created.AppId ?? throw new InvalidOperationException("Created application missing AppId."),
+                ClientId = clientId,
                 ClientSecret = null,
-                ApplicationObjectId = created.Id
+                ApplicationObjectId = objectId
             };
         }
 
@@ -135,6 +204,18 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
                 .ConfigureAwait(false);
         }
 
+        await ApplyExpositionAndPermissionsAsync(
+                app,
+                plan,
+                existing.ObjectId,
+                existing.AppId,
+                existing.IdentifierUris,
+                existing.Scopes,
+                existing.AppRoles,
+                existing.RequiredResourceAccess,
+                cancellationToken)
+            .ConfigureAwait(false);
+
         return new EntraProvisionResult
         {
             TenantId = plan.TenantId,
@@ -149,21 +230,43 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
         string desiredDisplayName,
         string desiredSignInAudience,
         Application existing,
-        IReadOnlyList<AuthDesiredRedirectUri> desiredRedirects)
+        IReadOnlyList<AuthDesiredRedirectUri> desiredRedirects,
+        IReadOnlyList<AuthDesiredIdentifierUri>? desiredIdentifierUris = null,
+        IReadOnlyList<AuthDesiredOauth2PermissionScope>? desiredScopes = null,
+        IReadOnlyList<AuthDesiredAppRole>? desiredAppRoles = null,
+        IReadOnlyList<AuthDesiredRequiredResourceAccess>? desiredPermissions = null,
+        bool hasDeclaredPermissions = false)
     {
+        desiredIdentifierUris ??= [];
+        desiredScopes ??= [];
+        desiredAppRoles ??= [];
+        desiredPermissions ??= [];
+
         var objectId = existing.Id
             ?? throw new InvalidOperationException("Graph application missing object id.");
         var appId = existing.AppId
             ?? throw new InvalidOperationException("Graph application missing AppId.");
 
         var existingRedirects = EntraRedirectUriApplicator.Extract(existing);
+        var existingIdentifierUris = EntraApiExpositionApplicator.ExtractIdentifierUris(existing);
+        var existingScopes = EntraApiExpositionApplicator.ExtractScopes(existing);
+        var existingAppRoles = EntraApiExpositionApplicator.ExtractAppRoles(existing);
+        var existingPermissions = EntraApiPermissionApplicator.Extract(existing);
+
+        var remappedScopes = RemapScopeIds(desiredScopes, existingScopes);
+        var remappedRoles = RemapAppRoleIds(desiredAppRoles, existingAppRoles);
+
         var snapshot = new AuthAppRegistrationExistingSnapshot
         {
             ObjectId = objectId,
             AppId = appId,
             DisplayName = existing.DisplayName,
             SignInAudience = existing.SignInAudience,
-            RedirectUris = existingRedirects
+            RedirectUris = existingRedirects,
+            IdentifierUris = existingIdentifierUris,
+            Scopes = existingScopes,
+            AppRoles = existingAppRoles,
+            RequiredResourceAccess = existingPermissions
         };
 
         var actions = new List<AuthAppRegistrationPlanAction>();
@@ -182,6 +285,34 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
             actions.Add(AuthAppRegistrationPlanAction.UpdateRedirectUris);
         }
 
+        if (EntraApiExpositionApplicator.IdentifierUrisDiffer(
+                desiredIdentifierUris, existingIdentifierUris, appId))
+        {
+            actions.Add(AuthAppRegistrationPlanAction.UpdateIdentifierUris);
+        }
+
+        if (EntraApiExpositionApplicator.ScopesDiffer(remappedScopes, existingScopes))
+        {
+            actions.Add(AuthAppRegistrationPlanAction.UpdateOauth2PermissionScopes);
+        }
+
+        if (EntraApiExpositionApplicator.AppRolesDiffer(remappedRoles, existingAppRoles))
+        {
+            actions.Add(AuthAppRegistrationPlanAction.UpdateAppRoles);
+        }
+
+        if (hasDeclaredPermissions
+            && (desiredPermissions.Count == 0
+                || EntraApiPermissionApplicator.Differ(desiredPermissions, existingPermissions)))
+        {
+            // desiredPermissions empty means exposer ClientId not yet resolvable — still plan update.
+            actions.Add(AuthAppRegistrationPlanAction.UpdateRequiredResourceAccess);
+        }
+        else if (EntraApiPermissionApplicator.Differ(desiredPermissions, existingPermissions))
+        {
+            actions.Add(AuthAppRegistrationPlanAction.UpdateRequiredResourceAccess);
+        }
+
         if (actions.Count == 0)
         {
             actions.Add(AuthAppRegistrationPlanAction.None);
@@ -194,9 +325,198 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
             DesiredDisplayName = desiredDisplayName,
             DesiredSignInAudience = desiredSignInAudience,
             DesiredRedirectUris = desiredRedirects,
+            DesiredIdentifierUris = desiredIdentifierUris,
+            DesiredScopes = remappedScopes,
+            DesiredAppRoles = remappedRoles,
+            DesiredRequiredResourceAccess = desiredPermissions,
             Existing = snapshot,
             Actions = actions
         };
+    }
+
+    /// <summary>
+    /// Back-compat overload used by SupportedAccountsTests.
+    /// </summary>
+    internal static AuthAppRegistrationPlan BuildAdoptPlan(
+        string tenantId,
+        string desiredDisplayName,
+        string desiredSignInAudience,
+        Application existing,
+        IReadOnlyList<AuthDesiredRedirectUri> desiredRedirects) =>
+        BuildAdoptPlan(
+            tenantId,
+            desiredDisplayName,
+            desiredSignInAudience,
+            existing,
+            desiredRedirects,
+            desiredIdentifierUris: null,
+            desiredScopes: null,
+            desiredAppRoles: null,
+            desiredPermissions: null,
+            hasDeclaredPermissions: false);
+
+    private async Task ApplyExpositionAndPermissionsAsync(
+        AuthAppResource app,
+        AuthAppRegistrationPlan plan,
+        string objectId,
+        string clientId,
+        IReadOnlyList<AuthDesiredIdentifierUri> existingIdentifierUris,
+        IReadOnlyList<AuthDesiredOauth2PermissionScope> existingScopes,
+        IReadOnlyList<AuthDesiredAppRole> existingAppRoles,
+        IReadOnlyList<AuthDesiredRequiredResourceAccess> existingPermissions,
+        CancellationToken cancellationToken)
+    {
+        var patch = new Application();
+        var needsPatch = false;
+
+        if (plan.Actions.Contains(AuthAppRegistrationPlanAction.UpdateIdentifierUris)
+            && plan.DesiredIdentifierUris.Count > 0)
+        {
+            var resolved = EntraApiExpositionApplicator.ResolveIdentifierUris(
+                plan.DesiredIdentifierUris, clientId);
+            var merged = EntraApiExpositionApplicator.MergeIdentifierUrisForApply(
+                resolved, existingIdentifierUris);
+            EntraApiExpositionApplicator.ApplyIdentifierUris(patch, merged);
+            needsPatch = true;
+        }
+
+        if (plan.Actions.Contains(AuthAppRegistrationPlanAction.UpdateOauth2PermissionScopes)
+            && plan.DesiredScopes.Count > 0)
+        {
+            var merged = EntraApiExpositionApplicator.MergeScopesForApply(
+                plan.DesiredScopes, existingScopes);
+            EntraApiExpositionApplicator.ApplyScopes(patch, merged);
+            needsPatch = true;
+        }
+
+        if (plan.Actions.Contains(AuthAppRegistrationPlanAction.UpdateAppRoles)
+            && plan.DesiredAppRoles.Count > 0)
+        {
+            var merged = EntraApiExpositionApplicator.MergeAppRolesForApply(
+                plan.DesiredAppRoles, existingAppRoles);
+            EntraApiExpositionApplicator.ApplyAppRoles(patch, merged);
+            needsPatch = true;
+        }
+
+        if (plan.Actions.Contains(AuthAppRegistrationPlanAction.UpdateRequiredResourceAccess)
+            && EntraApiPermissionApplicator.HasDeclaredPermissions(app))
+        {
+            // Re-collect after exposer provision (DependsOn) so ClientId is available.
+            var desired = EntraApiPermissionApplicator.CollectDesired(app, TryResolveClientId);
+            if (desired.Count == 0)
+            {
+                throw new InvalidOperationException(
+                    $"Auth app '{app.Name}' has WithApiPermission but exposer ClientId is not resolved yet. " +
+                    "Ensure provision-{exposer}-auth runs before this step.");
+            }
+
+            // Remap permission ids from exposer plan when adopt reused Graph ids.
+            desired = RemapPermissionIdsFromExposerPlans(app, desired);
+
+            var merged = EntraApiPermissionApplicator.MergeForApply(desired, existingPermissions);
+            EntraApiPermissionApplicator.Apply(patch, merged);
+            needsPatch = true;
+        }
+
+        if (needsPatch)
+        {
+            await _graph.Applications[objectId].PatchAsync(patch, cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+        }
+    }
+
+    private static IReadOnlyList<AuthDesiredRequiredResourceAccess> RemapPermissionIdsFromExposerPlans(
+        AuthAppResource app,
+        IReadOnlyList<AuthDesiredRequiredResourceAccess> desired)
+    {
+        var result = new List<AuthDesiredRequiredResourceAccess>();
+        foreach (var annotation in app.Annotations.OfType<ApiPermissionAnnotation>())
+        {
+            var exposition = annotation.Exposition;
+            var exposerPlan = exposition.Owner.Annotations
+                .OfType<AuthAppRegistrationPlanAnnotation>()
+                .LastOrDefault()
+                ?.Plan;
+
+            Guid permissionId;
+            string type;
+            switch (exposition)
+            {
+                case ScopeApiExposition scope:
+                    type = "Scope";
+                    permissionId = exposerPlan?.DesiredScopes
+                        .FirstOrDefault(s => string.Equals(s.Value, scope.ScopeValue, StringComparison.Ordinal))
+                        ?.Id
+                        ?? scope.PermissionId;
+                    break;
+                case AppRoleApiExposition role:
+                    type = "Role";
+                    permissionId = exposerPlan?.DesiredAppRoles
+                        .FirstOrDefault(r => string.Equals(r.Value, role.Value, StringComparison.Ordinal))
+                        ?.Id
+                        ?? role.RoleId;
+                    break;
+                default:
+                    continue;
+            }
+
+            var resourceAppId = TryResolveClientId(exposition.Owner);
+            if (string.IsNullOrWhiteSpace(resourceAppId))
+            {
+                continue;
+            }
+
+            result.Add(new AuthDesiredRequiredResourceAccess
+            {
+                ResourceAppId = resourceAppId,
+                PermissionId = permissionId,
+                Type = type
+            });
+        }
+
+        return result.Count > 0 ? result : desired;
+    }
+
+    private static IReadOnlyList<AuthDesiredOauth2PermissionScope> RemapScopeIds(
+        IReadOnlyList<AuthDesiredOauth2PermissionScope> desired,
+        IReadOnlyList<AuthDesiredOauth2PermissionScope> existing)
+    {
+        var byValue = existing.ToDictionary(s => s.Value, StringComparer.Ordinal);
+        return desired.Select(d =>
+            byValue.TryGetValue(d.Value, out var ex) && ex.Id != Guid.Empty
+                ? d with { Id = ex.Id }
+                : d).ToList();
+    }
+
+    private static IReadOnlyList<AuthDesiredAppRole> RemapAppRoleIds(
+        IReadOnlyList<AuthDesiredAppRole> desired,
+        IReadOnlyList<AuthDesiredAppRole> existing)
+    {
+        var byValue = existing.ToDictionary(r => r.Value, StringComparer.Ordinal);
+        return desired.Select(d =>
+            byValue.TryGetValue(d.Value, out var ex) && ex.Id != Guid.Empty
+                ? d with { Id = ex.Id }
+                : d).ToList();
+    }
+
+    private static string? TryResolveClientId(AuthAppResource app)
+    {
+        if (app.ClientIdParameter is not null
+            && TryGetResolvedParameterValue(app.ClientIdParameter, out var fromParam)
+            && !string.IsNullOrWhiteSpace(fromParam)
+            && !EntraAppRegistrationParameterPrompt.IsCreateSentinel(fromParam)
+            && Guid.TryParse(fromParam, out _))
+        {
+            return fromParam;
+        }
+
+        var plan = app.Annotations.OfType<AuthAppRegistrationPlanAnnotation>().LastOrDefault()?.Plan;
+        if (plan?.Existing?.AppId is { } existingAppId)
+        {
+            return existingAppId;
+        }
+
+        return null;
     }
 
     private static string? ResolveAdoptClientId(AuthAppResource app)

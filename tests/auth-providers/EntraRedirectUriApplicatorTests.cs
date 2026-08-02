@@ -9,7 +9,7 @@ public class EntraRedirectUriApplicatorTests
     [Fact]
     public async Task ResolveAsync_LiteralAndParameter_SkipsApi()
     {
-        var provider = new EntraAuthOpsResource("entra")
+        var provider = new EntraAuthOpsResource("entra", new AuthOpsResource("auth-ops"))
         {
             TenantIdParameter = CreateParameter("tenant", "t1")
         };

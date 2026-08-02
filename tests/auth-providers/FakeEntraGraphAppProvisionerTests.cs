@@ -8,7 +8,7 @@ public class FakeEntraGraphAppProvisionerTests
     [Fact]
     public async Task FakeProvisioner_PlanThenProvision_ReturnsStableIds()
     {
-        var provider = new EntraAuthOpsResource("entra")
+        var provider = new EntraAuthOpsResource("entra", new AuthOpsResource("auth-ops"))
         {
             TenantIdParameter = CreateParameter("tenant", "tenant-1")
         };
@@ -32,7 +32,7 @@ public class FakeEntraGraphAppProvisionerTests
     [Fact]
     public async Task FakeProvisioner_AdoptPlan_BindsExistingClientId()
     {
-        var provider = new EntraAuthOpsResource("entra")
+        var provider = new EntraAuthOpsResource("entra", new AuthOpsResource("auth-ops"))
         {
             TenantIdParameter = CreateParameter("tenant", "tenant-1")
         };

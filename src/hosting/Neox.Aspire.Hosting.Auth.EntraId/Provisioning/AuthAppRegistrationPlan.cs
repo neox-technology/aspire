@@ -35,6 +35,27 @@ public sealed class AuthAppRegistrationPlan
     public IReadOnlyList<AuthDesiredRedirectUri> DesiredRedirectUris { get; init; } = [];
 
     /// <summary>
+    /// Desired Application ID URIs. May include the deferred template marker
+    /// <see cref="AuthDesiredIdentifierUri.ClientIdTemplateMarker"/> for create path.
+    /// </summary>
+    public IReadOnlyList<AuthDesiredIdentifierUri> DesiredIdentifierUris { get; init; } = [];
+
+    /// <summary>
+    /// Desired OAuth2 permission scopes.
+    /// </summary>
+    public IReadOnlyList<AuthDesiredOauth2PermissionScope> DesiredScopes { get; init; } = [];
+
+    /// <summary>
+    /// Desired app roles.
+    /// </summary>
+    public IReadOnlyList<AuthDesiredAppRole> DesiredAppRoles { get; init; } = [];
+
+    /// <summary>
+    /// Desired required resource access (API permissions).
+    /// </summary>
+    public IReadOnlyList<AuthDesiredRequiredResourceAccess> DesiredRequiredResourceAccess { get; init; } = [];
+
+    /// <summary>
     /// Snapshot of the existing Graph application when <see cref="Mode"/> is <see cref="AuthAppRegistrationPlanMode.Adopt"/>.
     /// </summary>
     public AuthAppRegistrationExistingSnapshot? Existing { get; init; }
@@ -70,7 +91,11 @@ public enum AuthAppRegistrationPlanAction
     CreateApplication,
     UpdateDisplayName,
     UpdateRedirectUris,
-    UpdateSignInAudience
+    UpdateSignInAudience,
+    UpdateIdentifierUris,
+    UpdateOauth2PermissionScopes,
+    UpdateAppRoles,
+    UpdateRequiredResourceAccess
 }
 
 /// <summary>
@@ -80,6 +105,61 @@ public sealed class AuthDesiredRedirectUri
 {
     public required AuthApplicationType Type { get; init; }
     public required string Uri { get; init; }
+}
+
+/// <summary>
+/// Desired Application ID URI.
+/// </summary>
+public sealed class AuthDesiredIdentifierUri
+{
+    /// <summary>Sentinel meaning resolve to <c>api://{ClientId}</c> after AppId is known.</summary>
+    public const string ClientIdTemplateMarker = "api://{ClientId}";
+
+    public required string Uri { get; init; }
+
+    public bool IsClientIdTemplate =>
+        string.Equals(Uri, ClientIdTemplateMarker, StringComparison.Ordinal);
+}
+
+/// <summary>
+/// Desired OAuth2 permission scope.
+/// </summary>
+public sealed record AuthDesiredOauth2PermissionScope
+{
+    public required Guid Id { get; init; }
+    public required string Value { get; init; }
+    public required string AdminConsentDisplayName { get; init; }
+    public required string AdminConsentDescription { get; init; }
+    public string? UserConsentDisplayName { get; init; }
+    public string? UserConsentDescription { get; init; }
+    /// <summary>Graph type: <c>Admin</c> or <c>User</c>.</summary>
+    public required string Type { get; init; }
+}
+
+/// <summary>
+/// Desired app role.
+/// </summary>
+public sealed record AuthDesiredAppRole
+{
+    public required Guid Id { get; init; }
+    public required string Value { get; init; }
+    public required string DisplayName { get; init; }
+    public required string Description { get; init; }
+    public required IReadOnlyList<string> AllowedMemberTypes { get; init; }
+}
+
+/// <summary>
+/// Desired required resource access entry (one resource app + one permission).
+/// </summary>
+public sealed class AuthDesiredRequiredResourceAccess
+{
+    /// <summary>Resource (exposer) application ClientId / appId.</summary>
+    public required string ResourceAppId { get; init; }
+
+    public required Guid PermissionId { get; init; }
+
+    /// <summary>Graph type: <c>Scope</c> or <c>Role</c>.</summary>
+    public required string Type { get; init; }
 }
 
 /// <summary>
@@ -100,6 +180,14 @@ public sealed class AuthAppRegistrationExistingSnapshot
     /// Existing redirect URIs grouped by platform (Web / Spa / Native).
     /// </summary>
     public IReadOnlyList<AuthDesiredRedirectUri> RedirectUris { get; init; } = [];
+
+    public IReadOnlyList<AuthDesiredIdentifierUri> IdentifierUris { get; init; } = [];
+
+    public IReadOnlyList<AuthDesiredOauth2PermissionScope> Scopes { get; init; } = [];
+
+    public IReadOnlyList<AuthDesiredAppRole> AppRoles { get; init; } = [];
+
+    public IReadOnlyList<AuthDesiredRequiredResourceAccess> RequiredResourceAccess { get; init; } = [];
 }
 
 /// <summary>

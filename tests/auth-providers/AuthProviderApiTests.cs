@@ -211,6 +211,37 @@ public class AuthProviderApiTests
         Assert.Contains(clientId.Annotations.OfType<InputGeneratorAnnotation>(), _ => true);
     }
 
+    [Fact]
+    public async Task WithApiPermission_ProvisionDependsOnExposerProvision()
+    {
+        var builder = DistributedApplication.CreateBuilder(new DistributedApplicationOptions
+        {
+            Args = ["--publisher", "manifest"]
+        });
+
+        var tenant = builder.AddParameter(
+            "auth-provider-entra-tenant-id",
+            "11111111-1111-1111-1111-111111111111");
+        var entra = builder.AddAuthProvider("auth-provider-entra")
+            .Entra(o => o.TenantId = tenant);
+
+        IResourceBuilder<ScopeApiExposition>? scope = null;
+        var api = entra.AddAppRegistration("api", "Test Api")
+            .WithApiExposition(a =>
+            {
+                scope = a.AddScopeWithAdminConsent("access_as_user", "Access", "Desc");
+            });
+        _ = api;
+
+        entra.AddAppRegistration("web", "Test Web")
+            .WithApiPermission(scope!);
+
+        var steps = await CollectAuthOpsStepsAsync(builder);
+        var provisionWeb = Assert.Single(steps, s => s.Name == "provision-web-auth");
+        Assert.Contains("plan-web-auth", provisionWeb.DependsOnSteps);
+        Assert.Contains("provision-api-auth", provisionWeb.DependsOnSteps);
+    }
+
     private static async Task<List<PipelineStep>> CollectAuthOpsStepsAsync(IDistributedApplicationBuilder builder)
     {
         var model = new DistributedApplicationModel([.. builder.Resources]);

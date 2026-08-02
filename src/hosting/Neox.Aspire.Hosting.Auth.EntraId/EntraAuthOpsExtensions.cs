@@ -152,40 +152,57 @@ public static class EntraAuthOpsExtensions
             }
         });
 
-        appBuilder.WithPipelineStepFactory(_ => new PipelineStep
+        appBuilder.WithPipelineStepFactory(_ =>
         {
-            Name = provisionName,
-            Description = $"Provision or adopt Entra app registration '{app.Name}'.",
-            Tags = ["auth-ops"],
-            Resource = app,
-            DependsOnSteps = [planName],
-            RequiredBySteps = [AuthDeployStepName],
-            Action = async context =>
+            var dependsOn = new List<string> { planName };
+            foreach (var permission in app.Annotations.OfType<ApiPermissionAnnotation>())
             {
-                var provisioner = ResolveProvisioner(context.Services);
-
-                var plan = app.Annotations.OfType<AuthAppRegistrationPlanAnnotation>().LastOrDefault()?.Plan
-                    ?? await provisioner.PlanAsync(app, context.CancellationToken).ConfigureAwait(false);
-
-                await AuthParameterPrompt.EnsureReadyAsync(
-                    context.Services,
-                    [app.TenantIdParameter],
-                    context.CancellationToken).ConfigureAwait(false);
-
-                var result = await provisioner.ProvisionAsync(app, plan, context.CancellationToken)
-                    .ConfigureAwait(false);
-
-                await AuthParameterValue.SetAsync(
-                    context.Services,
-                    app.TenantIdParameter,
-                    result.TenantId,
-                    context.CancellationToken).ConfigureAwait(false);
-                await AuthParameterValue.SetAsync(
-                    context.Services,
-                    app.ClientIdParameter,
-                    result.ClientId,
-                    context.CancellationToken).ConfigureAwait(false);
+                var exposer = permission.Exposition.Owner;
+                if (!ReferenceEquals(exposer, app))
+                {
+                    var exposerProvision = AuthOpsExtensions.GetProvisionAuthStepName(exposer.Name);
+                    if (!dependsOn.Contains(exposerProvision, StringComparer.Ordinal))
+                    {
+                        dependsOn.Add(exposerProvision);
+                    }
+                }
             }
+
+            return new PipelineStep
+            {
+                Name = provisionName,
+                Description = $"Provision or adopt Entra app registration '{app.Name}'.",
+                Tags = ["auth-ops"],
+                Resource = app,
+                DependsOnSteps = dependsOn,
+                RequiredBySteps = [AuthDeployStepName],
+                Action = async context =>
+                {
+                    var provisioner = ResolveProvisioner(context.Services);
+
+                    var plan = app.Annotations.OfType<AuthAppRegistrationPlanAnnotation>().LastOrDefault()?.Plan
+                        ?? await provisioner.PlanAsync(app, context.CancellationToken).ConfigureAwait(false);
+
+                    await AuthParameterPrompt.EnsureReadyAsync(
+                        context.Services,
+                        [app.TenantIdParameter],
+                        context.CancellationToken).ConfigureAwait(false);
+
+                    var result = await provisioner.ProvisionAsync(app, plan, context.CancellationToken)
+                        .ConfigureAwait(false);
+
+                    await AuthParameterValue.SetAsync(
+                        context.Services,
+                        app.TenantIdParameter,
+                        result.TenantId,
+                        context.CancellationToken).ConfigureAwait(false);
+                    await AuthParameterValue.SetAsync(
+                        context.Services,
+                        app.ClientIdParameter,
+                        result.ClientId,
+                        context.CancellationToken).ConfigureAwait(false);
+                }
+            };
         });
 
         EnsureDeployAuthGate(provider);

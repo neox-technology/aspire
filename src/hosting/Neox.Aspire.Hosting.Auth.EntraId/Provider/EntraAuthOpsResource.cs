@@ -7,8 +7,8 @@ namespace Neox.Aspire.Hosting.Auth;
 /// </summary>
 public sealed class EntraAuthOpsResource : AuthOpsResourceBase
 {
-    public EntraAuthOpsResource(string name)
-        : base(name)
+    public EntraAuthOpsResource(string name, AuthOpsResource authOpsParent)
+        : base(name, authOpsParent)
     {
     }
 

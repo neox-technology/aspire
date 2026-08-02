@@ -25,7 +25,9 @@ public static class EntraAuthProviderBuilderExtensions
         var applicationBuilder = builder.ApplicationBuilder;
         var name = builder.Name;
 
-        var resource = new EntraAuthOpsResource(name)
+        var authOps = AuthOpsExtensions.EnsureAuthOpsResource(applicationBuilder);
+
+        var resource = new EntraAuthOpsResource(name, authOps.Resource)
         {
             AuthorityExpression = static tenant =>
                 ReferenceExpression.Create($"https://login.microsoftonline.com/{tenant}")
@@ -43,12 +45,15 @@ public static class EntraAuthProviderBuilderExtensions
 
         var providerBuilder = applicationBuilder.AddResource(resource)
             .ExcludeFromManifest()
+            .WithParentRelationship(authOps)
             .WithInitialState(new CustomResourceSnapshot
             {
                 ResourceType = "AuthProvider",
                 State = KnownResourceStates.Running,
                 Properties = []
             });
+
+        tenantParam.WithParentRelationship(providerBuilder);
 
         EntraAuthOpsExtensions.EnsurePrereqEntraStep(applicationBuilder, providerBuilder);
 

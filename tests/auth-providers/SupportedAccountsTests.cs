@@ -117,7 +117,7 @@ public class SupportedAccountsTests
 
     private static AuthAppResource CreateApp()
     {
-        var provider = new EntraAuthOpsResource("entra")
+        var provider = new EntraAuthOpsResource("entra", new AuthOpsResource("auth-ops"))
         {
             TenantIdParameter = new ParameterResource("tenant", _ => "t1", secret: false)
         };

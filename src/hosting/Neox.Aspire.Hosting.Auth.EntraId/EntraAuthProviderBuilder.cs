@@ -44,12 +44,16 @@ internal sealed class EntraAuthProviderBuilder(
 
         var appBuilder = applicationBuilder.AddResource(app)
             .ExcludeFromManifest()
+            .WithParentRelationship(providerBuilder)
             .WithInitialState(new CustomResourceSnapshot
             {
                 ResourceType = "AuthApp",
                 State = KnownResourceStates.Running,
                 Properties = []
             });
+
+        clientId.WithParentRelationship(appBuilder);
+        clientSecret.WithParentRelationship(appBuilder);
 
         EntraAuthOpsExtensions.RegisterAppPipelineSteps(providerBuilder, appBuilder);
         return appBuilder;
