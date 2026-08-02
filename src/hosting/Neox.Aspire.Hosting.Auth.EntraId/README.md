@@ -16,6 +16,8 @@ var entra = builder.AddAuthProvider("auth-provider-entra")
 var web = entra.AddAppRegistration("web", "MyApp-Local")
     .WithLocalhostRedirectUri(AuthApplicationType.Web, 7281, "/signin-oidc")
     .WithSupportedAccounts(SupportedAccountsType.SingleTenant); // default; MultiTenant / MultiTenantAndPersonal / PersonalMicrosoftAccount
+// Flat (provider-agnostic) redirects also exist on Abstractions without AuthApplicationType:
+// web.WithLocalhostRedirectUri(7281, "/signin-oidc");
 // web.WithRedirectUri(AuthApplicationType.Web, "https://contoso.example/signin-oidc");
 // web.WithRedirectUri(AuthApplicationType.Spa, builder.AddParameter("public-base-url"), "/");
 

@@ -17,6 +17,12 @@ public static class AuthOpsExtensions
     public const string AuthPrereqProvidersStepName = "prereq-providers-auth";
 
     /// <summary>
+    /// Shared AuthOps deploy gate (<c>deploy-auth</c>) — all Auth app provision steps completed.
+    /// Hosted on <see cref="AuthOpsResource"/> so multiple providers share one step name.
+    /// </summary>
+    public const string AuthDeployStepName = "deploy-auth";
+
+    /// <summary>
     /// Builds <c>prereq-{providerResource}-auth</c> from the Aspire provider resource name.
     /// </summary>
     public static string GetPrereqProviderAuthStepName(string providerResourceName)
@@ -143,6 +149,27 @@ public static class AuthOpsExtensions
             Description = "AuthOps gate — all identity providers authenticated.",
             Tags = ["auth-ops"],
             Resource = factoryContext.Resource,
+            Action = _ => Task.CompletedTask
+        });
+    }
+
+    internal static void EnsureDeployAuthGate(IDistributedApplicationBuilder applicationBuilder)
+    {
+        var authOps = EnsureAuthOpsResource(applicationBuilder);
+        if (authOps.Resource.Annotations.OfType<AuthNamedStepAnnotation>()
+            .Any(a => string.Equals(a.StepName, AuthDeployStepName, StringComparison.Ordinal)))
+        {
+            return;
+        }
+
+        authOps.WithAnnotation(new AuthNamedStepAnnotation(AuthDeployStepName));
+        authOps.WithPipelineStepFactory(factoryContext => new PipelineStep
+        {
+            Name = AuthDeployStepName,
+            Description = "AuthOps deploy gate — all Auth app provision steps completed.",
+            Tags = ["auth-ops"],
+            Resource = factoryContext.Resource,
+            RequiredBySteps = [WellKnownPipelineSteps.Deploy],
             Action = _ => Task.CompletedTask
         });
     }

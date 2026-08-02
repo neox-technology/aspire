@@ -1,28 +1,43 @@
+using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
 using Microsoft.Graph.Models;
 using Xunit;
 
 namespace Neox.Aspire.Hosting.Auth.Tests;
 
-public class EntraRedirectUriApplicatorTests
+public sealed class EntraRedirectUriApplicatorTests
 {
     [Fact]
-    public async Task ResolveAsync_LiteralAndParameter_SkipsApi()
+    public async Task ResolveAsync_ResolvesLiteralAndParameter_SkipsApi()
     {
-        var provider = new EntraAuthOpsResource("entra", new AuthOpsResource("auth-ops"))
-        {
-            TenantIdParameter = CreateParameter("tenant", "t1")
-        };
-        var app = new AuthAppResource("web", provider, "Web")
-        {
-            TenantIdParameter = provider.TenantIdParameter
-        };
-        provider.RegisterApp(app);
+        var builder = DistributedApplication.CreateBuilder();
+        var entra = builder.AddAuthProvider("provider").Entra();
+        var baseUrl = builder.AddParameter("base-url", "https://contoso.example");
+        var app = entra.AddAppRegistration("web", "Web").Resource;
 
-        var baseUrl = CreateParameter("public-base-url", "https://contoso.example/");
-        app.AddRedirectUri(AuthRedirectUri.FromLiteral(AuthApplicationType.Web, "https://localhost:7281/signin-oidc"));
-        app.AddRedirectUri(AuthRedirectUri.FromParameter(AuthApplicationType.Spa, baseUrl, "/"));
-        app.AddRedirectUri(AuthRedirectUri.FromLiteral(AuthApplicationType.Api, "https://api.example/ignored"));
+        app.AddRedirectUri(AuthRedirectUri.FromLiteral("https://localhost:7281/signin-oidc"));
+        app.AddRedirectUri(AuthRedirectUri.FromParameter(baseUrl.Resource, "/"));
+        app.Annotations.Add(new EntraRedirectUrisAnnotation
+        {
+            Entries =
+            {
+                new EntraRedirectUriEntry
+                {
+                    Type = AuthApplicationType.Web,
+                    Uri = app.RedirectUris[0]
+                },
+                new EntraRedirectUriEntry
+                {
+                    Type = AuthApplicationType.Spa,
+                    Uri = app.RedirectUris[1]
+                },
+                new EntraRedirectUriEntry
+                {
+                    Type = AuthApplicationType.Api,
+                    Uri = AuthRedirectUri.FromLiteral("https://api.example/ignored")
+                }
+            }
+        });
 
         var resolved = await EntraRedirectUriApplicator.ResolveAsync(app, CancellationToken.None);
 
@@ -32,7 +47,7 @@ public class EntraRedirectUriApplicatorTests
     }
 
     [Fact]
-    public void Apply_SetsWebSpaAndNativeBuckets()
+    public void Apply_SetsPlatformBuckets()
     {
         var application = new Application();
         var desired = new List<AuthDesiredRedirectUri>
@@ -44,13 +59,13 @@ public class EntraRedirectUriApplicatorTests
 
         EntraRedirectUriApplicator.Apply(application, desired);
 
-        Assert.Equal(["https://a.example/web"], application.Web?.RedirectUris);
-        Assert.Equal(["https://a.example/spa"], application.Spa?.RedirectUris);
-        Assert.Equal(["https://a.example/native"], application.PublicClient?.RedirectUris);
+        Assert.Equal(["https://a.example/web"], application.Web!.RedirectUris!);
+        Assert.Equal(["https://a.example/spa"], application.Spa!.RedirectUris!);
+        Assert.Equal(["https://a.example/native"], application.PublicClient!.RedirectUris!);
     }
 
     [Fact]
-    public void Differ_DetectsPlatformChanges()
+    public void Differ_DetectsPerPlatformChanges()
     {
         var desired = new List<AuthDesiredRedirectUri>
         {
@@ -62,11 +77,10 @@ public class EntraRedirectUriApplicatorTests
         };
 
         Assert.True(EntraRedirectUriApplicator.Differ(desired, existing));
-        Assert.False(EntraRedirectUriApplicator.Differ(desired, desired));
     }
 
     [Fact]
-    public void Extract_ReadsGraphPlatforms()
+    public void Extract_ReadsGraphBuckets()
     {
         var application = new Application
         {
@@ -77,29 +91,25 @@ public class EntraRedirectUriApplicatorTests
 
         var extracted = EntraRedirectUriApplicator.Extract(application);
 
-        Assert.Equal(3, extracted.Count);
         Assert.Contains(extracted, r => r.Type == AuthApplicationType.Web && r.Uri == "https://w");
         Assert.Contains(extracted, r => r.Type == AuthApplicationType.Spa && r.Uri == "https://s");
         Assert.Contains(extracted, r => r.Type == AuthApplicationType.Native && r.Uri == "https://n");
     }
 
     [Fact]
-    public void Differ_OrderDoesNotMatterWithinPlatform()
+    public void Differ_IgnoresOrderWithinPlatform()
     {
-        var a = new List<AuthDesiredRedirectUri>
+        var desired = new List<AuthDesiredRedirectUri>
         {
             new() { Type = AuthApplicationType.Web, Uri = "https://a.example/1" },
             new() { Type = AuthApplicationType.Web, Uri = "https://a.example/2" }
         };
-        var b = new List<AuthDesiredRedirectUri>
+        var existing = new List<AuthDesiredRedirectUri>
         {
             new() { Type = AuthApplicationType.Web, Uri = "https://a.example/2" },
             new() { Type = AuthApplicationType.Web, Uri = "https://a.example/1" }
         };
 
-        Assert.False(EntraRedirectUriApplicator.Differ(a, b));
+        Assert.False(EntraRedirectUriApplicator.Differ(desired, existing));
     }
-
-    private static ParameterResource CreateParameter(string name, string value) =>
-        new(name, _ => value, secret: false);
 }

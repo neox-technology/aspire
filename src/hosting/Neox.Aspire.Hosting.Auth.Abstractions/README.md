@@ -1,8 +1,10 @@
 # Neox.Aspire.Hosting.Auth.Abstractions
 
-Core **AuthOps** types for Aspire hosting: `AuthOpsResourceBase` / shared `AuthOpsResource`, `prereq-providers-auth` gate, `prereq|{plan}|{provision}-{app}-auth` step name helpers, and generic `WithAuth` environment injection (`AUTH_*`).
+Core **AuthOps** types for Aspire hosting: `AuthOpsResourceBase` / shared `AuthOpsResource`, `prereq-providers-auth` and `deploy-auth` gates, `prereq|plan|provision-{app}-auth` step name helpers, and generic `WithAuth` environment injection (`AUTH_*`).
 
-Consumers typically reference [`Neox.Aspire.Hosting.Auth.EntraId`](../Neox.Aspire.Hosting.Auth.EntraId/README.md), which depends on this package.
+Consumers typically reference a provider package such as [`Neox.Aspire.Hosting.Auth.EntraId`](../Neox.Aspire.Hosting.Auth.EntraId/README.md) or [`Neox.Aspire.Hosting.Auth.Google`](../Neox.Aspire.Hosting.Auth.Google/README.md), which depend on this package.
+
+Flat redirect desired-state lives here (`WithLocalhostRedirectUri` / `WithRedirectUri` without platform buckets). Entra Graph Web/Spa/Native buckets use typed overloads in the EntraId package (`AuthApplicationType`).
 
 ## Spec
 

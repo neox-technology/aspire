@@ -9,6 +9,9 @@ builder.AddAzureContainerAppEnvironment("aca-env");
 var entra = builder.AddAuthProvider("provider-entra")
     .Entra();
 
+var google = builder.AddAuthProvider("provider-google")
+    .Google();
+
 IResourceBuilder<ScopeApiExposition>? accessAsUser = null;
 
 // API Auth app: expose Application ID URI api://{ClientId}, a delegated scope, and an app role.
@@ -53,6 +56,15 @@ builder.AddViteApp("ops", "../sample-ops")
         env.Map(AuthOutput.ClientId, "VITE_ENTRA_CLIENT_ID");
         env.IncludeAuthority = false;
     })
+    .PublishAsAzureContainerApp((_, _) => { });
+
+// Google adopt/bind — ClientId via Choice / Parameters__*; redirects are model desired-state only.
+var googleWebAuth = google.AddAppRegistration("appregistration-google-web", "AuthSample-Google-Web")
+    .WithLocalhostRedirectUri(7281, "/signin-oidc");
+
+builder.AddProject<Projects.Neox_Aspire_Hosting_Auth_Tests_SampleBlazor>("blazor-google")
+    .WithExternalHttpEndpoints()
+    .WithAuth(googleWebAuth)
     .PublishAsAzureContainerApp((_, _) => { });
 
 builder.Build().Run();

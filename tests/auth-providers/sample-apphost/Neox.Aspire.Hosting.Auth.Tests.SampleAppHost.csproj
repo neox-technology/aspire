@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\hosting\Neox.Aspire.Hosting.Auth.EntraId\Neox.Aspire.Hosting.Auth.EntraId.csproj" IsAspireProjectResource="false" />
+    <ProjectReference Include="..\..\..\src\hosting\Neox.Aspire.Hosting.Auth.Google\Neox.Aspire.Hosting.Auth.Google.csproj" IsAspireProjectResource="false" />
     <ProjectReference Include="..\sample-blazor\Neox.Aspire.Hosting.Auth.Tests.SampleBlazor.csproj" />
   </ItemGroup>
 </Project>

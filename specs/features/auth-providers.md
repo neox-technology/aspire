@@ -8,19 +8,19 @@
 
 ## Summary
 
-AuthOps is split into two hosting packages:
+AuthOps is split into hosting packages:
 
-- **`Neox.Aspire.Hosting.Auth.Abstractions`** — common AuthOps model (`AuthOpsResourceBase`), generic `WithAuth` env injection, shared `AuthOpsResource`, and gate `prereq-providers-auth`.
-- **`Neox.Aspire.Hosting.Auth.EntraId`** — Entra ID provider (`AddAuthProvider` → `.Entra(...)` → `EntraAuthOpsResource` / `AddAppRegistration`), Graph planning + provisioning, provider prereq `prereq-{providerResource}-auth`, app prereq `prereq-{app}-auth` (ClientId Choice: Create + apps in tenant + custom GUID), and `deploy-auth` on the provider resource.
+- **`Neox.Aspire.Hosting.Auth.Abstractions`** — common AuthOps model (`AuthOpsResourceBase`), generic `WithAuth` env injection, shared `AuthOpsResource`, gate `prereq-providers-auth`, and **flat** redirect desired-state (`WithRedirectUri` / `WithLocalhostRedirectUri` without Graph platform buckets).
+- **`Neox.Aspire.Hosting.Auth.EntraId`** — Entra ID provider (`AddAuthProvider` → `.Entra(...)` → `EntraAuthOpsResource` / `AddAppRegistration`), Graph planning + provisioning, typed redirect overloads (`AuthApplicationType` Web/Spa/Native/Api), provider prereq `prereq-{providerResource}-auth`, app prereq `prereq-{app}-auth` (ClientId Choice: Create + apps in tenant + custom GUID), and `deploy-auth` on the provider resource.
+- **`Neox.Aspire.Hosting.Auth.Google`** — Google adopt/bind provider (`.Google(...)`); see [`auth-provider-google`](auth-provider-google.md).
 
-Consumers reference **`Neox.Aspire.Hosting.Auth.EntraId`** (pulls Abstractions transitively). The former package id **`Neox.Aspire.Hosting.Auth` is retired** (breaking). Namespace remains `Neox.Aspire.Hosting.Auth` in both assemblies.
+Consumers reference a provider package (EntraId or Google), which pulls Abstractions transitively. The former package id **`Neox.Aspire.Hosting.Auth` is retired** (breaking). Namespace remains `Neox.Aspire.Hosting.Auth` across assemblies.
 
-**v1 decisions (frozen):**
+**v1 decisions (frozen for Entra; Google in sibling spec):**
 
-- Provisioning: **Entra only** (create/update application). Google / GitHub / generic OAuth2 are out of scope for v1.
 - Secret injection: **generic env only** (no ASP.NET Core `Authentication__Schemes__*` mapping).
 - Model mirrors DomainOps: provider resource → app registration → pipeline plan/provision → consumer bind.
-- App registration configuration uses **`AddAppRegistration(name, displayName)`** plus `WithXxx` methods (no options bag). Redirect URI desired-state: `WithLocalhostRedirectUri` / `WithRedirectUri` — applied on Graph create/adopt via `plan|provision-{app}-auth`. Supported account types: `WithSupportedAccounts(SupportedAccountsType)` → Graph `signInAudience` (default single-tenant). API exposition: `WithApiExposition` / `WithAppRoleExposition` → Graph `identifierUris`, `oauth2PermissionScopes`, `appRoles`; consume via `WithApiPermission` → Graph `requiredResourceAccess`.
+- App registration configuration uses **`AddAppRegistration(name, displayName)`** plus `WithXxx` methods (no options bag). Abstractions redirects are a flat list; Entra typed overloads map to Graph Web/Spa/Native buckets (`AuthApplicationType.Api` ignored). Supported account types: `WithSupportedAccounts(SupportedAccountsType)` → Graph `signInAudience` (default single-tenant). API exposition: `WithApiExposition` / `WithAppRoleExposition` → Graph `identifierUris`, `oauth2PermissionScopes`, `appRoles`; consume via `WithApiPermission` → Graph `requiredResourceAccess`.
 
 ## User scenarios
 
@@ -47,7 +47,8 @@ None — `aspire do` / `aspire deploy` pipeline steps only. No dashboard `WithCo
 
 ## Out of scope
 
-- Google / GitHub / generic OAuth2 providers (API not exposed in v1; reserved for later adopt-or-provision)
+- GitHub / generic OAuth2 providers (reserved for later)
+- Google details live in [`auth-provider-google`](auth-provider-google.md) (not duplicated here)
 - ASP.NET Core authentication scheme config (`AddMicrosoftIdentityWebApp`, `Authentication__Schemes__*`)
 - Azure managed identity (`AddAzureUserAssignedIdentity`) — different concern
 - Key Vault sync of workload secrets (candidate phase 2)

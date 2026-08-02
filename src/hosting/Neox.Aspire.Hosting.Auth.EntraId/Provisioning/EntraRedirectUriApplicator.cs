@@ -1,3 +1,4 @@
+using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
 using Microsoft.Graph.Models;
 
@@ -10,6 +11,7 @@ internal static class EntraRedirectUriApplicator
 {
     /// <summary>
     /// Resolves literal and parameter-based redirect URIs. Skips <see cref="AuthApplicationType.Api"/>.
+    /// Prefers Entra typed annotation entries; falls back to flat redirects as <see cref="AuthApplicationType.Web"/>.
     /// </summary>
     public static async Task<IReadOnlyList<AuthDesiredRedirectUri>> ResolveAsync(
         AuthAppResource app,
@@ -17,46 +19,40 @@ internal static class EntraRedirectUriApplicator
     {
         ArgumentNullException.ThrowIfNull(app);
 
-        var result = new List<AuthDesiredRedirectUri>();
-        foreach (var entry in app.RedirectUris)
+        var typed = app.Annotations.OfType<EntraRedirectUrisAnnotation>().FirstOrDefault();
+        if (typed is not null && typed.Entries.Count > 0)
         {
-            if (entry.RedirectUriType == AuthApplicationType.Api)
+            var result = new List<AuthDesiredRedirectUri>();
+            foreach (var entry in typed.Entries)
             {
-                continue;
-            }
-
-            string uri;
-            if (entry.Literal is not null)
-            {
-                uri = entry.Literal;
-            }
-            else if (entry.Parameter is not null)
-            {
-                var baseValue = await entry.Parameter.GetValueAsync(cancellationToken).ConfigureAwait(false);
-                if (string.IsNullOrWhiteSpace(baseValue))
+                if (entry.Type == AuthApplicationType.Api)
                 {
-                    throw new InvalidOperationException(
-                        $"Auth app '{app.Name}' redirect URI parameter '{entry.Parameter.Name}' has no value.");
+                    continue;
                 }
 
-                uri = entry.Path is null
-                    ? baseValue
-                    : baseValue.TrimEnd('/') + entry.Path;
-            }
-            else
-            {
-                throw new InvalidOperationException(
-                    $"Auth app '{app.Name}' has a redirect URI entry with neither literal nor parameter.");
+                var uri = await ResolveUriAsync(app, entry.Uri, cancellationToken).ConfigureAwait(false);
+                result.Add(new AuthDesiredRedirectUri
+                {
+                    Type = entry.Type,
+                    Uri = uri
+                });
             }
 
-            result.Add(new AuthDesiredRedirectUri
+            return result;
+        }
+
+        var flat = new List<AuthDesiredRedirectUri>();
+        foreach (var entry in app.RedirectUris)
+        {
+            var uri = await ResolveUriAsync(app, entry, cancellationToken).ConfigureAwait(false);
+            flat.Add(new AuthDesiredRedirectUri
             {
-                Type = entry.RedirectUriType,
+                Type = AuthApplicationType.Web,
                 Uri = uri
             });
         }
 
-        return result;
+        return flat;
     }
 
     /// <summary>
@@ -122,6 +118,34 @@ internal static class EntraRedirectUriApplicator
         }
 
         return false;
+    }
+
+    private static async Task<string> ResolveUriAsync(
+        AuthAppResource app,
+        AuthRedirectUri entry,
+        CancellationToken cancellationToken)
+    {
+        if (entry.Literal is not null)
+        {
+            return entry.Literal;
+        }
+
+        if (entry.Parameter is not null)
+        {
+            var baseValue = await entry.Parameter.GetValueAsync(cancellationToken).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(baseValue))
+            {
+                throw new InvalidOperationException(
+                    $"Auth app '{app.Name}' redirect URI parameter '{entry.Parameter.Name}' has no value.");
+            }
+
+            return entry.Path is null
+                ? baseValue
+                : baseValue.TrimEnd('/') + entry.Path;
+        }
+
+        throw new InvalidOperationException(
+            $"Auth app '{app.Name}' has a redirect URI entry with neither literal nor parameter.");
     }
 
     private static void Append(

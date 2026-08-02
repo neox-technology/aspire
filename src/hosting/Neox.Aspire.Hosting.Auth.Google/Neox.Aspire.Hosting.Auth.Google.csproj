@@ -6,9 +6,9 @@
     <RootNamespace>Neox.Aspire.Hosting.Auth</RootNamespace>
     <IsPackable>true</IsPackable>
     <SuppressFinalPackageVersion>true</SuppressFinalPackageVersion>
-    <Description>Aspire hosting AuthOps abstractions: shared provider/app model and generic AUTH_* environment injection.</Description>
+    <Description>Aspire hosting AuthOps for Google: adopt/bind existing ClientId + ProjectId and AUTH_GOOGLE_* environment injection.</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageTags>aspire;auth;authops;oidc</PackageTags>
+    <PackageTags>aspire;auth;google;oidc;iam;authops</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,11 +17,14 @@
 
   <ItemGroup>
     <PackageReference Include="Aspire.Hosting" Version="$(AspireVersion)" />
+    <PackageReference Include="Google.Apis.Auth" Version="1.69.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="Neox.Aspire.Hosting.Auth.EntraId" />
-    <InternalsVisibleTo Include="Neox.Aspire.Hosting.Auth.Google" />
+    <ProjectReference Include="..\Neox.Aspire.Hosting.Auth.Abstractions\Neox.Aspire.Hosting.Auth.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="Neox.Aspire.Hosting.Auth.Tests" />
   </ItemGroup>
 </Project>
