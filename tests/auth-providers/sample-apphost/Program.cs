@@ -35,7 +35,8 @@ var apiCaller = apiAuth.WithAppRoleExposition(
 var webAuth = entra.AddAppRegistration("appregistration-web", "AuthSample-Blazor")
     .WithLocalhostRedirectUri(AuthApplicationType.Web, path: "signin-oidc")
     .WithApiPermission(accessAsUser!)
-    .WithApiPermission(apiCaller);
+    .WithApiPermission(apiCaller)
+    .WithApiPermission(MicrosoftGraph.Delegated.UserRead);
 
 var spaAuth = entra.AddAppRegistration("appregistration-spa", "AuthSample-Ops")
     .WithLocalhostRedirectUri(AuthApplicationType.Spa)

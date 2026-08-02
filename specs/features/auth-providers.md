@@ -20,7 +20,7 @@ Consumers reference a provider package (EntraId or Google), which pulls Abstract
 
 - Secret injection: **generic env only** (no ASP.NET Core `Authentication__Schemes__*` mapping).
 - Model mirrors DomainOps: provider resource → app registration → pipeline plan/provision → consumer bind.
-- App registration configuration uses **`AddAppRegistration(name, displayName)`** plus `WithXxx` methods (no options bag). Abstractions redirects are a flat list; Entra typed overloads map to Graph Web/Spa/Native buckets (`AuthApplicationType.Api` ignored). Supported account types: `WithSupportedAccounts(SupportedAccountsType)` → Graph `signInAudience` (default single-tenant). API exposition: `WithApiExposition` / `WithAppRoleExposition` → Graph `identifierUris`, `oauth2PermissionScopes`, `appRoles`; consume via `WithApiPermission` → Graph `requiredResourceAccess`.
+- App registration configuration uses **`AddAppRegistration(name, displayName)`** plus `WithXxx` methods (no options bag). Abstractions redirects are a flat list; Entra typed overloads map to Graph Web/Spa/Native buckets (`AuthApplicationType.Api` ignored). Supported account types: `WithSupportedAccounts(SupportedAccountsType)` → Graph `signInAudience` (default single-tenant). API exposition: `WithApiExposition` / `WithAppRoleExposition` → Graph `identifierUris`, `oauth2PermissionScopes`, `appRoles`; consume via `WithApiPermission` → Graph `requiredResourceAccess`. Well-known Microsoft Graph permissions: see [`auth-entra-graph-permissions`](auth-entra-graph-permissions.md).
 
 ## User scenarios
 
@@ -49,6 +49,7 @@ None — `aspire do` / `aspire deploy` pipeline steps only. No dashboard `WithCo
 
 - GitHub / generic OAuth2 providers (reserved for later)
 - Google details live in [`auth-provider-google`](auth-provider-google.md) (not duplicated here)
+- Well-known Microsoft Graph permission catalogue / codegen details live in [`auth-entra-graph-permissions`](auth-entra-graph-permissions.md)
 - ASP.NET Core authentication scheme config (`AddMicrosoftIdentityWebApp`, `Authentication__Schemes__*`)
 - Azure managed identity (`AddAzureUserAssignedIdentity`) — different concern
 - Key Vault sync of workload secrets (candidate phase 2)

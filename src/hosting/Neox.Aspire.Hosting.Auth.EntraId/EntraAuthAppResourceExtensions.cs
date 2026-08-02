@@ -187,6 +187,21 @@ public static class EntraAuthAppResourceExtensions
         return builder;
     }
 
+    /// <summary>
+    /// Consumes a first-party well-known API permission (e.g. <c>MicrosoftGraph.Delegated.UserRead</c>)
+    /// as Graph <c>requiredResourceAccess</c>.
+    /// </summary>
+    public static IResourceBuilder<AuthAppResource> WithApiPermission(
+        this IResourceBuilder<AuthAppResource> builder,
+        WellKnownApiPermission permission)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(permission);
+
+        builder.WithAnnotation(new WellKnownApiPermissionAnnotation(permission));
+        return builder;
+    }
+
     private static void AddEntraPlatform(
         IResourceBuilder<AuthAppResource> builder,
         AuthApplicationType redirectUriType,

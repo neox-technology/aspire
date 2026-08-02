@@ -119,6 +119,42 @@ public class ApiExpositionTests
     }
 
     [Fact]
+    public void WithApiPermission_WellKnown_RecordsAnnotation()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var entra = builder.AddAuthProvider("entra").Entra();
+
+        var web = entra.AddAppRegistration("web", "Web")
+            .WithApiPermission(MicrosoftGraph.Delegated.UserRead)
+            .WithApiPermission(MicrosoftGraph.Application.UserReadAll);
+
+        var wellKnown = web.Resource.Annotations.OfType<WellKnownApiPermissionAnnotation>().ToList();
+        Assert.Equal(2, wellKnown.Count);
+        Assert.Equal("User.Read", wellKnown[0].Permission.Value);
+        Assert.Equal("Scope", wellKnown[0].Permission.Type);
+        Assert.Equal(MicrosoftGraph.AppId, wellKnown[0].Permission.ResourceAppId);
+        Assert.Equal("User.Read.All", wellKnown[1].Permission.Value);
+        Assert.Equal("Role", wellKnown[1].Permission.Type);
+    }
+
+    [Fact]
+    public void CollectDesired_IncludesWellKnownPermissions_WithoutExposerClientId()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var entra = builder.AddAuthProvider("entra").Entra();
+        var web = entra.AddAppRegistration("web", "Web")
+            .WithApiPermission(MicrosoftGraph.Delegated.UserRead);
+
+        Assert.True(EntraApiPermissionApplicator.HasDeclaredPermissions(web.Resource));
+
+        var desired = EntraApiPermissionApplicator.CollectDesired(web.Resource, _ => null);
+        var entry = Assert.Single(desired);
+        Assert.Equal(MicrosoftGraph.AppId, entry.ResourceAppId);
+        Assert.Equal(MicrosoftGraph.Delegated.UserRead.PermissionId, entry.PermissionId);
+        Assert.Equal("Scope", entry.Type);
+    }
+
+    [Fact]
     public void CollectDesired_IdentifierUriScopesAndRoles()
     {
         var builder = DistributedApplication.CreateBuilder();

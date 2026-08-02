@@ -12,6 +12,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\hosting\Neox.Aspire.Hosting.Auth.EntraId\Neox.Aspire.Hosting.Auth.EntraId.csproj" />
     <ProjectReference Include="..\..\src\hosting\Neox.Aspire.Hosting.Auth.Google\Neox.Aspire.Hosting.Auth.Google.csproj" />
+    <ProjectReference Include="..\..\src\hosting\Neox.Aspire.Hosting.Auth.EntraId.Generators.Internal\Neox.Aspire.Hosting.Auth.EntraId.Generators.Internal.csproj" />
   </ItemGroup>
 
   <ItemGroup>
