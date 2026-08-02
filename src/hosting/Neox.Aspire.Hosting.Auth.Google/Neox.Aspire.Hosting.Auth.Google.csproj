@@ -4,7 +4,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Neox.Aspire.Hosting.Auth</RootNamespace>
-    <IsPackable>true</IsPackable>
+    <IsPackable>false</IsPackable>
     <SuppressFinalPackageVersion>true</SuppressFinalPackageVersion>
     <Description>Aspire hosting AuthOps for Google: adopt/bind existing ClientId + ProjectId and AUTH_GOOGLE_* environment injection.</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>

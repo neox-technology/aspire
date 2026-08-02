@@ -9,7 +9,6 @@
 | [Neox.Aspire.Hosting.Azure.CustomDomains](https://www.nuget.org/packages/Neox.Aspire.Hosting.Azure.CustomDomains) | [![NuGet Downloads](https://img.shields.io/nuget/dt/Neox.Aspire.Hosting.Azure.CustomDomains.svg)](https://www.nuget.org/packages/Neox.Aspire.Hosting.Azure.CustomDomains) | [README](src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains/README.md) |
 | [Neox.Aspire.Hosting.Auth.Abstractions](https://www.nuget.org/packages/Neox.Aspire.Hosting.Auth.Abstractions) | [![NuGet Downloads](https://img.shields.io/nuget/dt/Neox.Aspire.Hosting.Auth.Abstractions.svg)](https://www.nuget.org/packages/Neox.Aspire.Hosting.Auth.Abstractions) | [README](src/hosting/Neox.Aspire.Hosting.Auth.Abstractions/README.md) |
 | [Neox.Aspire.Hosting.Auth.EntraId](https://www.nuget.org/packages/Neox.Aspire.Hosting.Auth.EntraId) | [![NuGet Downloads](https://img.shields.io/nuget/dt/Neox.Aspire.Hosting.Auth.EntraId.svg)](https://www.nuget.org/packages/Neox.Aspire.Hosting.Auth.EntraId) | [README](src/hosting/Neox.Aspire.Hosting.Auth.EntraId/README.md) |
-| [Neox.Aspire.Hosting.Auth.Google](https://www.nuget.org/packages/Neox.Aspire.Hosting.Auth.Google) | [![NuGet Downloads](https://img.shields.io/nuget/dt/Neox.Aspire.Hosting.Auth.Google.svg)](https://www.nuget.org/packages/Neox.Aspire.Hosting.Auth.Google) | [README](src/hosting/Neox.Aspire.Hosting.Auth.Google/README.md) |
 
 ## What is Neox Aspire?
 
@@ -25,7 +24,6 @@ Pick a package and install from nuget.org (see the package README for usage):
 dotnet add package Neox.Aspire.EntityFrameworkCore.MigrationWorker
 dotnet add package Neox.Aspire.Hosting.Azure.CustomDomains
 dotnet add package Neox.Aspire.Hosting.Auth.EntraId
-dotnet add package Neox.Aspire.Hosting.Auth.Google
 ```
 
 | Package | Usage |
@@ -33,7 +31,6 @@ dotnet add package Neox.Aspire.Hosting.Auth.Google
 | [MigrationWorker](src/Neox.Aspire.EntityFrameworkCore.MigrationWorker/README.md) | `AddEfCoreMigrationService<TDbContext>()` |
 | [CustomDomains](src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains/README.md) | `AddDomainOpsProvider` + `WithAzureCustomDomainOps` |
 | [Auth.EntraId](src/hosting/Neox.Aspire.Hosting.Auth.EntraId/README.md) | `AddAuthProvider` + `.Entra` + `WithAuth` |
-| [Auth.Google](src/hosting/Neox.Aspire.Hosting.Auth.Google/README.md) | `AddAuthProvider` + `.Google` + `WithAuth` |
 
 > [!NOTE]
 > .NET SDK **10.0.110** is pinned in [`global.json`](global.json). Arcade installs a local copy via `eng/common` when needed.
@@ -57,7 +54,7 @@ Packable libraries live under `src/`. Hosting packages use the `Neox.Aspire.Host
 | [`Neox.Aspire.Hosting.Azure.CustomDomains`](src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains) | ACA custom domain ops (`WithAzureCustomDomainOps`, OctoDNS / managed certs via `aspire do`) |
 | [`Neox.Aspire.Hosting.Auth.Abstractions`](src/hosting/Neox.Aspire.Hosting.Auth.Abstractions) | AuthOps core — shared gates + generic `AUTH_*` via `WithAuth` |
 | [`Neox.Aspire.Hosting.Auth.EntraId`](src/hosting/Neox.Aspire.Hosting.Auth.EntraId) | AuthOps Entra — Graph app registrations + `.Entra(...)` |
-| [`Neox.Aspire.Hosting.Auth.Google`](src/hosting/Neox.Aspire.Hosting.Auth.Google) | AuthOps Google — adopt/bind ClientId + `.Google(...)` |
+| [`Neox.Aspire.Hosting.Auth.Google`](src/hosting/Neox.Aspire.Hosting.Auth.Google) | AuthOps Google — adopt/bind ClientId + `.Google(...)` (in repo; not published to nuget.org yet) |
 
 Tests: [`tests/efcore-migration-worker/`](tests/efcore-migration-worker/) (Aspire harnesses, Docker), [`tests/azure-custom-domains/`](tests/azure-custom-domains/) (unit + sample AppHost), and [`tests/auth-providers/`](tests/auth-providers/) (AuthOps unit tests + sample AppHost Blazor/ops). Specs: [`specs/`](specs/README.md).
 

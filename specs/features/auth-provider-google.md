@@ -70,6 +70,7 @@ See [`domain-glossary`](domain-glossary.md).
 |------|----------------|
 | Google project | `src/hosting/Neox.Aspire.Hosting.Auth.Google/` |
 | Package id | `Neox.Aspire.Hosting.Auth.Google` |
+| Shipping | Not published yet (`IsPackable=false`); remains in repo + tests |
 | Namespace | `Neox.Aspire.Hosting.Auth` |
 | Provider API | `.Google(...)` → `GoogleAuthOpsResource` |
 | Binder | `IGoogleIamOauthClientProvisioner` (`PlanAsync` / `ProvisionAsync` — bind only) |
