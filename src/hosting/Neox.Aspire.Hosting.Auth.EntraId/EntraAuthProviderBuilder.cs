@@ -46,12 +46,8 @@ internal sealed class EntraAuthProviderBuilder(
         var appBuilder = applicationBuilder.AddResource(app)
             .ExcludeFromManifest()
             .WithParentRelationship(providerBuilder)
-            .WithInitialState(new CustomResourceSnapshot
-            {
-                ResourceType = "EntraAuthAppRegistration",
-                State = KnownResourceStates.Running,
-                Properties = []
-            });
+            .WithInitialState(AuthDashboardSnapshots.Waiting("EntraAuthAppRegistration"))
+            .WithProvisionAuthCommand();
 
         clientId.WithParentRelationship(appBuilder);
         clientSecret.WithParentRelationship(appBuilder);

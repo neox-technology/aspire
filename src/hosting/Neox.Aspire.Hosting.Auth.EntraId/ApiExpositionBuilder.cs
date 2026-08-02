@@ -69,12 +69,7 @@ internal sealed class ApiExpositionBuilder(
         return appBuilder.ApplicationBuilder.AddResource(scope)
             .ExcludeFromManifest()
             .WithParentRelationship(appBuilder.Resource)
-            .WithInitialState(new CustomResourceSnapshot
-            {
-                ResourceType = "AuthApiScope",
-                State = KnownResourceStates.Running,
-                Properties = []
-            });
+            .WithInitialState(AuthDashboardSnapshots.Waiting("AuthApiScope"));
     }
 
     internal static string Sanitize(string value)

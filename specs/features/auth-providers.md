@@ -22,6 +22,7 @@ Consumers reference a provider package (EntraId or Google), which pulls Abstract
 - Model mirrors DomainOps: provider resource → app registration → pipeline plan/provision → consumer bind.
 - App registration configuration uses **`AddAppRegistration(name, displayName)`** plus `WithXxx` methods (no options bag). Abstractions redirects are a flat list; Entra typed overloads map to Graph Web/Spa/Native buckets (`AuthApplicationType.Api` ignored). Supported account types: `WithSupportedAccounts(SupportedAccountsType)` → Graph `signInAudience` (default single-tenant). API exposition: `WithApiExposition` / `WithAppRoleExposition` → Graph `identifierUris`, `oauth2PermissionScopes`, `appRoles`; consume via `WithApiPermission` → Graph `requiredResourceAccess`. Well-known Microsoft Graph permissions: see [`auth-entra-graph-permissions`](auth-entra-graph-permissions.md).
 - `WithAuth` is **provider-scoped** and typed to the concrete registration resource (`EntraAuthAppRegistrationResource`, `GoogleAuthAppRegistrationResource`).
+- **Dashboard status (Entra):** AuthOps resources publish `Waiting` or `Running` + `HealthStatus` (`Healthy` / `Unhealthy`) via `ResourceNotificationService`. Leaf existence is probed with Microsoft Graph; parents aggregate children with **worst-wins** (Unhealthy > Waiting > Healthy). Google resources stay static `Running` (no dashboard probe in this revision). App registrations expose a dashboard `WithCommand` that runs plan + provision.
 
 ## User scenarios
 
@@ -34,10 +35,13 @@ Consumers reference a provider package (EntraId or Google), which pulls Abstract
 - **Remember selections:** after interactive tenant / ClientId resolution (and after provision), AuthOps persists values into Aspire deployment state under `Parameters:{parameterName}` (same contract as `ParameterProcessor`) so a later `aspire do` does not re-prompt; create sentinel is never persisted as ClientId.
 - Management credentials (Graph) stay separate from workload ClientId/ClientSecret; secrets are never logged or written into manifests.
 - Unit tests under `tests/auth-providers/` use fakes (no live Graph / no `az`).
+- **Dashboard (Entra run mode):** scopes/app roles start `Waiting`, then `Running` Healthy/Unhealthy from Graph presence (and stay `Waiting` while the parent app registration is not Running+Healthy). App registrations wait until ClientId is set, then probe Graph existence and aggregate child exposition health. Providers wait until TenantId is set, then aggregate apps. `auth-ops` aggregates Entra providers. A **Provision app registration** command on each Entra app registration re-runs plan + provision and refreshes status.
 
 ## Routes (if UI)
 
-None — `aspire do` / `aspire deploy` pipeline steps only. No dashboard `WithCommand` in v1. Sample Blazor/Ops UIs are test workloads, not AuthOps product UI.
+- Aspire dashboard resource states / health for Entra AuthOps hierarchy (see acceptance criteria).
+- Aspire dashboard `WithCommand` on `EntraAuthAppRegistrationResource` to trigger plan + provision.
+- Pipeline remains `aspire do` / `aspire deploy`. Sample Blazor/Ops UIs are test workloads, not AuthOps product UI.
 
 ## Dependencies
 
@@ -57,7 +61,8 @@ None — `aspire do` / `aspire deploy` pipeline steps only. No dashboard `WithCo
 - Automatic `DownstreamApi__*` emission inside `WithAuth` (samples set scopes explicitly)
 - Azure managed identity (`AddAzureUserAssignedIdentity`) — different concern
 - Key Vault sync of workload secrets (candidate phase 2)
-- Dedicated Dashboard UI
+- Dedicated custom Dashboard UI beyond Aspire resource state / health / `WithCommand`
+- Google dashboard status probes / provision command (remain static `Running` until a later revision)
 - Automatic secret rotation on every deploy (opt-in only if added later)
 - CIAM / External ID–specific flows (configuring Graph `signInAudience` via `WithSupportedAccounts` is in scope; full multi-tenant / CIAM product flows are not)
 - Meta-package / type-forwarding shim retaining package id `Neox.Aspire.Hosting.Auth`
@@ -104,6 +109,15 @@ None — `aspire do` / `aspire deploy` pipeline steps only. No dashboard `WithCo
 - [x] Tenant and ClientId Choice labels identify the Auth provider resource and Auth app.
 - [x] Resolved tenant (and non-sentinel ClientId) are persisted via `IDeploymentStateManager` section `Parameters:{parameterName}` + `SetValue` after prereq (and again after provision with the real ClientId); create sentinel is never written as ClientId.
 - [x] Unit tests cover deployment-state section key / `SetValue` and prompt labels.
+- [x] Entra AuthOps resources (`auth-ops` when Entra is registered, Entra provider, Entra app registrations, `AuthApiScope`, `AuthAppRole`) use initial dashboard state `Waiting` (not static `Running`).
+- [x] Entra dashboard lifecycle publishes `Waiting` or `Running` + `HealthStatus` Healthy/Unhealthy via `ResourceNotificationService` (Graph read probes; no mutating writes on refresh).
+- [x] `AuthApiScope` / `AuthAppRole`: `Waiting` while parent app is not Running+Healthy; otherwise Healthy when the matching Graph scope/app role `value` exists, Unhealthy when missing or Graph probe fails.
+- [x] `EntraAuthAppRegistrationResource`: `Waiting` when ClientId is unset / create sentinel; otherwise Healthy when the app exists in Graph and child expositions aggregate Healthy; Unhealthy when the app is missing, Graph fails, or a child is Unhealthy; `Waiting` when a child is Waiting (worst-wins).
+- [x] `EntraAuthOpsResource`: `Waiting` when TenantId is unset; otherwise aggregates child app registrations with worst-wins (no Auth children + tenant set → Healthy).
+- [x] `AuthOpsResource` (with Entra): aggregates Entra provider resources with worst-wins.
+- [x] Worst-wins aggregation (Auth children only, not parameters): Unhealthy > Waiting > Healthy.
+- [x] `EntraAuthAppRegistrationResource` exposes dashboard command `provision-auth` (“Provision app registration”) that runs `PlanAsync` + `ProvisionAsync` and refreshes status; enabled when TenantId is resolved and the command is not already running.
+- [x] Unit tests cover worst-wins aggregation, Graph probe existence mapping (fakes), command annotation presence, and Entra initial `Waiting` states.
 
 ## Terminology
 
@@ -218,9 +232,20 @@ src/hosting/Neox.Aspire.Hosting.Auth.EntraId/
   ...
 ```
 
+### Dashboard status (Entra)
+
+| Resource | Waiting | Running + Healthy | Running + Unhealthy |
+|----------|---------|-------------------|---------------------|
+| `AuthApiScope` / `AuthAppRole` | Default; parent app not Running+Healthy | Scope/role `value` present on Graph app | Parent Healthy but entry missing / Graph error |
+| `EntraAuthAppRegistration` | ClientId unset / create sentinel | App exists in Graph **and** children aggregate Healthy | App missing / Graph error / child Unhealthy; child Waiting → Waiting |
+| `EntraAuthOpsResource` | TenantId unset | Children apps aggregate Healthy | Worst-wins children |
+| `AuthOpsResource` | Providers aggregate Waiting | Providers aggregate Healthy | Worst-wins Entra providers |
+
+Refresh: `IDistributedApplicationEventingSubscriber` on `AfterResourcesCreatedEvent`, periodic re-probe (~10–15s) + after provision command.
+
 ### Implementation sequencing
 
-1. Spec status → `defined` (this revision).
-2. Abstract registration resource + provider concretes + provider `WithAuth`.
-3. Sample API / Blazor / Ops; update tests/READMEs; build + unit tests.
+1. Spec status → `defined` (this revision — dashboard status).
+2. Abstractions status helpers + Entra probe / lifecycle / `WithCommand`.
+3. Unit tests + README notes; build.
 4. Status → `implemented`.

@@ -1,0 +1,22 @@
+namespace Neox.Aspire.Hosting.Auth;
+
+/// <summary>
+/// Read-only Graph probe result for an Entra app registration and its expositions.
+/// </summary>
+internal sealed class EntraAuthAppProbeResult
+{
+    public required bool Exists { get; init; }
+
+    public string? Error { get; init; }
+
+    public IReadOnlySet<string> ScopeValues { get; init; } =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    public IReadOnlySet<string> AppRoleValues { get; init; } =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    public static EntraAuthAppProbeResult Missing() => new() { Exists = false };
+
+    public static EntraAuthAppProbeResult Failed(string error) =>
+        new() { Exists = false, Error = error };
+}

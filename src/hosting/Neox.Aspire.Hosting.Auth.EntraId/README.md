@@ -20,6 +20,17 @@ builder.AddProject<Projects.Api>("api")
 
 Then run `aspire do` / `aspire deploy`. Pipeline steps: `prereq-auth-provider-entra-auth` → `prereq-providers-auth` → `prereq-{app}-auth` → `plan-{app}-auth` → `provision-{app}-auth` → `deploy-auth` on each `EntraAuthAppRegistrationResource`.
 
+## Dashboard status (local run)
+
+In Aspire run mode, Entra AuthOps resources start as **Waiting**, then publish **Running** + Healthy/Unhealthy from Microsoft Graph probes:
+
+- Scopes / app roles — present on the Graph app (and Waiting while the parent app registration is not Healthy)
+- App registrations — ClientId set and app exists; children aggregated with worst-wins (Unhealthy > Waiting > Healthy)
+- Provider — TenantId set; aggregates app registrations
+- `auth-ops` — aggregates Entra providers
+
+Each Entra app registration exposes a dashboard command **Provision app registration** (`provision-auth`) that runs the same plan + provision path as the pipeline, then refreshes status.
+
 ## Environment variables (Microsoft.Identity.Web)
 
 | Env | Notes |

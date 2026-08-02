@@ -164,12 +164,7 @@ public static class EntraAuthAppRegistrationResourceExtensions
         return builder.ApplicationBuilder.AddResource(role)
             .ExcludeFromManifest()
             .WithParentRelationship(builder.Resource)
-            .WithInitialState(new CustomResourceSnapshot
-            {
-                ResourceType = "AuthAppRole",
-                State = KnownResourceStates.Running,
-                Properties = []
-            });
+            .WithInitialState(AuthDashboardSnapshots.Waiting("AuthAppRole"));
     }
 
     /// <summary>
