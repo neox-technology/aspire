@@ -40,6 +40,32 @@ public class AuthParameterPromptLabelTests
         Assert.Equal("Entra app — appregistration-spa (AuthSample-Ops)", clientInput.Label);
         Assert.Contains("appregistration-spa", clientInput.Description);
         Assert.Contains("provider-entra", clientInput.Description);
+        Assert.Contains("Existing apps load after a tenant is selected", clientInput.Description);
+        Assert.DoesNotContain("Graph enumeration failed", clientInput.Description);
+    }
+
+    [Fact]
+    public void ClientIdChoice_ModelTime_UsesDynamicLoadingDependingOnTenant()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var entra = builder.AddAuthProvider("provider-entra").Entra();
+        entra.AddAppRegistration("appregistration-spa", "AuthSample-Ops");
+
+        var clientId = Assert.Single(
+            builder.Resources.OfType<ParameterResource>(),
+            p => p.Name == "provider-entra-appregistration-spa-client-id");
+
+        var clientInput = InvokeInputGenerator(clientId);
+        Assert.NotNull(clientInput.DynamicLoading);
+        Assert.True(clientInput.DynamicLoading.AlwaysLoadOnStart);
+        Assert.Equal(
+            ["provider-entra-tenant-id"],
+            clientInput.DynamicLoading.DependsOnInputs);
+        Assert.NotNull(clientInput.DynamicLoading.LoadCallback);
+        Assert.NotNull(clientInput.Options);
+        Assert.Contains(
+            clientInput.Options,
+            o => o.Key == EntraAppRegistrationParameterPrompt.CreateSentinel);
     }
 
     [Fact]

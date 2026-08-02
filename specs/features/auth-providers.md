@@ -84,6 +84,7 @@ None — `aspire do` / `aspire deploy` pipeline steps only. No dashboard `WithCo
 - [x] `EntraAuthProviderOptions.TenantId` is `IResourceBuilder<ParameterResource>?`; auto-creates `{name}-tenant-id` when null; parameter uses `WithCustomInput` Choice (+ `AllowCustomChoice`) of ARM tenants.
 - [x] Per Auth app, `prereq-{app}-auth` **DependsOn** `prereq-providers-auth`; ClientId parameter Choice (create sentinel + `AllowCustomChoice` GUID); `DisplayName` is a required `AddAppRegistration` argument (not a ParameterResource).
 - [x] `prereq-{app}-auth` ClientId Choice prefetches Graph app registrations in the selected tenant (Create + listed apps + custom GUID); empty list on Graph failure / missing `Application.Read.All` (fallback Create + Other only).
+- [x] ClientId Choice model-time input uses `DynamicLoading` (`DependsOnInputs` = tenant parameter name, `AlwaysLoadOnStart`) so the dashboard unresolved-parameters UI lists Graph apps for the selected tenant (same enumerator / fallback as pipeline prefetch).
 - [x] `plan-{app}-auth` **DependsOn** `prereq-{app}-auth`; read-only Graph resolve + desired-vs-existing compare; attaches plan (no mutating writes).
 - [x] `provision-{app}-auth` **DependsOn** `plan-{app}-auth`; applies plan only (create = DisplayName + redirect URIs; optional DisplayName / redirect URI patches); create sentinel is never persisted as ClientId.
 - [x] Management vs workload credentials are separated; workload secrets use `ParameterResource` with `secret: true`.

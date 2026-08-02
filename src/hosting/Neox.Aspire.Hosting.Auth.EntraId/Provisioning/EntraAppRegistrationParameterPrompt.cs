@@ -34,13 +34,21 @@ internal static class EntraAppRegistrationParameterPrompt
             ? $"Select an existing app registration for '{appName}' on provider '{providerResourceName}' (parameter '{parameterName}'). Create for a new one, or Other for a custom Client ID (GUID)."
             : $"Select Create to provision a new app registration for '{appName}' on provider '{providerResourceName}' (parameter '{parameterName}'), or Other for an existing Client ID (GUID). App list was empty or Graph enumeration failed (needs Application.Read.All).";
 
+    internal static string FormatDescriptionPending(
+        string providerResourceName,
+        string appName,
+        string parameterName) =>
+        $"Select Create to provision a new app registration for '{appName}' on provider '{providerResourceName}' (parameter '{parameterName}'), or Other for a custom Client ID (GUID). Existing apps load after a tenant is selected.";
+
     public static void ConfigureClientIdChoiceInput(
         IResourceBuilder<ParameterResource> clientIdParam,
         string appName,
         string? displayNameForCreate,
-        string providerResourceName)
+        string providerResourceName,
+        ParameterResource tenantIdParameter)
     {
         ArgumentNullException.ThrowIfNull(clientIdParam);
+        ArgumentNullException.ThrowIfNull(tenantIdParameter);
         ArgumentException.ThrowIfNullOrWhiteSpace(appName);
         ArgumentException.ThrowIfNullOrWhiteSpace(providerResourceName);
 
@@ -49,19 +57,41 @@ internal static class EntraAppRegistrationParameterPrompt
             return;
         }
 
+        var tenantParameterName = tenantIdParameter.Name;
+
         clientIdParam.WithCustomInput(parameter => new InteractionInput
         {
             Name = parameter.Name,
             InputType = InputType.Choice,
             Label = FormatLabel(appName, displayNameForCreate),
-            Description = FormatDescription(
-                hasApps: false,
+            Description = FormatDescriptionPending(
                 providerResourceName,
                 appName,
                 parameter.Name),
             Required = true,
             AllowCustomChoice = true,
-            Options = BuildOptions(displayNameForCreate, apps: [])
+            Options = BuildOptions(displayNameForCreate, apps: []),
+            DynamicLoading = new InputLoadOptions
+            {
+                DependsOnInputs = [tenantParameterName],
+                AlwaysLoadOnStart = true,
+                LoadCallback = async context =>
+                {
+                    var tenantId = await ResolveTenantIdAsync(
+                            context,
+                            tenantParameterName,
+                            tenantIdParameter)
+                        .ConfigureAwait(false);
+                    var apps = string.IsNullOrWhiteSpace(tenantId)
+                        ? []
+                        : await EntraAppRegistrationEnumerator.TryGetAppRegistrationOptionsAsync(
+                                tenantId!,
+                                cancellationToken: context.CancellationToken)
+                            .ConfigureAwait(false);
+
+                    context.Input.Options = BuildOptions(displayNameForCreate, apps);
+                }
+            }
         });
     }
 
@@ -122,6 +152,20 @@ internal static class EntraAppRegistrationParameterPrompt
         };
         options.AddRange(apps);
         return options;
+    }
+
+    private static async Task<string?> ResolveTenantIdAsync(
+        LoadInputContext context,
+        string tenantParameterName,
+        ParameterResource tenantIdParameter)
+    {
+        if (context.AllInputs.TryGetByName(tenantParameterName, out var tenantInput)
+            && !string.IsNullOrWhiteSpace(tenantInput.Value))
+        {
+            return tenantInput.Value;
+        }
+
+        return await TryGetTenantIdAsync(tenantIdParameter, context.CancellationToken).ConfigureAwait(false);
     }
 
     private static async Task<string?> TryGetTenantIdAsync(

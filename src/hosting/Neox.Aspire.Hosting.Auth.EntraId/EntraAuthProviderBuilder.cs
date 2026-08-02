@@ -29,7 +29,8 @@ internal sealed class EntraAuthProviderBuilder(
             clientId,
             name,
             displayName,
-            provider.Name);
+            provider.Name,
+            provider.TenantIdParameter);
 
         var clientSecret = AuthOpsExtensions.GetOrAddParameter(
             applicationBuilder,
