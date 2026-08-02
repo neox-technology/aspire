@@ -3,20 +3,20 @@
 | Field | Value |
 |-------|-------|
 | Slug | `gitflow-ci` |
-| Status | defined |
-| Last code review | 2026-07-29 |
+| Status | implemented |
+| Last code review | 2026-08-02 |
 
 ## Summary
 
-Neox GitFlow automation on GitHub Actions for this repo: auto-PR, finish (tag + sync), feature cleanup, and start-release bump, plus CI on PRs to `develop`/`main`. Delivery remains NuGet publish to nuget.org from `main` only ([`nuget-org`](nuget-org.md)). No Aspire deploy workflow.
+Neox GitFlow automation on GitHub Actions for this repo: auto-PR, finish (tag + sync), feature cleanup, and start-release from `eng/Versions.props`, plus CI on PRs to `develop`/`main`. Delivery remains NuGet publish to nuget.org from `main` only ([`nuget-org`](nuget-org.md)). No Aspire deploy workflow.
 
 ## User scenarios
 
 - A contributor pushes `feature/**`; an automated PR opens to `develop` (squash when ready).
 - After a feature merges to `develop`, the feature branch is deleted.
-- An operator runs **Start release** from `develop` with `patch`/`minor`/`major`; a `release/x.y.z` branch is cut and a PR to `main` opens.
+- An operator runs **Start release** from `develop`; version is read from `eng/Versions.props` (`VersionPrefix`, `PreReleaseVersionLabel`, `StabilizePackageVersion`). When not stabilized, a `release/x.y.z-preview.N` branch is cut (`N` from existing tags/branches); when stabilized, `release/x.y.z`. A PR to `main` opens.
 - Push of `release/**` or `hotfix/**` opens (or reuses) an auto-PR to `main`.
-- Squash-merge of release/hotfix into `main` tags `vX.Y.Z`, creates a GitHub Release, opens a sync PR `main` → `develop`, and deletes the release/hotfix branch.
+- Squash-merge of release/hotfix into `main` tags `v` + branch version (e.g. `v1.0.0-preview.1`), creates a GitHub Release (`--prerelease` when the version has a prerelease suffix), opens a sync PR `main` → `develop`, and deletes the release/hotfix branch.
 - A PR targeting `develop` or `main` runs Arcade build/test/pack CI (`*-ci` versions) with no NuGet push.
 - Merge (push) to `main` publishes Shipping packages to nuget.org via Trusted Publishing.
 
@@ -41,9 +41,9 @@ _N/A — GitHub Actions / branching._
 ## Acceptance criteria
 
 - [x] `.github/workflows/gitflow-auto-pr.yml` opens PRs: `feature/**` → `develop`, `release/**` / `hotfix/**` → `main`.
-- [x] `.github/workflows/gitflow-finish.yml` tags, releases, syncs `main` → `develop`, and deletes the release/hotfix branch after squash-merge to `main`.
+- [x] `.github/workflows/gitflow-finish.yml` tags `v` + branch version (with `--prerelease` for preview suffixes), releases, syncs `main` → `develop`, and deletes the release/hotfix branch after squash-merge to `main`.
 - [x] `.github/workflows/gitflow-cleanup-feature.yml` deletes `feature/**` after merge to `develop`.
-- [x] `.github/workflows/gitflow-start-release.yml` runs from `develop` only and cuts `release/x.y.z` from latest `v*` tag + bump.
+- [x] `.github/workflows/gitflow-start-release.yml` runs from `develop` only and cuts `release/x.y.z` or `release/x.y.z-preview.N` from `eng/Versions.props`.
 - [x] Git automation uses `actions/create-github-app-token` + org App secrets (not a PAT).
 - [x] `.github/workflows/ci.yml` runs on `pull_request` to `develop` and `main` (build/test/pack, no push).
 - [x] `.github/workflows/publish-nuget.yml` publishes only on push to `main` (+ `workflow_dispatch`).
@@ -61,9 +61,10 @@ See [`domain-glossary`](domain-glossary.md).
 | Auto-PR | `.github/workflows/gitflow-auto-pr.yml` |
 | Finish release/hotfix | `.github/workflows/gitflow-finish.yml` |
 | Feature cleanup | `.github/workflows/gitflow-cleanup-feature.yml` |
-| Start release | `.github/workflows/gitflow-start-release.yml` |
+| Start release | `.github/workflows/gitflow-start-release.yml` (reads `eng/Versions.props`) |
 | CI | `.github/workflows/ci.yml` |
 | NuGet delivery | `.github/workflows/publish-nuget.yml` |
+| Version source | `eng/Versions.props` (`VersionPrefix`, `PreReleaseVersionLabel`, `StabilizePackageVersion`) |
 | Related packaging spec | [`nuget-org`](nuget-org.md) |
 
 Reference shape: `neox-technology/lmh-unisson-by-lmh` (`.github/workflows/`). Org App runbook: `neox-technology/neox-github-org` → `docs/RUNBOOK.md` (`neox-gitflow`).

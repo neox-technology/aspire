@@ -3,8 +3,8 @@
 | Field | Value |
 |-------|-------|
 | Slug | `nuget-org` |
-| Status | defined |
-| Last code review | 2026-07-29 |
+| Status | implemented |
+| Last code review | 2026-08-01 |
 
 ## Summary
 
@@ -59,7 +59,7 @@ See [`domain-glossary`](domain-glossary.md).
 | Package metadata | `Directory.Build.props` / `Directory.Build.targets` (repo URL, MIT `PackageLicenseExpression`, Neox copyright, symbols) |
 | License | Root `LICENSE` (MIT); NuGet `PackageLicenseExpression=MIT` |
 | Versions | `eng/Versions.props` (`PreReleaseVersionLabel`; GA via `StabilizePackageVersion`) |
-| Shipping packages | `src/Neox.Aspire.EntityFrameworkCore.MigrationWorker/`; `src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains/` |
+| Shipping packages | `src/Neox.Aspire.EntityFrameworkCore.MigrationWorker/`; `src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains/`; `src/hosting/Neox.Aspire.Hosting.Auth.Abstractions/`; `src/hosting/Neox.Aspire.Hosting.Auth.EntraId/` |
 | Secret | `NUGET_USER` — nuget.org profile name |
 
 ### Trusted Publishing policy (manual on nuget.org)

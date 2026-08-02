@@ -3,10 +3,19 @@
     <Project Path="src/Neox.Aspire.EntityFrameworkCore.MigrationWorker/Neox.Aspire.EntityFrameworkCore.MigrationWorker.csproj" />
   </Folder>
   <Folder Name="/src/hosting/">
+    <Project Path="src/hosting/Neox.Aspire.Hosting.Auth.Abstractions/Neox.Aspire.Hosting.Auth.Abstractions.csproj" />
+    <Project Path="src/hosting/Neox.Aspire.Hosting.Auth.EntraId/Neox.Aspire.Hosting.Auth.EntraId.csproj" />
+    <Project Path="src/hosting/Neox.Aspire.Hosting.Auth.Google/Neox.Aspire.Hosting.Auth.Google.csproj" />
+    <Project Path="src/hosting/Neox.Aspire.Hosting.Auth.EntraId.Generators.Internal/Neox.Aspire.Hosting.Auth.EntraId.Generators.Internal.csproj" />
     <Project Path="src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains/Neox.Aspire.Hosting.Azure.CustomDomains.csproj" />
     <Project Path="src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains.Generators.Internal/Neox.Aspire.Hosting.Azure.CustomDomains.Generators.Internal.csproj" />
   </Folder>
   <Folder Name="/tests/" />
+  <Folder Name="/tests/auth-providers/">
+    <Project Path="tests/auth-providers/Neox.Aspire.Hosting.Auth.Tests.csproj" />
+    <Project Path="tests/auth-providers/sample-apphost/Neox.Aspire.Hosting.Auth.Tests.SampleAppHost.csproj" />
+    <Project Path="tests/auth-providers/sample-blazor/Neox.Aspire.Hosting.Auth.Tests.SampleBlazor.csproj" />
+  </Folder>
   <Folder Name="/tests/azure-custom-domains/">
     <Project Path="tests/azure-custom-domains/Neox.Aspire.Hosting.Azure.CustomDomains.Tests.csproj" />
     <Project Path="tests/azure-custom-domains/sample-apphost/Neox.Aspire.Hosting.Azure.CustomDomains.Tests.SampleAppHost.csproj" />
@@ -42,5 +51,6 @@
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/octodns-provider-catalog/octodns-provider-catalog.csproj" />
+    <Project Path="tools/microsoft-graph-permissions-catalog/microsoft-graph-permissions-catalog.csproj" />
   </Folder>
 </Solution>

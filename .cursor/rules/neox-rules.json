@@ -3,7 +3,11 @@
   "solutionSlug": "aspire",
   "productName": "Neox Aspire",
   "paths": {
-    "migrationWorker": "src/Neox.Aspire.EntityFrameworkCore.MigrationWorker"
+    "migrationWorker": "src/Neox.Aspire.EntityFrameworkCore.MigrationWorker",
+    "customDomains": "src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains",
+    "authAbstractions": "src/hosting/Neox.Aspire.Hosting.Auth.Abstractions",
+    "authEntraId": "src/hosting/Neox.Aspire.Hosting.Auth.EntraId",
+    "authGoogle": "src/hosting/Neox.Aspire.Hosting.Auth.Google"
   },
   "specs": {
     "root": "specs",
@@ -14,7 +18,11 @@
   "aspire": {
     "mcpServerHint": "aspire",
     "packages": {
-      "migrationWorker": "Neox.Aspire.EntityFrameworkCore.MigrationWorker"
+      "migrationWorker": "Neox.Aspire.EntityFrameworkCore.MigrationWorker",
+      "customDomains": "Neox.Aspire.Hosting.Azure.CustomDomains",
+      "authAbstractions": "Neox.Aspire.Hosting.Auth.Abstractions",
+      "authEntraId": "Neox.Aspire.Hosting.Auth.EntraId",
+      "authGoogle": "Neox.Aspire.Hosting.Auth.Google"
     }
   }
 }

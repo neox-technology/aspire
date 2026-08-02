@@ -1,0 +1,37 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Neox.Aspire.Hosting.Auth</RootNamespace>
+    <IsPackable>true</IsPackable>
+    <SuppressFinalPackageVersion>true</SuppressFinalPackageVersion>
+    <Description>Aspire hosting AuthOps for Entra ID: Microsoft Graph app registrations and AUTH_ENTRA_* environment injection.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>aspire;auth;entra;oidc;graph;authops</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <AdditionalFiles Include="Graph\microsoft-graph-permissions.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting" Version="$(AspireVersion)" />
+    <PackageReference Include="Aspire.Hosting.Azure" Version="$(AspireVersion)" />
+    <PackageReference Include="Azure.Identity" Version="1.21.0" />
+    <PackageReference Include="Azure.ResourceManager" Version="1.14.0" />
+    <PackageReference Include="Microsoft.Graph" Version="6.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Neox.Aspire.Hosting.Auth.Abstractions\Neox.Aspire.Hosting.Auth.Abstractions.csproj" />
+    <ProjectReference Include="..\Neox.Aspire.Hosting.Auth.EntraId.Generators.Internal\Neox.Aspire.Hosting.Auth.EntraId.Generators.Internal.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Neox.Aspire.Hosting.Auth.Tests" />
+  </ItemGroup>
+</Project>

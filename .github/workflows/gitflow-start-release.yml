@@ -1,19 +1,10 @@
 name: gitflow-start-release
 
-# Cut a release branch from develop only. Select major/minor/patch; next version is computed from the latest v* tag.
+# Cut a release branch from develop only. Version comes from eng/Versions.props
+# (VersionPrefix; preview.N when StabilizePackageVersion is false).
 
 on:
   workflow_dispatch:
-    inputs:
-      bump:
-        description: "Semver bump from latest tag"
-        required: true
-        type: choice
-        options:
-          - patch
-          - minor
-          - major
-        default: patch
 
 permissions:
   contents: read
@@ -39,51 +30,77 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Compute next version
-        env:
-          BUMP: ${{ inputs.bump }}
         run: |
           set -euo pipefail
           git fetch --tags --force
+          git fetch origin 'refs/heads/release/*:refs/remotes/origin/release/*' 2>/dev/null || true
 
-          LATEST=$(git tag -l 'v*' --sort=-v:refname | head -n1 || true)
-          if [ -z "$LATEST" ]; then
-            BASE="0.0.0"
-            echo "No v* tags found — base $BASE"
-          else
-            BASE="${LATEST#v}"
-            if ! [[ "$BASE" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)([.-].+)?$ ]]; then
-              echo "::error::Latest tag '$LATEST' is not semver vX.Y.Z"
-              exit 1
-            fi
-            echo "Latest tag: $LATEST (base $BASE)"
+          PROPS="eng/Versions.props"
+          if [ ! -f "$PROPS" ]; then
+            echo "::error::$PROPS not found"
+            exit 1
           fi
 
-          MAJOR=$(echo "$BASE" | cut -d. -f1)
-          MINOR=$(echo "$BASE" | cut -d. -f2)
-          PATCH=$(echo "$BASE" | cut -d. -f3 | sed 's/[^0-9].*//')
+          VERSION_PREFIX=$(sed -n 's/.*<VersionPrefix>\([^<]*\)<\/VersionPrefix>.*/\1/p' "$PROPS" | head -n1)
+          LABEL=$(sed -n 's/.*<PreReleaseVersionLabel>\([^<]*\)<\/PreReleaseVersionLabel>.*/\1/p' "$PROPS" | head -n1)
+          STABILIZE=$(sed -n 's/.*<StabilizePackageVersion>\([^<]*\)<\/StabilizePackageVersion>.*/\1/p' "$PROPS" | head -n1)
 
-          case "$BUMP" in
-            major)
-              MAJOR=$((MAJOR + 1))
-              MINOR=0
-              PATCH=0
-              ;;
-            minor)
-              MINOR=$((MINOR + 1))
-              PATCH=0
-              ;;
-            patch)
-              PATCH=$((PATCH + 1))
-              ;;
-            *)
-              echo "::error::Unsupported bump '$BUMP'"
-              exit 1
-              ;;
-          esac
+          LABEL="${LABEL:-preview}"
+          STABILIZE="${STABILIZE:-false}"
 
-          VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          if [ -z "$VERSION_PREFIX" ]; then
+            echo "::error::VersionPrefix missing in $PROPS"
+            exit 1
+          fi
+          if ! [[ "$VERSION_PREFIX" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::VersionPrefix '$VERSION_PREFIX' is not X.Y.Z"
+            exit 1
+          fi
+
+          echo "Versions.props: VersionPrefix=$VERSION_PREFIX PreReleaseVersionLabel=$LABEL StabilizePackageVersion=$STABILIZE"
+
+          STABILIZE_LC=$(echo "$STABILIZE" | tr '[:upper:]' '[:lower:]')
+          if [ "$STABILIZE_LC" = "true" ]; then
+            VERSION="$VERSION_PREFIX"
+          else
+            PREFIX_TAG="v${VERSION_PREFIX}-${LABEL}."
+            PREFIX_BRANCH="release/${VERSION_PREFIX}-${LABEL}."
+            MAX_N=0
+
+            while IFS= read -r t; do
+              [ -z "$t" ] && continue
+              N="${t#"$PREFIX_TAG"}"
+              if [[ "$N" =~ ^[0-9]+$ ]] && [ "$N" -gt "$MAX_N" ]; then
+                MAX_N=$N
+              fi
+            done < <(git tag -l "${PREFIX_TAG}*" 2>/dev/null || true)
+
+            while IFS= read -r b; do
+              [ -z "$b" ] && continue
+              NAME="${b#origin/}"
+              N="${NAME#"$PREFIX_BRANCH"}"
+              if [[ "$N" =~ ^[0-9]+$ ]] && [ "$N" -gt "$MAX_N" ]; then
+                MAX_N=$N
+              fi
+            done < <(git branch -r --list "origin/${PREFIX_BRANCH}*" 2>/dev/null || true)
+
+            # Also check remote heads not fetched locally
+            while IFS= read -r ref; do
+              [ -z "$ref" ] && continue
+              NAME="${ref#refs/heads/}"
+              N="${NAME#"$PREFIX_BRANCH"}"
+              if [[ "$N" =~ ^[0-9]+$ ]] && [ "$N" -gt "$MAX_N" ]; then
+                MAX_N=$N
+              fi
+            done < <(git ls-remote --heads origin "release/${VERSION_PREFIX}-${LABEL}.*" 2>/dev/null | awk '{print $2}' || true)
+
+            N=$((MAX_N + 1))
+            VERSION="${VERSION_PREFIX}-${LABEL}.${N}"
+            echo "Next preview number: $N (max existing $MAX_N)"
+          fi
+
           BRANCH="release/${VERSION}"
-          echo "Bump $BUMP → $VERSION (branch $BRANCH)"
+          echo "Version $VERSION (branch $BRANCH)"
 
           if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
             echo "::error::Branch $BRANCH already exists on origin"
@@ -114,4 +131,4 @@ jobs:
             --base main \
             --head "$BRANCH" \
             --title "Release: $VERSION" \
-            --body "Automated GitFlow release branch \`$BRANCH\` cut from \`develop\` (bump \`${{ inputs.bump }}\`). Squash-merge when ready to ship."
+            --body "Automated GitFlow release branch \`$BRANCH\` cut from \`develop\` (version from \`eng/Versions.props\`). Squash-merge when ready to ship."

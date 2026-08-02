@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Neox.Aspire.Hosting.Auth</RootNamespace>
+    <IsPackable>true</IsPackable>
+    <SuppressFinalPackageVersion>true</SuppressFinalPackageVersion>
+    <Description>Aspire hosting AuthOps abstractions: shared provider/app model and generic AUTH_* environment injection.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>aspire;auth;authops;oidc</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting" Version="$(AspireVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Neox.Aspire.Hosting.Auth.EntraId" />
+    <InternalsVisibleTo Include="Neox.Aspire.Hosting.Auth.Google" />
+    <InternalsVisibleTo Include="Neox.Aspire.Hosting.Auth.Tests" />
+  </ItemGroup>
+</Project>
