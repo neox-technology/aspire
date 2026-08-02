@@ -12,6 +12,7 @@ internal static class EntraAuthDashboardServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(applicationBuilder);
 
         applicationBuilder.Services.TryAddSingleton<EntraAuthDashboardStatusService>();
+        applicationBuilder.Services.TryAddSingleton<EntraClientSecretNotificationCoordinator>();
         applicationBuilder.Services.TryAddSingleton<IEntraAuthHealthProbe>(sp =>
             EntraGraphAuthHealthProbe.Create(sp));
         applicationBuilder.Services.TryAddEventingSubscriber<EntraAuthDashboardLifecycleSubscriber>();

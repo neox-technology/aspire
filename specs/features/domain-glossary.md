@@ -56,6 +56,7 @@ Terminology authority for Neox Aspire packages in this **public** repository (`a
 | **deploy-auth** | Shared AuthOps deploy gate on `AuthOpsResource` (`auth-ops`); depends on all `provision-{app}-auth` steps across providers; required by Aspire `deploy`. |
 | **AUTH_ env convention** | Google (and non-Identity.Web) consumer injection `AUTH_{PROVIDER_SLUG}_{SETTING}` (e.g. `AUTH_GOOGLE_CLIENT_ID`); with multiple apps under one provider, `AUTH_{PROVIDER}_{APP}_{SETTING}`. |
 | **AzureAd__ env convention** | Entra `WithAuth` default injection aligned with Microsoft.Identity.Web (`AzureAd__Instance`, `AzureAd__TenantId`, `AzureAd__ClientId`, optional `AzureAd__ClientSecret`). SPA samples may `Map` to `VITE_ENTRA_*`. |
+| **Workload client secret** | Entra Auth app password credential bound via `WithClientSecret` into a secret `ParameterResource` (`AzureAd__ClientSecret`). Dashboard child resource `{app}-clientsecret` (`EntraClientSecretResource`) hosts the create command and status. Pipeline uses a provided parameter value in memory only; AppHost run mode may create a Graph `passwordCredential` (`addPassword`) by display name + lifetime (6/12/24 months → `EndDateTime`) and persist the one-shot `secretText` into AppHost deployment state. Distinct from management Graph credentials. |
 
 ## Out of scope
 

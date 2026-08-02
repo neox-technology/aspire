@@ -11,20 +11,40 @@ var entra = builder.AddAuthProvider("auth-provider-entra")
     .Entra(); // creates parameter auth-provider-entra-tenant-id (Choice of accessible tenants)
 
 var web = entra.AddAppRegistration("web", "MyApp-Local")
+    .WithClientSecret() // opt-in: emit AzureAd__ClientSecret + UI create when app exists
     .WithLocalhostRedirectUri(AuthApplicationType.Web, 7281, "/signin-oidc")
     .WithSupportedAccounts(SupportedAccountsType.SingleTenant);
 
 builder.AddProject<Projects.Api>("api")
-    .WithAuth(web, env => env.IncludeClientSecret = true);
+    .WithAuth(web);
 ```
 
 Then run `aspire do` / `aspire deploy`. Pipeline steps: `prereq-auth-provider-entra-auth` → `prereq-providers-auth` → `prereq-{app}-auth` → `plan-{app}-auth` → `provision-{app}-auth` → `deploy-auth` on each `EntraAuthAppRegistrationResource`.
+
+## Client secret (`WithClientSecret`)
+
+```csharp
+// Default: auto parameter {provider}-{app}-client-secret under child {app}-clientsecret
+web.WithClientSecret();
+
+// Optional override (may include a default value)
+var secret = builder.AddParameter("web-client-secret", secret: true);
+web.WithClientSecret(secret);
+```
+
+Adds dashboard child resource `{app}-clientsecret` (e.g. `appregistration-api-clientsecret`) under the Auth app.
+
+| Context | Behavior |
+|---------|----------|
+| Pipeline / CI | Resolves the secret parameter in memory for env when already provided (`Parameters__*` / deployment state). Does **not** call Graph `addPassword`. |
+| AppHost run (dashboard) | When `{app}-clientsecret` is Waiting (parent Healthy, secret empty): notification as soon as InteractionService is available → prompt for secret **name** + **lifetime** (6 / 12 / 24 months) → Graph `addPassword` (`EndDateTime`) → persist one-shot value into AppHost secrets. Command **Create client secret** on `{app}-clientsecret` re-triggers the same path. |
 
 ## Dashboard status (local run)
 
 In Aspire run mode, Entra AuthOps resources start as **Waiting**, then publish **Running** + Healthy/Unhealthy from Microsoft Graph probes:
 
 - Scopes / app roles — present on the Graph app (and Waiting while the parent app registration is not Healthy)
+- `{app}-clientsecret` — Waiting until parent Healthy and secret set; Healthy when secret is in AppHost (not part of parent worst-wins)
 - App registrations — ClientId set and app exists; children aggregated with worst-wins (Unhealthy > Waiting > Healthy)
 - Provider — TenantId set; aggregates app registrations
 - `auth-ops` — aggregates Entra providers
@@ -38,7 +58,7 @@ Each Entra app registration exposes a dashboard command **Provision app registra
 | `AzureAd__Instance` | `https://login.microsoftonline.com/` (omit with `IncludeInstance = false`) |
 | `AzureAd__TenantId` | from tenant parameter |
 | `AzureAd__ClientId` | from app ClientId parameter |
-| `AzureAd__ClientSecret` | only when `IncludeClientSecret = true` |
+| `AzureAd__ClientSecret` | when `WithClientSecret` is used, or `IncludeClientSecret = true` |
 
 SPA escape hatch:
 

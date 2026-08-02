@@ -22,6 +22,7 @@ Consumers reference a provider package (EntraId or Google), which pulls Abstract
 - Model mirrors DomainOps: provider resource → app registration → pipeline plan/provision → consumer bind.
 - App registration configuration uses **`AddAppRegistration(name, displayName)`** plus `WithXxx` methods (no options bag). Abstractions redirects are a flat list; Entra typed overloads map to Graph Web/Spa/Native buckets (`AuthApplicationType.Api` ignored). Supported account types: `WithSupportedAccounts(SupportedAccountsType)` → Graph `signInAudience` (default single-tenant). API exposition: `WithApiExposition` / `WithAppRoleExposition` → Graph `identifierUris`, `oauth2PermissionScopes`, `appRoles`; consume via `WithApiPermission` → Graph `requiredResourceAccess`. Well-known Microsoft Graph permissions: see [`auth-entra-graph-permissions`](auth-entra-graph-permissions.md).
 - `WithAuth` is **provider-scoped** and typed to the concrete registration resource (`EntraAuthAppRegistrationResource`, `GoogleAuthAppRegistrationResource`).
+- **Entra client secret:** `WithClientSecret(param?)` opts into workload secret bind + UI create. Adds a dashboard child resource `{app}-clientsecret` (`EntraClientSecretResource`) with command `create-client-secret`. Optional `param` overrides the auto `{provider}-{app}-client-secret`; omit to keep the auto secret parameter (parented under the child resource). Pipeline never calls Graph `addPassword` — it only resolves the parameter value in memory for env. AppHost run mode: when the `{app}-clientsecret` resource is Waiting (parent Healthy, secret empty), a dashboard notification invites create (retries until `IInteractionService` is available); prompt asks for secret **name** + **lifetime** (6/12/24 months); Graph `addPassword` sets `EndDateTime`; one-shot value persisted via `AuthParameterValue` (`Parameters:{name}`).
 - **Dashboard status (Entra):** AuthOps resources publish `Waiting` or `Running` + `HealthStatus` (`Healthy` / `Unhealthy`) via `ResourceNotificationService`. Leaf existence is probed with Microsoft Graph; parents aggregate children with **worst-wins** (Unhealthy > Waiting > Healthy). Google resources stay static `Running` (no dashboard probe in this revision). App registrations expose a dashboard `WithCommand` that runs plan + provision.
 
 ## User scenarios
@@ -36,6 +37,7 @@ Consumers reference a provider package (EntraId or Google), which pulls Abstract
 - Management credentials (Graph) stay separate from workload ClientId/ClientSecret; secrets are never logged or written into manifests.
 - Unit tests under `tests/auth-providers/` use fakes (no live Graph / no `az`).
 - **Dashboard (Entra run mode):** scopes/app roles start `Waiting`, then `Running` Healthy/Unhealthy from Graph presence (and stay `Waiting` while the parent app registration is not Running+Healthy). App registrations wait until ClientId is set, then probe Graph existence and aggregate child exposition health. Providers wait until TenantId is set, then aggregate apps. `auth-ops` aggregates Entra providers. A **Provision app registration** command on each Entra app registration re-runs plan + provision and refreshes status.
+- **Client secret (Entra):** `WithClientSecret()` / `WithClientSecret(secretParam)` adds `{app}-clientsecret` under the Auth app and marks secret env emit. In run mode, when that resource is Waiting (parent Healthy, secret empty), a notification invites create as soon as InteractionService is available (does not wait for the user to open the create command first). Prompt: display name + lifetime Choice (6/12/24 months) → Graph `addPassword` with `EndDateTime` → persist into AppHost deployment state. Command **Create client secret** on `{app}-clientsecret` uses the same path. Pipeline / CI supplies `Parameters__*` only (no Graph secret create).
 
 ## Routes (if UI)
 
@@ -64,9 +66,10 @@ Consumers reference a provider package (EntraId or Google), which pulls Abstract
 - Dedicated custom Dashboard UI beyond Aspire resource state / health / `WithCommand`
 - Google dashboard status probes / provision command (remain static `Running` until a later revision)
 - Automatic secret rotation on every deploy (opt-in only if added later)
+- Deleting / rotating existing Graph password credentials
 - CIAM / External ID–specific flows (configuring Graph `signInAudience` via `WithSupportedAccounts` is in scope; full multi-tenant / CIAM product flows are not)
 - Meta-package / type-forwarding shim retaining package id `Neox.Aspire.Hosting.Auth`
-- `WithAuth(IncludeRedirectUri)` env emit, application type as a separate `WithApplicationType`, client-secret create/rotate (`WithXxx` — later revision)
+- `WithAuth(IncludeRedirectUri)` env emit, application type as a separate `WithApplicationType`
 - Live Graph / interactive `aspire do` in CI (build-only smoke remains)
 - Google Blazor as a real Google OIDC sample (Entra Blazor is the Identity.Web demo)
 
@@ -87,7 +90,13 @@ Consumers reference a provider package (EntraId or Google), which pulls Abstract
 - [x] Unit tests cover API exposition / app role / permission model accumulation, plan compare actions, and Fake provisioner desired fields; sample AppHost wires an API Auth app + `WithApiPermission` on the web Auth app.
 - [x] `plan-{app}-auth` / `provision-{app}-auth` include `signInAudience`: create uses desired audience; adopt plans `UpdateSignInAudience` when it differs and provision PATCHes it.
 - [x] Abstractions does **not** expose `WithAuth`; Entra `WithAuth(EntraAuthAppRegistrationResource)` injects `AzureAd__Instance` / `AzureAd__TenantId` / `AzureAd__ClientId` (optional `AzureAd__ClientSecret`) via `WithEnvironment` late-bound to parameters — never resolves secrets at model build time.
-- [x] `WithAuth` omits client secret unless `IncludeClientSecret == true`; SPA may `Map` outputs to `VITE_ENTRA_*`.
+- [x] `WithAuth` omits client secret unless `IncludeClientSecret == true` **or** the Auth app has `WithClientSecret`; SPA may `Map` outputs to `VITE_ENTRA_*`. `IncludeClientSecret = false` suppresses emit even when `WithClientSecret` is present.
+- [x] Entra `WithClientSecret(IResourceBuilder<ParameterResource>? param = null)` annotates the Auth app and creates child `{app}-clientsecret` (`EntraClientSecretResource`); null keeps auto `{provider}-{app}-client-secret`; non-null requires `secret: true` and overrides `ClientSecretParameter` (parented under the clientsecret resource).
+- [x] `provision-{app}-auth` with `WithClientSecret` resolves the secret parameter in memory when a value is already provided; never calls Graph `addPassword`.
+- [x] AppHost run mode: when `{app}-clientsecret` is Waiting (parent Healthy, secret empty), show `PromptNotificationAsync` (wait/retry until `IInteractionService.IsAvailable`; app-lifetime CT) → `PromptInputsAsync` (secret **name** + lifetime 6/12/24 months) → Graph `addPassword` with `EndDateTime` → `AuthParameterValue.SetAsync` on `ClientSecretParameter` (never logged).
+- [x] Dashboard command `create-client-secret` on `{app}-clientsecret` runs the same create+persist path (including lifetime Choice).
+- [x] `{app}-clientsecret` publishes Waiting/Healthy independently (missing secret does not Unhealthy the Auth app).
+- [x] Unit tests cover annotation / child resource hierarchy / WithAuth emit, fake `addPassword` + `EndDateTime`, lifetime preset mapping, pipeline non-invocation, and persistence section key.
 - [x] `WithLocalhostRedirectUri` / `WithRedirectUri` accumulate desired redirect URIs on the registration resource.
 - [x] Unit tests cover redirect URI accumulation, localhost defaults, parameter+path, validation, and Graph redirect apply helpers.
 - [x] `plan-{app}-auth` / `provision-{app}-auth` resolve redirect URIs and apply them on Graph create; adopt plans `UpdateRedirectUris` when Web/Spa/Native buckets differ (`AuthApplicationType.Api` entries are ignored for Graph).
@@ -134,9 +143,9 @@ See [`domain-glossary`](domain-glossary.md). Feature-local API names below until
 | Namespace (both) | `Neox.Aspire.Hosting.Auth` |
 | Product vocabulary | AuthOps |
 | Provider API | `AddAuthProvider`, `AuthOpsResourceBase`, `.Entra(...)` → `EntraAuthOpsResource` (EntraId) |
-| App API | `AddAppRegistration(name, displayName)`, abstract `AuthAppRegistrationResource`, `EntraAuthAppRegistrationResource`, `WithRedirectUri` / `WithLocalhostRedirectUri`, `WithSupportedAccounts`, `WithApiExposition` / `WithAppRoleExposition` / `WithApiPermission` |
+| App API | `AddAppRegistration(name, displayName)`, abstract `AuthAppRegistrationResource`, `EntraAuthAppRegistrationResource`, `WithRedirectUri` / `WithLocalhostRedirectUri`, `WithSupportedAccounts`, `WithApiExposition` / `WithAppRoleExposition` / `WithApiPermission`, Entra `WithClientSecret(param?)` |
 | Binding API | Entra `WithAuth` → `AzureAd__*` (Identity.Web); Google `WithAuth` → `AUTH_GOOGLE_*` |
-| Provisioner | `EntraGraphAppProvisioner` (`PlanAsync` / `ProvisionAsync`) in EntraId |
+| Provisioner | `EntraGraphAppProvisioner` (`PlanAsync` / `ProvisionAsync` / `AddPasswordCredentialAsync`) in EntraId |
 | Unit tests | `tests/auth-providers/` |
 | Sample AppHost | `tests/auth-providers/sample-apphost/` |
 | Sample API | `tests/auth-providers/sample-api/` — workload `api`; `GET /me` via Graph |
@@ -152,6 +161,7 @@ var entra = builder.AddAuthProvider("auth-provider-entra")
     .Entra();
 
 var apiAppReg = entra.AddAppRegistration("api", "MyApi-Local")
+    .WithClientSecret() // auto {provider}-api-client-secret; UI can create via Graph addPassword
     .WithApiPermission(MicrosoftGraph.Delegated.UserRead);
 IResourceBuilder<ScopeApiExposition>? accessAsUser = null;
 apiAppReg.WithApiExposition(api =>
@@ -161,15 +171,17 @@ apiAppReg.WithApiExposition(api =>
         "Access API", "Allow the app to access the API on your behalf.");
 });
 
+var webSecret = builder.AddParameter("web-client-secret", secret: true); // optional override
 var webAppReg = entra.AddAppRegistration("web", "MyApp-Local")
+    .WithClientSecret(webSecret)
     .WithLocalhostRedirectUri(AuthApplicationType.Web, path: "signin-oidc")
     .WithApiPermission(accessAsUser!);
 
 var api = builder.AddProject<Projects.Api>("api")
-    .WithAuth(apiAppReg, env => env.IncludeClientSecret = true);
+    .WithAuth(apiAppReg); // emits AzureAd__ClientSecret because WithClientSecret was used
 
 var web = builder.AddProject<Projects.Web>("web")
-    .WithAuth(webAppReg, env => env.IncludeClientSecret = true)
+    .WithAuth(webAppReg)
     .WithReference(api);
 ```
 
@@ -180,7 +192,7 @@ var web = builder.AddProject<Projects.Web>("web")
 | Instance | `AzureAd__Instance` = `https://login.microsoftonline.com/` | literal (toggle via options) |
 | Tenant id | `AzureAd__TenantId` | `{provider}-tenant-id` |
 | Client id | `AzureAd__ClientId` | `{provider}-{app}-client-id` |
-| Client secret | `AzureAd__ClientSecret` | `{provider}-{app}-client-secret` (`secret: true`) — only when `IncludeClientSecret == true` |
+| Client secret | `AzureAd__ClientSecret` | `{provider}-{app}-client-secret` (`secret: true`) — when `WithClientSecret` or `IncludeClientSecret == true` |
 
 SPA escape hatch: `env.Map(...)` → `VITE_ENTRA_TENANT_ID` / `VITE_ENTRA_CLIENT_ID` (and `IncludeInstance = false`).
 
@@ -203,7 +215,7 @@ Shared gate `prereq-providers-auth` is hosted on **`AuthOpsResource`** (`auth-op
 | `prereq-providers-auth` | Abstractions on `AuthOpsResource` (idempotent) | Fan-in of all `prereq-{providerResource}-auth` (noop) | Gate only | Dependency failure |
 | `prereq-{app}-auth` | `AddAppRegistration` on registration resource (idempotent) | **DependsOn** `prereq-providers-auth` | ClientId parameter ready | Missing interactive input |
 | `plan-{app}-auth` | `AddAppRegistration` (EntraId) | **DependsOn** `prereq-{app}-auth` | Plan attached (no mutating Graph writes) | Graph failure / missing adopt target / invalid DisplayName |
-| `provision-{app}-auth` | `AddAppRegistration` (EntraId) | **DependsOn** `plan-{app}-auth` (+ exposer provision when needed) | Plan applied; workload ClientId/TenantId set | Graph failure |
+| `provision-{app}-auth` | `AddAppRegistration` (EntraId) | **DependsOn** `plan-{app}-auth` (+ exposer provision when needed) | Plan applied; workload ClientId/TenantId set; secret param resolved in memory when `WithClientSecret` + value provided (no Graph `addPassword`) | Graph failure |
 | `deploy-auth` | EntraId gate on provider (idempotent) | all `provision-{app}-auth`; **RequiredBy** Aspire `deploy` | Gate only | Dependency failure |
 
 `{app}` is the Auth app resource name slug (same dash rules as other Neox steps).

@@ -61,6 +61,7 @@ internal sealed class EntraGraphAuthHealthProbe : IEntraAuthHealthProbe
             return new EntraAuthAppProbeResult
             {
                 Exists = true,
+                ObjectId = application.Id,
                 ScopeValues = scopes,
                 AppRoleValues = roles
             };

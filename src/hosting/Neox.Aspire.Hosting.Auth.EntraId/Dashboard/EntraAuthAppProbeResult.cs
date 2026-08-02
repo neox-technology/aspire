@@ -9,6 +9,9 @@ internal sealed class EntraAuthAppProbeResult
 
     public string? Error { get; init; }
 
+    /// <summary>Graph application object id when <see cref="Exists"/> is true.</summary>
+    public string? ObjectId { get; init; }
+
     public IReadOnlySet<string> ScopeValues { get; init; } =
         new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 

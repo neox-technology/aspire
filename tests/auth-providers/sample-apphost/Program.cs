@@ -14,6 +14,7 @@ IResourceBuilder<ScopeApiExposition>? accessAsUser = null;
 // API Auth app: expose Application ID URI api://{ClientId}, a delegated scope, and an app role.
 // Graph User.Read is on the API (GET /me calls Microsoft Graph on behalf of the user).
 var apiAuth = entra.AddAppRegistration("appregistration-api", "AuthSample-Api")
+    .WithClientSecret()
     .WithApiExposition(api =>
     {
         accessAsUser = api.AddScopeWithAdminAndUserConsent(
@@ -32,11 +33,14 @@ var apiCaller = apiAuth.WithAppRoleExposition(
 
 // Auth app resource names must differ from workload resources (Aspire unique names).
 var webAuth = entra.AddAppRegistration("appregistration-web", "AuthSample-Blazor")
+    .WithClientSecret()
     .WithLocalhostRedirectUri(AuthApplicationType.Web, path: "signin-oidc")
     .WithApiPermission(accessAsUser!)
     .WithApiPermission(apiCaller);
 
+// SPA is a public client.
 var spaAuth = entra.AddAppRegistration("appregistration-spa", "AuthSample-Ops")
+    .WithClientSecret()
     .WithLocalhostRedirectUri(AuthApplicationType.Spa)
     .WithApiPermission(accessAsUser!);
 
@@ -44,7 +48,7 @@ var spaAuth = entra.AddAppRegistration("appregistration-spa", "AuthSample-Ops")
 // launchSettings / Vite "http" endpoints KeyNotFound during ACA Bicep generation.
 var api = builder.AddProject<Projects.Neox_Aspire_Hosting_Auth_Tests_SampleApi>("api")
     .WithExternalHttpEndpoints()
-    .WithAuth(apiAuth, env => env.IncludeClientSecret = true)
+    .WithAuth(apiAuth)
     .PublishAsAzureContainerApp((_, _) => { });
 
 var apiScope = ReferenceExpression.Create(
@@ -52,7 +56,7 @@ var apiScope = ReferenceExpression.Create(
 
 builder.AddProject<Projects.Neox_Aspire_Hosting_Auth_Tests_SampleBlazor>("blazor")
     .WithExternalHttpEndpoints()
-    .WithAuth(webAuth, env => env.IncludeClientSecret = true)
+    .WithAuth(webAuth)
     .WithReference(api)
     .WithEnvironment("DownstreamApi__Scopes__0", apiScope)
     .WithEnvironment("DownstreamApi__BaseUrl", api.GetEndpoint("https"))

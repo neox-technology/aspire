@@ -4,6 +4,16 @@ internal sealed class FakeEntraGraphAppProvisioner : IEntraGraphAppProvisioner
 {
     public AuthAppRegistrationPlan? LastPlan { get; private set; }
 
+    public int AddPasswordCallCount { get; private set; }
+
+    public string? LastPasswordDisplayName { get; private set; }
+
+    public string? LastPasswordObjectId { get; private set; }
+
+    public DateTimeOffset? LastPasswordEndDateTime { get; private set; }
+
+    public string NextSecretText { get; set; } = "fake-secret-text";
+
     public Task<AuthAppRegistrationPlan> PlanAsync(EntraAuthAppRegistrationResource app, CancellationToken cancellationToken)
     {
         var desiredIdentifierUris = EntraApiExpositionApplicator.CollectDesiredIdentifierUris(app);
@@ -65,5 +75,28 @@ internal sealed class FakeEntraGraphAppProvisioner : IEntraGraphAppProvisioner
             ClientSecret = null,
             ApplicationObjectId = plan.Existing?.ObjectId ?? "object-id"
         });
+    }
+
+    public Task<string> AddPasswordCredentialAsync(
+        string applicationObjectId,
+        string displayName,
+        DateTimeOffset endDateTime,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(applicationObjectId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
+        AddPasswordCallCount++;
+        LastPasswordObjectId = applicationObjectId;
+        LastPasswordDisplayName = displayName;
+        LastPasswordEndDateTime = endDateTime;
+        return Task.FromResult(NextSecretText);
+    }
+
+    public string? ObjectIdForClientId { get; set; } = "object-id";
+
+    public Task<string?> TryGetApplicationObjectIdAsync(string clientId, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(clientId);
+        return Task.FromResult(ObjectIdForClientId);
     }
 }

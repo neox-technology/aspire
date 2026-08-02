@@ -17,4 +17,19 @@ public interface IEntraGraphAppProvisioner
         EntraAuthAppRegistrationResource app,
         AuthAppRegistrationPlan plan,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Creates a password credential on the Entra application (Graph <c>addPassword</c>)
+    /// and returns the one-shot <c>secretText</c>.
+    /// </summary>
+    Task<string> AddPasswordCredentialAsync(
+        string applicationObjectId,
+        string displayName,
+        DateTimeOffset endDateTime,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Resolves the Graph application object id for a client (app) id, or null when missing.
+    /// </summary>
+    Task<string?> TryGetApplicationObjectIdAsync(string clientId, CancellationToken cancellationToken);
 }

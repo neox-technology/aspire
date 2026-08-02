@@ -14,6 +14,7 @@ public class AuthOpsParentHierarchyTests
 
         IResourceBuilder<ScopeApiExposition>? scope = null;
         var api = entra.AddAppRegistration("appregistration-api", "Api")
+            .WithClientSecret()
             .WithApiExposition(a =>
             {
                 scope = a.AddScopeWithAdminConsent("access_as_user", "Access", "Desc");
@@ -51,10 +52,16 @@ public class AuthOpsParentHierarchyTests
             p => p.Name == "provider-entra-appregistration-api-client-id");
         AssertHasParentRelationship(clientId, api.Resource);
 
+        var secretResource = Assert.Single(
+            builder.Resources.OfType<EntraClientSecretResource>(),
+            r => r.Name == "appregistration-api-clientsecret");
+        Assert.Same(api.Resource, secretResource.Owner);
+        AssertHasParentRelationship(secretResource, api.Resource);
+
         var clientSecret = Assert.Single(
             builder.Resources.OfType<ParameterResource>(),
             p => p.Name == "provider-entra-appregistration-api-client-secret");
-        AssertHasParentRelationship(clientSecret, api.Resource);
+        AssertHasParentRelationship(clientSecret, secretResource);
     }
 
     private static void AssertHasParentRelationship(IResource child, IResource parent)

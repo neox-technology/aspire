@@ -17,7 +17,8 @@ public sealed class EntraAuthEnvOptions
 
     /// <summary>
     /// When <c>true</c>, emit <c>{Section}__ClientSecret</c>.
-    /// When <c>null</c> or <c>false</c> (default), omit the secret.
+    /// When <c>null</c> (default), emit only if the Auth app has <c>WithClientSecret</c>.
+    /// When <c>false</c>, suppress emit even if <c>WithClientSecret</c> is present.
     /// </summary>
     public bool? IncludeClientSecret { get; set; }
 

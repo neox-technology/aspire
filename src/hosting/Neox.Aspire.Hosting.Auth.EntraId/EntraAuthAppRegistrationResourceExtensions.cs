@@ -9,6 +9,64 @@ namespace Neox.Aspire.Hosting.Auth;
 public static class EntraAuthAppRegistrationResourceExtensions
 {
     /// <summary>
+    /// Opts into workload client-secret bind (<c>AzureAd__ClientSecret</c>) and AppHost UI create
+    /// (Graph <c>addPassword</c>). Adds a child resource <c>{app}-clientsecret</c>.
+    /// When <paramref name="param"/> is null, uses the auto <c>{provider}-{app}-client-secret</c> parameter;
+    /// otherwise requires a secret parameter and overrides it.
+    /// </summary>
+    public static IResourceBuilder<EntraAuthAppRegistrationResource> WithClientSecret(
+        this IResourceBuilder<EntraAuthAppRegistrationResource> builder,
+        IResourceBuilder<ParameterResource>? param = null)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+
+        if (builder.Resource.Annotations.OfType<ClientSecretAnnotation>().Any())
+        {
+            return builder;
+        }
+
+        IResourceBuilder<ParameterResource> secretParamBuilder;
+        if (param is not null)
+        {
+            if (!param.Resource.Secret)
+            {
+                throw new ArgumentException(
+                    $"Parameter '{param.Resource.Name}' must be created with secret: true for WithClientSecret.",
+                    nameof(param));
+            }
+
+            builder.Resource.ClientSecretParameter = param.Resource;
+            secretParamBuilder = param;
+        }
+        else
+        {
+            secretParamBuilder = builder.ApplicationBuilder.CreateResourceBuilder(
+                builder.Resource.ClientSecretParameter);
+        }
+
+        var app = builder.Resource;
+        var secretResourceName = $"{app.Name}-clientsecret";
+        var secretResource = new EntraClientSecretResource(
+            secretResourceName,
+            app,
+            secretParamBuilder.Resource);
+
+        var secretResourceBuilder = builder.ApplicationBuilder.AddResource(secretResource)
+            .ExcludeFromManifest()
+            .WithParentRelationship(builder)
+            .WithInitialState(AuthDashboardSnapshots.Waiting("EntraClientSecret"))
+            .WithCreateClientSecretCommand();
+
+        secretParamBuilder.WithParentRelationship(secretResourceBuilder);
+
+        builder.WithAnnotation(
+            new ClientSecretAnnotation(secretResource),
+            ResourceAnnotationMutationBehavior.Replace);
+
+        return builder;
+    }
+
+    /// <summary>
     /// Adds a localhost redirect URI into the Entra Graph platform bucket
     /// (<see cref="AuthApplicationType"/>).
     /// </summary>

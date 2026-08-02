@@ -181,6 +181,16 @@ public static class EntraAuthOpsExtensions
                         app.ClientIdParameter,
                         result.ClientId,
                         context.CancellationToken).ConfigureAwait(false);
+
+                    // WithClientSecret: bind provided secret value in memory only (no Graph addPassword).
+                    if (app.Annotations.OfType<ClientSecretAnnotation>().Any())
+                    {
+                        await AuthParameterPrompt.EnsureReadyAsync(
+                                context.Services,
+                                [app.ClientSecretParameter],
+                                context.CancellationToken)
+                            .ConfigureAwait(false);
+                    }
                 }
             };
         });
@@ -225,7 +235,10 @@ public static class EntraAuthOpsExtensions
         builder.WithEnvironment(envOptions.ResolveName(AuthOutput.TenantId), authApp.TenantIdParameter);
         builder.WithEnvironment(envOptions.ResolveName(AuthOutput.ClientId), authApp.ClientIdParameter);
 
-        if (envOptions.IncludeClientSecret == true)
+        var emitSecret = envOptions.IncludeClientSecret == true
+            || (envOptions.IncludeClientSecret != false
+                && authApp.Annotations.OfType<ClientSecretAnnotation>().Any());
+        if (emitSecret)
         {
             builder.WithEnvironment(
                 envOptions.ResolveName(AuthOutput.ClientSecret),

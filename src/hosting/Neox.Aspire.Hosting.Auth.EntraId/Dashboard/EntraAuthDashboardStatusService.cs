@@ -202,6 +202,16 @@ internal sealed class EntraAuthDashboardStatusService
                     .ConfigureAwait(false);
             }
 
+            await PublishClientSecretStatusAsync(
+                    services,
+                    notifications,
+                    app,
+                    parentHealthy: false,
+                    waitingForClientId: true,
+                    applicationObjectId: null,
+                    cancellationToken)
+                .ConfigureAwait(false);
+
             return AuthDashboardStatus.Waiting;
         }
 
@@ -215,6 +225,9 @@ internal sealed class EntraAuthDashboardStatusService
             logger?.LogWarning(ex, "Entra AuthOps Graph probe failed for app '{App}'.", app.Name);
             probeResult = EntraAuthAppProbeResult.Failed(ex.Message);
         }
+
+        services.GetService<EntraClientSecretNotificationCoordinator>()
+            ?.TryNotify(services, app, probeResult, cancellationToken);
 
         var ownStatus = probeResult.Exists && probeResult.Error is null
             ? AuthDashboardStatus.Healthy
@@ -268,6 +281,17 @@ internal sealed class EntraAuthDashboardStatusService
             childStatuses.Add(childStatus);
         }
 
+        // Client secret status is independent of parent worst-wins aggregation.
+        await PublishClientSecretStatusAsync(
+                services,
+                notifications,
+                app,
+                parentHealthy,
+                waitingForClientId: false,
+                applicationObjectId: probeResult.ObjectId,
+                cancellationToken)
+            .ConfigureAwait(false);
+
         // App status: own existence + children (worst-wins). Missing app is Unhealthy even if no children.
         var aggregatedChildren = AuthStatusAggregator.WorstWins(
             childStatuses,
@@ -289,6 +313,59 @@ internal sealed class EntraAuthDashboardStatusService
         return appStatus;
     }
 
+    private static async Task PublishClientSecretStatusAsync(
+        IServiceProvider services,
+        ResourceNotificationService notifications,
+        EntraAuthAppRegistrationResource app,
+        bool parentHealthy,
+        bool waitingForClientId,
+        string? applicationObjectId,
+        CancellationToken cancellationToken)
+    {
+        var secretAnnotation = app.Annotations.OfType<ClientSecretAnnotation>().LastOrDefault();
+        if (secretAnnotation is null)
+        {
+            return;
+        }
+
+        var secretResource = secretAnnotation.SecretResource;
+        AuthDashboardStatus status;
+        string description;
+
+        if (waitingForClientId)
+        {
+            status = AuthDashboardStatus.Waiting;
+            description = "Waiting for client id.";
+        }
+        else if (!parentHealthy)
+        {
+            status = AuthDashboardStatus.Waiting;
+            description = "Waiting for parent app registration to be healthy.";
+        }
+        else if (AuthParameterResolution.TryGetResolvedValue(secretResource.Parameter, services, out var secret)
+                 && !string.IsNullOrWhiteSpace(secret))
+        {
+            status = AuthDashboardStatus.Healthy;
+            description = "Client secret is set in AppHost.";
+        }
+        else
+        {
+            status = AuthDashboardStatus.Waiting;
+            description = "Client secret not set — use Create client secret.";
+            // Notify as soon as the secret resource is Waiting with conditions met (parent Healthy).
+            services.GetService<EntraClientSecretNotificationCoordinator>()
+                ?.TryNotifyMissingSecret(services, app, applicationObjectId);
+        }
+
+        await AuthDashboardStatusPublisher.PublishAsync(
+                notifications,
+                secretResource,
+                status,
+                description,
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
     private static async Task PublishWaitingTreeAsync(
         ResourceNotificationService notifications,
         EntraAuthAppRegistrationResource app,
@@ -308,6 +385,18 @@ internal sealed class EntraAuthDashboardStatusService
             await AuthDashboardStatusPublisher.PublishAsync(
                     notifications,
                     exposition,
+                    AuthDashboardStatus.Waiting,
+                    description,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        var secretResource = app.Annotations.OfType<ClientSecretAnnotation>().LastOrDefault()?.SecretResource;
+        if (secretResource is not null)
+        {
+            await AuthDashboardStatusPublisher.PublishAsync(
+                    notifications,
+                    secretResource,
                     AuthDashboardStatus.Waiting,
                     description,
                     cancellationToken)

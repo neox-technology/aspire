@@ -4,6 +4,7 @@ using Azure.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Graph;
+using Microsoft.Graph.Applications.Item.AddPassword;
 using Microsoft.Graph.Models;
 using Microsoft.Graph.Models.ODataErrors;
 
@@ -223,6 +224,57 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
             ClientSecret = null,
             ApplicationObjectId = existing.ObjectId
         };
+    }
+
+    public async Task<string> AddPasswordCredentialAsync(
+        string applicationObjectId,
+        string displayName,
+        DateTimeOffset endDateTime,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(applicationObjectId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
+
+        try
+        {
+            var created = await _graph.Applications[applicationObjectId].AddPassword
+                .PostAsync(
+                    new AddPasswordPostRequestBody
+                    {
+                        PasswordCredential = new PasswordCredential
+                        {
+                            DisplayName = displayName.Trim(),
+                            EndDateTime = endDateTime.UtcDateTime
+                        }
+                    },
+                    cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+
+            var secretText = created?.SecretText;
+            if (string.IsNullOrWhiteSpace(secretText))
+            {
+                throw new InvalidOperationException(
+                    $"Graph addPassword for application '{applicationObjectId}' returned no secretText.");
+            }
+
+            return secretText;
+        }
+        catch (ODataError ex)
+        {
+            throw new InvalidOperationException(
+                $"Failed to create client secret on Entra application '{applicationObjectId}': {ex.Error?.Message ?? ex.Message}",
+                ex);
+        }
+    }
+
+    /// <summary>
+    /// Resolves the Graph application object id for a client (app) id.
+    /// </summary>
+    public async Task<string?> TryGetApplicationObjectIdAsync(string clientId, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(clientId);
+        var application = await GetByAppIdAsync(clientId, cancellationToken).ConfigureAwait(false);
+        return application?.Id;
     }
 
     internal static AuthAppRegistrationPlan BuildAdoptPlan(
