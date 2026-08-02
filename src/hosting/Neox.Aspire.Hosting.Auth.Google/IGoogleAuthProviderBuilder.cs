@@ -18,5 +18,5 @@ public interface IGoogleAuthProviderBuilder
     /// </summary>
     /// <param name="name">Aspire resource name (slug for pipeline steps and parameters).</param>
     /// <param name="displayName">Required display name on the IAM oauth client.</param>
-    IResourceBuilder<AuthAppResource> AddAppRegistration(string name, string displayName);
+    IResourceBuilder<GoogleAuthAppRegistrationResource> AddAppRegistration(string name, string displayName);
 }

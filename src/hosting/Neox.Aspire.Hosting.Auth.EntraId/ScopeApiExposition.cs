@@ -7,7 +7,7 @@ public sealed class ScopeApiExposition : ApiExposition
 {
     public ScopeApiExposition(
         string name,
-        AuthAppResource owner,
+        EntraAuthAppRegistrationResource owner,
         string scopeValue,
         string adminConsentDisplayName,
         string adminConsentDescription,

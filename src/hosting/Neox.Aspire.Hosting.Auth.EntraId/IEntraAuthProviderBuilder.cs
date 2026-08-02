@@ -18,5 +18,5 @@ public interface IEntraAuthProviderBuilder
     /// </summary>
     /// <param name="name">Aspire resource name (slug for pipeline steps and parameters).</param>
     /// <param name="displayName">Required display name in Entra ID.</param>
-    IResourceBuilder<AuthAppResource> AddAppRegistration(string name, string displayName);
+    IResourceBuilder<EntraAuthAppRegistrationResource> AddAppRegistration(string name, string displayName);
 }

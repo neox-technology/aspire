@@ -17,7 +17,7 @@ public sealed class GoogleAuthOpsResource : AuthOpsResourceBase
 
     /// <summary>
     /// Aspire parameter that supplies the Google Cloud project id (<c>{provider}-project-id</c>).
-    /// Bound to Auth apps as <see cref="AuthAppResource.TenantIdParameter"/> (scope id).
+    /// Bound to Auth apps as <see cref="GoogleAuthAppRegistrationResource.TenantIdParameter"/> (scope id).
     /// </summary>
     public ParameterResource ProjectIdParameter { get; internal set; } = null!;
 }

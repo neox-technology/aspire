@@ -115,13 +115,13 @@ public class SupportedAccountsTests
         Assert.Equal("AzureADandPersonalMicrosoftAccount", plan.DesiredSignInAudience);
     }
 
-    private static AuthAppResource CreateApp()
+    private static EntraAuthAppRegistrationResource CreateApp()
     {
         var provider = new EntraAuthOpsResource("entra", new AuthOpsResource("auth-ops"))
         {
             TenantIdParameter = new ParameterResource("tenant", _ => "t1", secret: false)
         };
-        var app = new AuthAppResource("web", provider, "Web")
+        var app = new EntraAuthAppRegistrationResource("web", provider, "Web")
         {
             TenantIdParameter = provider.TenantIdParameter
         };

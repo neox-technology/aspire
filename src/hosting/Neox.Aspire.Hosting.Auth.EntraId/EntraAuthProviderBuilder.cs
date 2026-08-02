@@ -9,13 +9,13 @@ internal sealed class EntraAuthProviderBuilder(
 {
     public IResourceBuilder<EntraAuthOpsResource> Resource => providerBuilder;
 
-    public IResourceBuilder<AuthAppResource> AddAppRegistration(string name, string displayName)
+    public IResourceBuilder<EntraAuthAppRegistrationResource> AddAppRegistration(string name, string displayName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
 
         var provider = providerBuilder.Resource;
-        var app = new AuthAppResource(name, provider, displayName)
+        var app = new EntraAuthAppRegistrationResource(name, provider, displayName)
         {
             TenantIdParameter = provider.TenantIdParameter
         };
@@ -46,12 +46,8 @@ internal sealed class EntraAuthProviderBuilder(
         var appBuilder = applicationBuilder.AddResource(app)
             .ExcludeFromManifest()
             .WithParentRelationship(providerBuilder)
-            .WithInitialState(new CustomResourceSnapshot
-            {
-                ResourceType = "AuthApp",
-                State = KnownResourceStates.Running,
-                Properties = []
-            });
+            .WithInitialState(AuthDashboardSnapshots.Waiting("EntraAuthAppRegistration"))
+            .WithProvisionAuthCommand();
 
         clientId.WithParentRelationship(appBuilder);
         clientSecret.WithParentRelationship(appBuilder);

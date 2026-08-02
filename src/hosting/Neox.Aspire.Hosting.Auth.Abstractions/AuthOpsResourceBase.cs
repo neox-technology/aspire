@@ -7,7 +7,7 @@ namespace Neox.Aspire.Hosting.Auth;
 /// </summary>
 public abstract class AuthOpsResourceBase : Resource, IResourceWithParent<AuthOpsResource>
 {
-    private readonly List<AuthAppResource> _apps = [];
+    private readonly List<AuthAppRegistrationResource> _apps = [];
     private readonly AuthOpsResource _authOpsParent;
 
     protected AuthOpsResourceBase(string name, AuthOpsResource authOpsParent)
@@ -25,22 +25,23 @@ public abstract class AuthOpsResourceBase : Resource, IResourceWithParent<AuthOp
     IResource IResourceWithParent.Parent => Parent;
 
     /// <summary>
-    /// Stable provider slug used in <c>AUTH_{SLUG}_*</c> env vars (e.g. <c>entra</c>).
+    /// Stable provider slug used in env vars (e.g. <c>entra</c>, <c>google</c>).
     /// Pipeline prereq steps use the Aspire resource <see cref="Resource.Name"/> instead.
     /// </summary>
     public abstract string ProviderSlug { get; }
 
     /// <summary>
-    /// Optional factory that builds a deferred authority URL from the tenant parameter for <see cref="AuthOpsExtensions.WithAuth{T}"/>.
+    /// Optional factory that builds a deferred authority URL from the tenant parameter.
+    /// Used by providers that emit an authority env var (e.g. Google <c>AUTH_*_AUTHORITY</c>).
     /// </summary>
     public Func<ParameterResource, ReferenceExpression>? AuthorityExpression { get; set; }
 
     /// <summary>
-    /// Auth apps registered under this provider.
+    /// Auth app registrations under this provider.
     /// </summary>
-    public IReadOnlyList<AuthAppResource> Apps => _apps;
+    public IReadOnlyList<AuthAppRegistrationResource> Apps => _apps;
 
-    internal void RegisterApp(AuthAppResource app)
+    internal void RegisterApp(AuthAppRegistrationResource app)
     {
         ArgumentNullException.ThrowIfNull(app);
         _apps.Add(app);

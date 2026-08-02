@@ -10,10 +10,10 @@
 
 Adds **`Neox.Aspire.Hosting.Auth.Google`** as a sibling AuthOps provider to EntraId:
 
-- `AddAuthProvider` → `.Google(...)` → `GoogleAuthOpsResource` / `AddAppRegistration`
-- **Adopt/bind only**: resolve ProjectId + existing ClientId, then inject `AUTH_GOOGLE_*` via shared `WithAuth`
+- `AddAuthProvider` → `.Google(...)` → `GoogleAuthOpsResource` / `AddAppRegistration` → `GoogleAuthAppRegistrationResource`
+- **Adopt/bind only**: resolve ProjectId + existing ClientId, then inject `AUTH_GOOGLE_*` via **Google** `WithAuth` (not Abstractions)
 - Flat redirect desired-state stays on the AppHost model (`WithRedirectUri` / `WithLocalhostRedirectUri`) — **no** Google API apply
-- Shared Abstractions owns flat redirects; Entra keeps Graph platform buckets (`AuthApplicationType`)
+- Shared Abstractions owns flat redirects + abstract `AuthAppRegistrationResource`; Entra keeps Graph platform buckets (`AuthApplicationType`)
 
 **Product boundary (frozen):** Google AuthOps does **not** create or patch oauth clients (neither IAM `oauthClients` nor Google Auth Platform console clients). Create Entra-like is out of scope with a clear error. IAP `oauth-clients` remain out of scope.
 
@@ -50,12 +50,12 @@ None — pipeline steps only.
 - [x] Package `Neox.Aspire.Hosting.Auth.Google` under `src/hosting/Neox.Aspire.Hosting.Auth.Google/` (refs Abstractions + Google.Apis.Auth).
 - [x] `.Google(configure?)` creates `GoogleAuthOpsResource` (`ProviderSlug = "google"`); ProjectId parameter `{name}-project-id` Choice (+ `AllowCustomChoice`).
 - [x] AuthorityExpression is constant `https://accounts.google.com`.
-- [x] `AddAppRegistration(name, displayName)` wires ClientId/ClientSecret parameters and app pipeline steps; shares provider ProjectId as `TenantIdParameter`.
+- [x] `AddAppRegistration(name, displayName)` returns `IResourceBuilder<GoogleAuthAppRegistrationResource>`; wires ClientId/ClientSecret parameters and app pipeline steps; shares provider ProjectId as `TenantIdParameter`.
 - [x] Flat redirects may be modeled on the Auth app; they are **not** applied via Google APIs.
 - [x] Pipeline: `prereq-{provider}-auth` → `prereq-providers-auth` → `prereq-{app}-auth` → `plan-{app}-auth` → `provision-{app}-auth` → `deploy-auth`.
 - [x] ClientId Choice: listed oauthClients (when enum succeeds) + custom; **no** Create option; empty/create-sentinel → clear error in plan.
 - [x] `plan` / `provision` bind ProjectId + ClientId only (no IAM create/patch).
-- [x] `WithAuth` emits `AUTH_GOOGLE_*` (multi-app: `AUTH_GOOGLE_{APP}_*`); `AUTH_GOOGLE_TENANT_ID` holds ProjectId.
+- [x] Google `WithAuth(GoogleAuthAppRegistrationResource)` emits `AUTH_GOOGLE_*` (multi-app: `AUTH_GOOGLE_{APP}_*`); `AUTH_GOOGLE_TENANT_ID` holds ProjectId.
 - [x] Unit tests with bind fakes; sample AppHost wires a Google Auth app; smoke `dotnet build` only.
 - [x] Package README documents adopt/bind, ADC, env table, create out of scope.
 - [x] Glossary + specs index aligned.
@@ -70,6 +70,7 @@ See [`domain-glossary`](domain-glossary.md).
 |------|----------------|
 | Google project | `src/hosting/Neox.Aspire.Hosting.Auth.Google/` |
 | Package id | `Neox.Aspire.Hosting.Auth.Google` |
+| Shipping | Not published yet (`IsPackable=false`); remains in repo + tests |
 | Namespace | `Neox.Aspire.Hosting.Auth` |
 | Provider API | `.Google(...)` → `GoogleAuthOpsResource` |
 | Binder | `IGoogleIamOauthClientProvisioner` (`PlanAsync` / `ProvisionAsync` — bind only) |

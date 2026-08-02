@@ -1,7 +1,7 @@
 namespace Neox.Aspire.Hosting.Auth;
 
 /// <summary>
-/// Named workload outputs that <see cref="AuthOpsExtensions.WithAuth{T}"/> can map to custom env var names.
+/// Named workload outputs that provider <c>WithAuth</c> can map to custom env var names.
 /// </summary>
 public enum AuthOutput
 {
@@ -9,5 +9,7 @@ public enum AuthOutput
     ClientId,
     ClientSecret,
     Authority,
-    RedirectUri
+    RedirectUri,
+    /// <summary>Entra Identity.Web instance URL (<c>AzureAd__Instance</c>).</summary>
+    Instance
 }

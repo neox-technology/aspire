@@ -7,7 +7,7 @@ public sealed class AppRoleApiExposition : ApiExposition
 {
     public AppRoleApiExposition(
         string name,
-        AuthAppResource owner,
+        EntraAuthAppRegistrationResource owner,
         AllowedMemberType allowedMemberType,
         string value,
         string description,

@@ -3,11 +3,12 @@ using Aspire.Hosting.ApplicationModel;
 namespace Neox.Aspire.Hosting.Auth;
 
 /// <summary>
-/// Logical app registration under an Auth provider.
+/// Abstract logical app registration under an Auth provider. Concrete types are provider-owned
+/// (<c>EntraAuthAppRegistrationResource</c>, <c>GoogleAuthAppRegistrationResource</c>).
 /// </summary>
-public sealed class AuthAppResource : Resource, IResourceWithParent<AuthOpsResourceBase>
+public abstract class AuthAppRegistrationResource : Resource, IResourceWithParent<AuthOpsResourceBase>
 {
-    public AuthAppResource(string name, AuthOpsResourceBase provider, string displayName)
+    protected AuthAppRegistrationResource(string name, AuthOpsResourceBase provider, string displayName)
         : base(name)
     {
         ArgumentNullException.ThrowIfNull(provider);
@@ -33,6 +34,7 @@ public sealed class AuthAppResource : Resource, IResourceWithParent<AuthOpsResou
 
     /// <summary>
     /// Workload tenant id parameter (<c>{provider}-tenant-id</c> shared, or app-qualified when needed).
+    /// For Google this holds the ProjectId.
     /// </summary>
     public ParameterResource TenantIdParameter { get; internal set; } = null!;
 
@@ -58,23 +60,6 @@ public sealed class AuthAppResource : Resource, IResourceWithParent<AuthOpsResou
     {
         ArgumentNullException.ThrowIfNull(redirectUri);
         _redirectUris.Add(redirectUri);
-    }
-
-    /// <summary>
-    /// Default env prefix for a single app: <c>AUTH_{PROVIDER}</c>; for multiple apps: <c>AUTH_{PROVIDER}_{APP}</c>.
-    /// </summary>
-    public string DefaultEnvPrefix
-    {
-        get
-        {
-            var providerToken = Provider.ProviderEnvToken;
-            if (Provider.Apps.Count <= 1)
-            {
-                return $"AUTH_{providerToken}";
-            }
-
-            return $"AUTH_{providerToken}_{AuthOpsResourceBase.SanitizeEnvToken(Name)}";
-        }
     }
 
     /// <summary>

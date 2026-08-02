@@ -4,6 +4,7 @@ using Azure.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Graph;
+using Microsoft.Graph.Applications.Item.AddPassword;
 using Microsoft.Graph.Models;
 using Microsoft.Graph.Models.ODataErrors;
 
@@ -38,7 +39,7 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
         return new EntraGraphAppProvisioner(graph, configuration);
     }
 
-    public async Task<AuthAppRegistrationPlan> PlanAsync(AuthAppResource app, CancellationToken cancellationToken)
+    public async Task<AuthAppRegistrationPlan> PlanAsync(EntraAuthAppRegistrationResource app, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(app);
 
@@ -139,7 +140,7 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
     }
 
     public async Task<EntraProvisionResult> ProvisionAsync(
-        AuthAppResource app,
+        EntraAuthAppRegistrationResource app,
         AuthAppRegistrationPlan plan,
         CancellationToken cancellationToken)
     {
@@ -223,6 +224,57 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
             ClientSecret = null,
             ApplicationObjectId = existing.ObjectId
         };
+    }
+
+    public async Task<string> AddPasswordCredentialAsync(
+        string applicationObjectId,
+        string displayName,
+        DateTimeOffset endDateTime,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(applicationObjectId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
+
+        try
+        {
+            var created = await _graph.Applications[applicationObjectId].AddPassword
+                .PostAsync(
+                    new AddPasswordPostRequestBody
+                    {
+                        PasswordCredential = new PasswordCredential
+                        {
+                            DisplayName = displayName.Trim(),
+                            EndDateTime = endDateTime.UtcDateTime
+                        }
+                    },
+                    cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+
+            var secretText = created?.SecretText;
+            if (string.IsNullOrWhiteSpace(secretText))
+            {
+                throw new InvalidOperationException(
+                    $"Graph addPassword for application '{applicationObjectId}' returned no secretText.");
+            }
+
+            return secretText;
+        }
+        catch (ODataError ex)
+        {
+            throw new InvalidOperationException(
+                $"Failed to create client secret on Entra application '{applicationObjectId}': {ex.Error?.Message ?? ex.Message}",
+                ex);
+        }
+    }
+
+    /// <summary>
+    /// Resolves the Graph application object id for a client (app) id.
+    /// </summary>
+    public async Task<string?> TryGetApplicationObjectIdAsync(string clientId, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(clientId);
+        var application = await GetByAppIdAsync(clientId, cancellationToken).ConfigureAwait(false);
+        return application?.Id;
     }
 
     internal static AuthAppRegistrationPlan BuildAdoptPlan(
@@ -356,7 +408,7 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
             hasDeclaredPermissions: false);
 
     private async Task ApplyExpositionAndPermissionsAsync(
-        AuthAppResource app,
+        EntraAuthAppRegistrationResource app,
         AuthAppRegistrationPlan plan,
         string objectId,
         string clientId,
@@ -426,52 +478,19 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
     }
 
     private static IReadOnlyList<AuthDesiredRequiredResourceAccess> RemapPermissionIdsFromExposerPlans(
-        AuthAppResource app,
+        EntraAuthAppRegistrationResource app,
         IReadOnlyList<AuthDesiredRequiredResourceAccess> desired)
     {
         var result = new List<AuthDesiredRequiredResourceAccess>();
         foreach (var annotation in app.Annotations.OfType<ApiPermissionAnnotation>())
         {
-            var exposition = annotation.Exposition;
-            var exposerPlan = exposition.Owner.Annotations
-                .OfType<AuthAppRegistrationPlanAnnotation>()
-                .LastOrDefault()
-                ?.Plan;
-
-            Guid permissionId;
-            string type;
-            switch (exposition)
+            if (EntraApiPermissionApplicator.TryResolveDesired(
+                    annotation.PermissionResource,
+                    TryResolveClientId,
+                    out var entry))
             {
-                case ScopeApiExposition scope:
-                    type = "Scope";
-                    permissionId = exposerPlan?.DesiredScopes
-                        .FirstOrDefault(s => string.Equals(s.Value, scope.ScopeValue, StringComparison.Ordinal))
-                        ?.Id
-                        ?? scope.PermissionId;
-                    break;
-                case AppRoleApiExposition role:
-                    type = "Role";
-                    permissionId = exposerPlan?.DesiredAppRoles
-                        .FirstOrDefault(r => string.Equals(r.Value, role.Value, StringComparison.Ordinal))
-                        ?.Id
-                        ?? role.RoleId;
-                    break;
-                default:
-                    continue;
+                result.Add(entry);
             }
-
-            var resourceAppId = TryResolveClientId(exposition.Owner);
-            if (string.IsNullOrWhiteSpace(resourceAppId))
-            {
-                continue;
-            }
-
-            result.Add(new AuthDesiredRequiredResourceAccess
-            {
-                ResourceAppId = resourceAppId,
-                PermissionId = permissionId,
-                Type = type
-            });
         }
 
         return result.Count > 0 ? result : desired;
@@ -499,7 +518,7 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
                 : d).ToList();
     }
 
-    private static string? TryResolveClientId(AuthAppResource app)
+    private static string? TryResolveClientId(EntraAuthAppRegistrationResource app)
     {
         if (app.ClientIdParameter is not null
             && TryGetResolvedParameterValue(app.ClientIdParameter, out var fromParam)
@@ -519,7 +538,7 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
         return null;
     }
 
-    private static string? ResolveAdoptClientId(AuthAppResource app)
+    private static string? ResolveAdoptClientId(EntraAuthAppRegistrationResource app)
     {
         if (app.ClientIdParameter is not null
             && TryGetResolvedParameterValue(app.ClientIdParameter, out var fromParam))
@@ -588,7 +607,7 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
 
     private async Task<string> ResolveTenantIdAsync(
         EntraAuthOpsResource entra,
-        AuthAppResource app,
+        EntraAuthAppRegistrationResource app,
         CancellationToken cancellationToken)
     {
         _ = entra;

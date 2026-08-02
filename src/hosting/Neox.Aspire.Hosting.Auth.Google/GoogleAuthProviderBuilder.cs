@@ -9,13 +9,13 @@ internal sealed class GoogleAuthProviderBuilder(
 {
     public IResourceBuilder<GoogleAuthOpsResource> Resource => providerBuilder;
 
-    public IResourceBuilder<AuthAppResource> AddAppRegistration(string name, string displayName)
+    public IResourceBuilder<GoogleAuthAppRegistrationResource> AddAppRegistration(string name, string displayName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
 
         var provider = providerBuilder.Resource;
-        var app = new AuthAppResource(name, provider, displayName)
+        var app = new GoogleAuthAppRegistrationResource(name, provider, displayName)
         {
             TenantIdParameter = provider.ProjectIdParameter
         };
@@ -48,7 +48,7 @@ internal sealed class GoogleAuthProviderBuilder(
             .WithParentRelationship(providerBuilder)
             .WithInitialState(new CustomResourceSnapshot
             {
-                ResourceType = "AuthApp",
+                ResourceType = "GoogleAuthAppRegistration",
                 State = KnownResourceStates.Running,
                 Properties = []
             });

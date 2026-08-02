@@ -4,7 +4,7 @@ using Aspire.Hosting.ApplicationModel;
 namespace Neox.Aspire.Hosting.Auth;
 
 internal sealed class ApiExpositionBuilder(
-    IResourceBuilder<AuthAppResource> appBuilder) : IApiExpositionBuilder
+    IResourceBuilder<EntraAuthAppRegistrationResource> appBuilder) : IApiExpositionBuilder
 {
     public IResourceBuilder<ScopeApiExposition> AddScopeWithAdminConsent(
         string name,
@@ -69,12 +69,7 @@ internal sealed class ApiExpositionBuilder(
         return appBuilder.ApplicationBuilder.AddResource(scope)
             .ExcludeFromManifest()
             .WithParentRelationship(appBuilder.Resource)
-            .WithInitialState(new CustomResourceSnapshot
-            {
-                ResourceType = "AuthApiScope",
-                State = KnownResourceStates.Running,
-                Properties = []
-            });
+            .WithInitialState(AuthDashboardSnapshots.Waiting("AuthApiScope"));
     }
 
     internal static string Sanitize(string value)

@@ -3,12 +3,12 @@ using Aspire.Hosting.ApplicationModel;
 namespace Neox.Aspire.Hosting.Auth;
 
 /// <summary>
-/// Base Aspire resource for an API permission exposed by an <see cref="AuthAppResource"/>
+/// Base Aspire resource for an API permission exposed by an <see cref="EntraAuthAppRegistrationResource"/>
 /// (OAuth2 permission scope or app role).
 /// </summary>
-public abstract class ApiExposition : Resource, IResourceWithParent<AuthAppResource>
+public abstract class ApiExposition : Resource, IResourceWithParent<EntraAuthAppRegistrationResource>
 {
-    protected ApiExposition(string name, AuthAppResource owner)
+    protected ApiExposition(string name, EntraAuthAppRegistrationResource owner)
         : base(name)
     {
         ArgumentNullException.ThrowIfNull(owner);
@@ -18,10 +18,10 @@ public abstract class ApiExposition : Resource, IResourceWithParent<AuthAppResou
     /// <summary>
     /// Auth app that exposes this permission.
     /// </summary>
-    public AuthAppResource Owner { get; }
+    public EntraAuthAppRegistrationResource Owner { get; }
 
     /// <inheritdoc />
-    public AuthAppResource Parent => Owner;
+    public EntraAuthAppRegistrationResource Parent => Owner;
 
     IResource IResourceWithParent.Parent => Owner;
 }
