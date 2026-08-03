@@ -193,18 +193,28 @@ internal sealed class EntraAuthDashboardStatusService
             var statuses = new List<AuthDashboardStatus> { own.Status };
             foreach (var exposer in CollectDistinctInModelExposers(app))
             {
+                AuthDashboardStatus exposerStatus;
                 if (computed.TryGetValue(exposer.Name, out var exposerOwn))
                 {
-                    statuses.Add(exposerOwn.Status);
+                    exposerStatus = exposerOwn.Status;
                 }
                 else if (statusService.TryGetAppStatus(exposer.Name, out var cached))
                 {
-                    statuses.Add(cached);
+                    exposerStatus = cached;
                 }
                 else
                 {
-                    statuses.Add(AuthDashboardStatus.Waiting);
+                    exposerStatus = AuthDashboardStatus.Waiting;
                 }
+
+                // Exposer Unhealthy is a dependency block for the consumer (Waiting), not a
+                // consumer Graph failure (Unhealthy).
+                if (exposerStatus == AuthDashboardStatus.Unhealthy)
+                {
+                    exposerStatus = AuthDashboardStatus.Waiting;
+                }
+
+                statuses.Add(exposerStatus);
             }
 
             var appStatus = AuthStatusAggregator.WorstWins(statuses);
@@ -215,8 +225,6 @@ internal sealed class EntraAuthDashboardStatusService
                 {
                     AuthDashboardStatus.Waiting =>
                         "Waiting for in-model WithApiPermission exposer Auth app(s).",
-                    AuthDashboardStatus.Unhealthy =>
-                        "In-model WithApiPermission exposer Auth app(s) are unhealthy.",
                     _ => own.Description
                 };
             }
@@ -453,18 +461,35 @@ internal sealed class EntraAuthDashboardStatusService
                         exposerProbeCache[exposerClientId] = exposerProbe;
                     }
 
-                    desired = EntraApiPermissionApplicator.RemapDesiredWithExposerProbe(
-                        permission,
-                        desired,
-                        exposerProbe);
-                }
+                    if (!IsExposerExpositionHealthy(permission, exposerProbe, out var waitReason))
+                    {
+                        childStatus = AuthDashboardStatus.Waiting;
+                        description = waitReason;
+                    }
+                    else
+                    {
+                        desired = EntraApiPermissionApplicator.RemapDesiredWithExposerProbe(
+                            permission,
+                            desired,
+                            exposerProbe);
 
-                var desiredKey = EntraApiPermissionApplicator.FormatKey(desired);
-                var present = probeResult.RequiredResourceAccessKeys.Contains(desiredKey);
-                childStatus = present ? AuthDashboardStatus.Healthy : AuthDashboardStatus.Unhealthy;
-                description = present
-                    ? $"API permission '{permission.Value}' present in Graph."
-                    : $"API permission '{permission.Value}' missing in Graph.";
+                        var desiredKey = EntraApiPermissionApplicator.FormatKey(desired);
+                        var present = probeResult.RequiredResourceAccessKeys.Contains(desiredKey);
+                        childStatus = present ? AuthDashboardStatus.Healthy : AuthDashboardStatus.Unhealthy;
+                        description = present
+                            ? $"API permission '{permission.Value}' present in Graph."
+                            : $"API permission '{permission.Value}' missing in Graph.";
+                    }
+                }
+                else
+                {
+                    var desiredKey = EntraApiPermissionApplicator.FormatKey(desired);
+                    var present = probeResult.RequiredResourceAccessKeys.Contains(desiredKey);
+                    childStatus = present ? AuthDashboardStatus.Healthy : AuthDashboardStatus.Unhealthy;
+                    description = present
+                        ? $"API permission '{permission.Value}' present in Graph."
+                        : $"API permission '{permission.Value}' missing in Graph.";
+                }
             }
 
             await AuthDashboardStatusPublisher.PublishAsync(
@@ -512,6 +537,36 @@ internal sealed class EntraAuthDashboardStatusService
             }
 
             yield return exposer;
+        }
+    }
+
+    /// <summary>
+    /// In-model permissions wait until the exposer's matching scope/role exists in Graph.
+    /// </summary>
+    private static bool IsExposerExpositionHealthy(
+        ApiPermissionResource permission,
+        EntraAuthAppProbeResult exposerProbe,
+        out string waitReason)
+    {
+        if (!exposerProbe.Exists || exposerProbe.Error is not null)
+        {
+            waitReason = exposerProbe.Error is not null
+                ? $"Waiting for exposer Graph probe ({exposerProbe.Error})."
+                : "Waiting for exposer app registration in Graph.";
+            return false;
+        }
+
+        switch (permission.Exposition)
+        {
+            case ScopeApiExposition scope when !exposerProbe.ScopeValues.Contains(scope.ScopeValue):
+                waitReason = $"Waiting for exposer scope '{scope.ScopeValue}'.";
+                return false;
+            case AppRoleApiExposition role when !exposerProbe.AppRoleValues.Contains(role.Value):
+                waitReason = $"Waiting for exposer app role '{role.Value}'.";
+                return false;
+            default:
+                waitReason = string.Empty;
+                return true;
         }
     }
 

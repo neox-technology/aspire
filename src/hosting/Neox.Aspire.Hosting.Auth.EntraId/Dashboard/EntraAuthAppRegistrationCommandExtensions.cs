@@ -36,6 +36,12 @@ internal static class EntraAuthAppRegistrationCommandExtensions
                     return ResourceCommandState.Disabled;
                 }
 
+                if (statusService?.TryGetAppStatus(app.Name, out var status) == true
+                    && status == AuthDashboardStatus.Waiting)
+                {
+                    return ResourceCommandState.Disabled;
+                }
+
                 if (!AuthParameterResolution.TryGetResolvedValue(
                         app.TenantIdParameter,
                         context.ServiceProvider,

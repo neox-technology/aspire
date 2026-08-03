@@ -456,7 +456,7 @@ public class EntraAuthDashboardStatusTests
     }
 
     [Fact]
-    public async Task StatusService_ApiPermission_ExposerUnhealthy_ConsumerUnhealthy()
+    public async Task StatusService_ApiPermission_ExposerUnhealthy_ConsumerWaiting()
     {
         var builder = DistributedApplication.CreateBuilder();
         var entra = builder.AddAuthProvider("provider-entra").Entra();
@@ -480,7 +480,7 @@ public class EntraAuthDashboardStatusTests
         {
             Results =
             {
-                // Exposer missing in Graph → Unhealthy
+                // Exposer missing in Graph → Unhealthy (consumer treats as Waiting dependency)
                 ["api-client"] = new EntraAuthAppProbeResult { Exists = false },
                 ["web-client"] = new EntraAuthAppProbeResult
                 {
@@ -509,11 +509,117 @@ public class EntraAuthDashboardStatusTests
         Assert.True(notifications.TryGetCurrentState(api.Resource.Name, out var apiEvent));
         Assert.Equal(HealthStatus.Unhealthy, apiEvent.Snapshot.HealthStatus);
 
+        var permission = Assert.Single(web.Resource.Annotations.OfType<ApiPermissionAnnotation>())
+            .PermissionResource;
+        Assert.True(notifications.TryGetCurrentState(permission.Name, out var permEvent));
+        Assert.Equal(KnownResourceStates.Waiting, permEvent.Snapshot.State?.Text);
+
         Assert.True(notifications.TryGetCurrentState(web.Resource.Name, out var webEvent));
-        Assert.Equal(KnownResourceStates.Running, webEvent.Snapshot.State?.Text);
-        Assert.Equal(HealthStatus.Unhealthy, webEvent.Snapshot.HealthStatus);
+        Assert.Equal(KnownResourceStates.Waiting, webEvent.Snapshot.State?.Text);
         Assert.True(statusService.TryGetAppStatus(web.Resource.Name, out var cached));
-        Assert.Equal(AuthDashboardStatus.Unhealthy, cached);
+        Assert.Equal(AuthDashboardStatus.Waiting, cached);
+    }
+
+    [Fact]
+    public async Task StatusService_ApiPermission_ExposerScopeUnhealthy_ConsumerWaiting()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var entra = builder.AddAuthProvider("provider-entra").Entra();
+        IResourceBuilder<ScopeApiExposition>? scope = null;
+        var api = entra.AddAppRegistration("api", "Api")
+            .WithApiExposition(a =>
+            {
+                scope = a.AddScopeWithAdminConsent("access_as_user", "Access", "Desc");
+            });
+        var web = entra.AddAppRegistration("web", "Web")
+            .WithApiPermission(scope!);
+
+        var scopeKey = EntraApiPermissionApplicator.FormatKey(new AuthDesiredRequiredResourceAccess
+        {
+            ResourceAppId = "api-client",
+            PermissionId = scope!.Resource.PermissionId,
+            Type = "Scope"
+        });
+
+        var probe = new FakeEntraAuthHealthProbe
+        {
+            Results =
+            {
+                // Exposer app exists but scope missing → scope Unhealthy; consumer Waiting
+                ["api-client"] = new EntraAuthAppProbeResult
+                {
+                    Exists = true,
+                    ScopeValues = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                },
+                ["web-client"] = new EntraAuthAppProbeResult
+                {
+                    Exists = true,
+                    RequiredResourceAccessKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        scopeKey
+                    }
+                }
+            }
+        };
+
+        await using var services = CreateStatusHost(builder.Resources, probe);
+        await AuthParameterValue.SetAsync(
+            services, entra.Resource.Resource.TenantIdParameter, "tenant-1", CancellationToken.None);
+        await AuthParameterValue.SetAsync(
+            services, api.Resource.ClientIdParameter, "api-client", CancellationToken.None);
+        await AuthParameterValue.SetAsync(
+            services, web.Resource.ClientIdParameter, "web-client", CancellationToken.None);
+
+        var statusService = services.GetRequiredService<EntraAuthDashboardStatusService>();
+        var model = services.GetRequiredService<DistributedApplicationModel>();
+        await statusService.RefreshAsync(services, model, CancellationToken.None);
+
+        var notifications = services.GetRequiredService<ResourceNotificationService>();
+        Assert.True(notifications.TryGetCurrentState(scope!.Resource.Name, out var scopeEvent));
+        Assert.Equal(HealthStatus.Unhealthy, scopeEvent.Snapshot.HealthStatus);
+        Assert.True(notifications.TryGetCurrentState(api.Resource.Name, out var apiEvent));
+        Assert.Equal(HealthStatus.Unhealthy, apiEvent.Snapshot.HealthStatus);
+
+        var permission = Assert.Single(web.Resource.Annotations.OfType<ApiPermissionAnnotation>())
+            .PermissionResource;
+        Assert.True(notifications.TryGetCurrentState(permission.Name, out var permEvent));
+        Assert.Equal(KnownResourceStates.Waiting, permEvent.Snapshot.State?.Text);
+
+        Assert.True(notifications.TryGetCurrentState(web.Resource.Name, out var webEvent));
+        Assert.Equal(KnownResourceStates.Waiting, webEvent.Snapshot.State?.Text);
+        Assert.True(statusService.TryGetAppStatus(web.Resource.Name, out var cached));
+        Assert.Equal(AuthDashboardStatus.Waiting, cached);
+    }
+
+    [Fact]
+    public void ProvisionCommand_DisabledWhenAppStatusWaiting()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var entra = builder.AddAuthProvider("provider-entra").Entra();
+        var app = entra.AddAppRegistration("web", "Web");
+
+        var command = Assert.Single(
+            app.Resource.Annotations.OfType<ResourceCommandAnnotation>(),
+            a => a.Name == EntraAuthAppRegistrationCommandExtensions.ProvisionCommandName);
+
+        var services = new ServiceCollection();
+        var statusService = new EntraAuthDashboardStatusService();
+        statusService.SetAppStatus(app.Resource.Name, AuthDashboardStatus.Waiting);
+        services.AddSingleton(statusService);
+        // Tenant resolved via parameter value on the resource is not needed — Waiting short-circuits.
+        using var sp = services.BuildServiceProvider();
+
+        var state = command.UpdateState(new UpdateCommandStateContext
+        {
+            ResourceSnapshot = new CustomResourceSnapshot
+            {
+                ResourceType = "EntraAuthAppRegistration",
+                Properties = []
+            },
+            ServiceProvider = sp
+        });
+
+        Assert.Equal(ResourceCommandState.Disabled, state);
     }
 
     [Fact]
