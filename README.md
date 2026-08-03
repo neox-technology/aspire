@@ -87,14 +87,14 @@ Branch model: `feature/*` → `develop`; `release/*` / `hotfix/*` → `main`; `m
 | Push `feature/**` | [`.github/workflows/gitflow-auto-pr.yml`](.github/workflows/gitflow-auto-pr.yml) | Auto-PR → `develop` |
 | Push `release/**` / `hotfix/**` | same | Auto-PR → `main` |
 | Merge `feature/**` → `develop` | [`.github/workflows/gitflow-cleanup-feature.yml`](.github/workflows/gitflow-cleanup-feature.yml) | Delete feature branch |
-| `workflow_dispatch` on `develop` | [`.github/workflows/gitflow-start-release.yml`](.github/workflows/gitflow-start-release.yml) | Cut `release/x.y.z` or `release/x.y.z-preview.N` from [`eng/Versions.props`](eng/Versions.props) + PR → `main` |
+| `workflow_dispatch` on `develop` | [`.github/workflows/gitflow-start-release.yml`](.github/workflows/gitflow-start-release.yml) | Bump from latest `v*` tag (`patch`/`minor`/`major`/`no-op` + optional preview); set [`eng/Versions.props`](eng/Versions.props) on the branch + PR → `main` |
 | Merge `release/**` / `hotfix/**` → `main` | [`.github/workflows/gitflow-finish.yml`](.github/workflows/gitflow-finish.yml) | Tag `v` + branch version (prerelease if suffix), GitHub Release, sync PR `main` → `develop`, delete branch |
-| PR → `develop` or `main` | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | Build, test, pack (`*-ci` versions); no NuGet push |
+| PR → `develop` or `main` | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | Build, test, pack (`*-ci` versions); release/hotfix → `main` also guards semver + `Versions.props`; no NuGet push |
 | Push / merge to `main` | [`.github/workflows/publish-nuget.yml`](.github/workflows/publish-nuget.yml) | Pack with `OfficialBuildId` + push to nuget.org |
 
 Optional: `workflow_dispatch` on the publish workflow to re-run from `main`. Git automation uses org App **`neox-gitflow`** (not a PAT). Squash-merge only (linear history).
 
-Publishing uses [Trusted Publishing](https://learn.microsoft.com/nuget/nuget-org/trusted-publishing). Versioning follows the Arcade / Aspire model (`PreReleaseVersionLabel` / `StabilizePackageVersion` in [`eng/Versions.props`](eng/Versions.props)). Spec: [`nuget-org`](specs/features/nuget-org.md).
+Publishing uses [Trusted Publishing](https://learn.microsoft.com/nuget/nuget-org/trusted-publishing). Versioning follows the Arcade / Aspire model (`VersionPrefix` / `StabilizePackageVersion` → `DotNetFinalVersionKind` in [`eng/Versions.props`](eng/Versions.props); start-release aligns props with the tag core). Spec: [`nuget-org`](specs/features/nuget-org.md).
 
 ## License
 
