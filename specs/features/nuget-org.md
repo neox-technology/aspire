@@ -3,19 +3,20 @@
 | Field | Value |
 |-------|-------|
 | Slug | `nuget-org` |
-| Status | implemented |
-| Last code review | 2026-08-01 |
+| Status | defined |
+| Last code review | 2026-08-03 |
 
 ## Summary
 
-Arcade pack/publish for Neox Aspire packages to **nuget.org** via [Trusted Publishing](https://learn.microsoft.com/nuget/nuget-org/trusted-publishing) (GitHub Actions OIDC → short-lived API key with `NuGet/login@v1`), following microsoft/aspire conventions (`-restore -build -pack`, `OfficialBuildId`, `StabilizePackageVersion`). Packages are MIT-licensed (`PackageLicenseExpression`). Coexists with GitFlow automation ([`gitflow-ci`](gitflow-ci.md)); publish remains **main-only**.
+Arcade pack/publish for Neox Aspire packages to **nuget.org** via [Trusted Publishing](https://learn.microsoft.com/nuget/nuget-org/trusted-publishing) (GitHub Actions OIDC → short-lived API key with `NuGet/login@v1`), following microsoft/aspire conventions (`-restore -build -pack`, `OfficialBuildId`, `StabilizePackageVersion` → `DotNetFinalVersionKind`). Packages are MIT-licensed (`PackageLicenseExpression`). Coexists with GitFlow automation ([`gitflow-ci`](gitflow-ci.md)); publish remains **main-only**. Release identity lives in `eng/Versions.props`, updated by start-release so shipping versions align with the git tag core.
 
 ## User scenarios
 
 - A contributor opens a PR targeting `develop` or `main`; CI builds, tests, and packs with `*-ci` versions and does **not** push NuGet.
-- A PR merges to `main`; the publish workflow packs with `OfficialBuildId`, exchanges an OIDC token for a temporary nuget.org API key, and pushes Shipping nupkgs (and snupkgs when present).
+- A PR merges to `main` (typically via GitFlow release/hotfix); the publish workflow packs with `OfficialBuildId`, exchanges an OIDC token for a temporary nuget.org API key, and pushes Shipping nupkgs (and snupkgs when present).
 - A consumer installs packages from nuget.org with no private feed or PAT.
-- When the repo goes GA (`StabilizePackageVersion=true`), packages stabilize via Arcade versioning in `eng/Versions.props`.
+- When `StabilizePackageVersion=true` (stable release / promote), packages stabilize to exact `X.Y.Z` via `DotNetFinalVersionKind=release`.
+- Preview releases keep `StabilizePackageVersion=false`: packages use Arcade’s date-based prerelease suffix with the release `VersionPrefix`.
 
 ## Routes (if UI)
 
@@ -42,9 +43,10 @@ _N/A — CI / packaging._
 - [x] Spec documents PR → `develop`/`main` CI (pack `*-ci`, no push) and merge → publish to nuget.org via Trusted Publishing.
 - [x] `Directory.Build.props` sets package metadata (`RepositoryUrl`, MIT via `PackageLicenseExpression`, symbols).
 - [x] Root `LICENSE` is MIT (SPDX).
-- [x] `.github/workflows/ci.yml` runs on `pull_request` to `develop` and `main` (build/test/pack, no push).
+- [x] `eng/Versions.props` maps `StabilizePackageVersion=true` → `DotNetFinalVersionKind=release`.
+- [x] `.github/workflows/ci.yml` runs on `pull_request` to `develop` and `main` (build/test/pack, no push) and guards release/hotfix version alignment.
 - [x] `.github/workflows/publish-nuget.yml` uses `NuGet/login@v1` + `id-token: write` and pushes Shipping packages to `https://api.nuget.org/v3/index.json` (main only + `workflow_dispatch`).
-- [x] README documents nuget.org consumption, Arcade versioning, and MIT license (no GitHub Packages feed/auth).
+- [x] README documents nuget.org consumption, Arcade versioning (including tag alignment), and MIT license (no GitHub Packages feed/auth).
 
 ## Terminology
 
@@ -58,8 +60,9 @@ See [`domain-glossary`](domain-glossary.md).
 | Publish workflow | `.github/workflows/publish-nuget.yml` |
 | Package metadata | `Directory.Build.props` / `Directory.Build.targets` (repo URL, MIT `PackageLicenseExpression`, Neox copyright, symbols) |
 | License | Root `LICENSE` (MIT); NuGet `PackageLicenseExpression=MIT` |
-| Versions | `eng/Versions.props` (`PreReleaseVersionLabel`; GA via `StabilizePackageVersion`) |
+| Versions | `eng/Versions.props` (`VersionPrefix`, `PreReleaseVersionLabel`, `StabilizePackageVersion` → `DotNetFinalVersionKind`) |
 | Shipping packages | `src/Neox.Aspire.EntityFrameworkCore.MigrationWorker/`; `src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains/`; `src/hosting/Neox.Aspire.Hosting.Auth.Abstractions/`; `src/hosting/Neox.Aspire.Hosting.Auth.EntraId/` |
+| GitFlow version bump | [`gitflow-ci`](gitflow-ci.md) start-release commits `Versions.props` |
 | Secret | `NUGET_USER` — nuget.org profile name |
 
 ### Trusted Publishing policy (manual on nuget.org)
