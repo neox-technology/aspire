@@ -111,7 +111,7 @@ Consumers reference a provider package (EntraId or Google), which pulls Abstract
 - [x] `.Entra(...)` creates `EntraAuthOpsResource` (: `AuthOpsResourceBase`); provider prereq is `prereq-{providerResource.Name}-auth`.
 - [x] `EntraAuthProviderOptions.TenantId` is `IResourceBuilder<ParameterResource>?`; auto-creates `{name}-tenant-id` when null; parameter uses `WithCustomInput` Choice (+ `AllowCustomChoice`) of ARM tenants.
 - [x] Per Auth app, `prereq-{app}-auth` **DependsOn** `prereq-providers-auth`; ClientId parameter Choice (create sentinel + `AllowCustomChoice` GUID); `DisplayName` is a required `AddAppRegistration` argument (not a ParameterResource).
-- [x] `prereq-{app}-auth` ClientId Choice prefetches Graph app registrations in the selected tenant; ClientId Choice model-time input uses `DynamicLoading`.
+- [x] `prereq-{app}-auth` ClientId Choice prefetches Graph app registrations in the selected tenant; ClientId Choice model-time input uses `DynamicLoading` (`AlwaysLoadOnStart` + tenant from `ParameterResource`; no cross-parameter `DependsOnInputs`, which breaks Aspire ParameterProcessor modals when the tenant input is not in the same form).
 - [x] `plan-{app}-auth` **DependsOn** `prereq-{app}-auth`; read-only Graph resolve + desired-vs-existing compare; attaches plan (no mutating writes).
 - [x] `provision-{app}-auth` **DependsOn** `plan-{app}-auth`; applies plan only; create sentinel is never persisted as ClientId.
 - [x] Management vs workload credentials are separated; workload secrets use `ParameterResource` with `secret: true`.
