@@ -38,13 +38,13 @@ Consumers reference a provider package (EntraId or Google), which pulls Abstract
 - **Remember selections:** after interactive tenant / ClientId resolution (and after provision), AuthOps persists values into Aspire deployment state under `Parameters:{parameterName}` (same contract as `ParameterProcessor`) so a later `aspire do` does not re-prompt; create sentinel is never persisted as ClientId.
 - Management credentials (Graph) stay separate from workload ClientId/ClientSecret; secrets are never logged or written into manifests.
 - Unit tests under `tests/auth-providers/` use fakes (no live Graph / no `az`).
-- **Dashboard (Entra run mode):** scopes/app roles/api permissions start `Waiting`, then `Running` Healthy/Unhealthy from Graph presence (and stay `Waiting` while the parent app registration is not Running+Healthy). In-model `AuthApiPermission` stays `Waiting` while the exposer’s matching scope/role is not Healthy. App registrations wait until ClientId is set, then probe Graph existence and aggregate child exposition + permission health; consumer apps stay `Waiting` while an in-model exposer is not Healthy. Providers wait until TenantId is set, then aggregate apps. `auth-ops` aggregates Entra providers. A **Provision app registration** command on each Entra app registration re-runs plan + provision and refreshes status (disabled while the app status is Waiting, or while provisioning / tenant unset).
+- **Dashboard (Entra run mode):** scopes/app roles/api permissions start `Waiting`, then `Running` Healthy/Unhealthy from Graph presence (and stay `Waiting` while the parent app registration is not Running+Healthy). In-model `AuthApiPermission` stays `Waiting` while the exposer’s matching scope/role is not Healthy. App registrations wait until ClientId is set, then probe Graph existence and aggregate child exposition + permission health; consumer apps stay `Waiting` while an in-model exposer is not Healthy. Providers wait until TenantId is set, then aggregate apps. `auth-ops` aggregates Entra providers. A **Provision app registration** command on each Entra app registration runs `PlanAsync`, prompts confirmation with mode + bulleted planned Graph actions, then on confirm runs `ProvisionAsync` and refreshes status (disabled while the app status is Waiting, or while provisioning / tenant unset; Cancel skips Graph writes; unavailable `IInteractionService` fails the command).
 - **Client secret (Entra):** `WithClientSecret()` / `WithClientSecret(secretParam)` adds `{app}-clientsecret` under the Auth app and marks secret env emit. In run mode, when that resource is Waiting (parent Healthy, secret empty), a notification invites create as soon as InteractionService is available (does not wait for the user to open the create command first). Prompt: display name + lifetime Choice (6/12/24 months) → Graph `addPassword` with `EndDateTime` → persist into AppHost deployment state. Command **Create client secret** on `{app}-clientsecret` uses the same path. Pipeline / CI supplies `Parameters__*` only (no Graph secret create).
 
 ## Routes (if UI)
 
 - Aspire dashboard resource states / health for Entra AuthOps hierarchy (see acceptance criteria).
-- Aspire dashboard `WithCommand` on `EntraAuthAppRegistrationResource` to trigger plan + provision.
+- Aspire dashboard `WithCommand` on `EntraAuthAppRegistrationResource` to plan, confirm planned actions, then provision.
 - Pipeline remains `aspire do` / `aspire deploy`. Sample Blazor/Ops UIs are test workloads, not AuthOps product UI.
 
 ## Dependencies
@@ -137,8 +137,8 @@ Consumers reference a provider package (EntraId or Google), which pulls Abstract
 - [x] `EntraAuthOpsResource`: `Waiting` when TenantId is unset; otherwise aggregates child app registrations with worst-wins (no Auth children + tenant set → Healthy).
 - [x] `AuthOpsResource` (with Entra): aggregates Entra provider resources with worst-wins.
 - [x] Worst-wins aggregation (Auth children only, not parameters): Unhealthy > Waiting > Healthy.
-- [x] `EntraAuthAppRegistrationResource` exposes dashboard command `provision-auth` (“Provision app registration”) that runs `PlanAsync` + `ProvisionAsync` and refreshes status; enabled when TenantId is resolved, the app status is not Waiting, and the command is not already running.
-- [x] Unit tests cover worst-wins aggregation, Graph probe existence mapping (fakes), command annotation presence, and Entra initial `Waiting` states.
+- [x] `EntraAuthAppRegistrationResource` exposes dashboard command `provision-auth` (“Provision app registration”) that runs `PlanAsync`, prompts confirmation with mode + bulleted planned Graph actions via `IInteractionService`, then on confirm runs `ProvisionAsync` and refreshes status; Cancel returns `CommandResults.Canceled` with no Graph writes; unavailable interaction service fails the command; enabled when TenantId is resolved, the app status is not Waiting, and the command is not already running.
+- [x] Unit tests cover worst-wins aggregation, Graph probe existence mapping (fakes), command annotation presence, provision confirmation message formatting, and Entra initial `Waiting` states.
 
 ## Terminology
 
