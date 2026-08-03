@@ -24,7 +24,9 @@ public static class AuthDashboardStatusPublisher
         ArgumentNullException.ThrowIfNull(notificationService);
         ArgumentNullException.ThrowIfNull(resource);
 
-        await notificationService.PublishUpdateAsync(resource, snapshot => Apply(snapshot, status, description))
+        await notificationService.PublishUpdateAsync(
+                resource,
+                snapshot => Apply(snapshot, status, description, resource))
             .ConfigureAwait(false);
 
         cancellationToken.ThrowIfCancellationRequested();
@@ -33,8 +35,10 @@ public static class AuthDashboardStatusPublisher
     internal static CustomResourceSnapshot Apply(
         CustomResourceSnapshot snapshot,
         AuthDashboardStatus status,
-        string? description)
+        string? description,
+        IResource? resource = null)
     {
+        var reportName = ResolveHealthReportName(resource);
         return status switch
         {
             AuthDashboardStatus.Waiting => (snapshot with
@@ -44,19 +48,32 @@ public static class AuthDashboardStatusPublisher
             AuthDashboardStatus.Healthy => WithRunningHealth(
                 snapshot,
                 HealthStatus.Healthy,
-                description ?? "Healthy"),
+                description ?? "Healthy",
+                reportName),
             AuthDashboardStatus.Unhealthy => WithRunningHealth(
                 snapshot,
                 HealthStatus.Unhealthy,
-                description ?? "Unhealthy"),
+                description ?? "Unhealthy",
+                reportName),
             _ => snapshot
         };
+    }
+
+    /// <summary>
+    /// Prefer the resource's own <see cref="HealthCheckAnnotation"/> key so we update the same
+    /// report Aspire's <c>ResourceHealthCheckService</c> merges (avoids dual Healthy/Unhealthy reports).
+    /// </summary>
+    internal static string ResolveHealthReportName(IResource? resource)
+    {
+        var key = resource?.Annotations.OfType<HealthCheckAnnotation>().FirstOrDefault()?.Key;
+        return string.IsNullOrWhiteSpace(key) ? HealthReportName : key;
     }
 
     private static CustomResourceSnapshot WithRunningHealth(
         CustomResourceSnapshot snapshot,
         HealthStatus healthStatus,
-        string description)
+        string description,
+        string reportName)
     {
         var running = snapshot with
         {
@@ -66,7 +83,7 @@ public static class AuthDashboardStatusPublisher
 
         return running.WithHealthReports(ImmutableArray.Create(
             new HealthReportSnapshot(
-                HealthReportName,
+                reportName,
                 healthStatus,
                 description,
                 null)));

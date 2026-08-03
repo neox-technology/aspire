@@ -36,6 +36,12 @@ internal static class EntraAuthAppRegistrationCommandExtensions
                     return ResourceCommandState.Disabled;
                 }
 
+                if (statusService?.TryGetAppStatus(app.Name, out var status) == true
+                    && status == AuthDashboardStatus.Waiting)
+                {
+                    return ResourceCommandState.Disabled;
+                }
+
                 if (!AuthParameterResolution.TryGetResolvedValue(
                         app.TenantIdParameter,
                         context.ServiceProvider,
@@ -56,6 +62,7 @@ internal static class EntraAuthAppRegistrationCommandExtensions
             commandOptions: commandOptions);
     }
 
+#pragma warning disable ASPIREINTERACTION001
     private static async Task<ExecuteCommandResult> ExecuteProvisionAsync(
         EntraAuthAppRegistrationResource app,
         ExecuteCommandContext context)
@@ -85,6 +92,31 @@ internal static class EntraAuthAppRegistrationCommandExtensions
                 .ConfigureAwait(false);
 
             var plan = await provisioner.PlanAsync(app, context.CancellationToken).ConfigureAwait(false);
+
+            var interaction = services.GetService<IInteractionService>();
+            if (interaction is null || !interaction.IsAvailable)
+            {
+                return CommandResults.Failure(
+                    "Interaction service is unavailable. Confirm provision is only supported from the Aspire dashboard.");
+            }
+
+            var confirmation = await interaction.PromptConfirmationAsync(
+                    title: EntraAuthProvisionConfirmation.BuildTitle(app),
+                    message: EntraAuthProvisionConfirmation.BuildMessage(app, plan),
+                    options: new MessageBoxInteractionOptions
+                    {
+                        Intent = MessageIntent.Confirmation,
+                        EnableMessageMarkdown = true
+                    },
+                    cancellationToken: context.CancellationToken)
+                .ConfigureAwait(false);
+
+            if (confirmation.Canceled || confirmation.Data != true)
+            {
+                logger?.LogInformation("Dashboard provision canceled for Auth app '{App}'.", app.Name);
+                return CommandResults.Canceled();
+            }
+
             var result = await provisioner.ProvisionAsync(app, plan, context.CancellationToken)
                 .ConfigureAwait(false);
 
@@ -129,4 +161,5 @@ internal static class EntraAuthAppRegistrationCommandExtensions
             statusService.SetProvisioning(app.Name, false);
         }
     }
+#pragma warning restore ASPIREINTERACTION001
 }

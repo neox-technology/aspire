@@ -40,12 +40,12 @@ public class AuthParameterPromptLabelTests
         Assert.Equal("Entra app — appregistration-spa (AuthSample-Ops)", clientInput.Label);
         Assert.Contains("appregistration-spa", clientInput.Description);
         Assert.Contains("provider-entra", clientInput.Description);
-        Assert.Contains("Existing apps load after a tenant is selected", clientInput.Description);
+        Assert.Contains("Existing apps load from the resolved tenant parameter", clientInput.Description);
         Assert.DoesNotContain("Graph enumeration failed", clientInput.Description);
     }
 
     [Fact]
-    public void ClientIdChoice_ModelTime_UsesDynamicLoadingDependingOnTenant()
+    public void ClientIdChoice_ModelTime_UsesDynamicLoadingWithoutCrossParameterDependsOn()
     {
         var builder = DistributedApplication.CreateBuilder();
         var entra = builder.AddAuthProvider("provider-entra").Entra();
@@ -58,9 +58,11 @@ public class AuthParameterPromptLabelTests
         var clientInput = InvokeInputGenerator(clientId);
         Assert.NotNull(clientInput.DynamicLoading);
         Assert.True(clientInput.DynamicLoading.AlwaysLoadOnStart);
-        Assert.Equal(
-            ["provider-entra-tenant-id"],
-            clientInput.DynamicLoading.DependsOnInputs);
+        // Cross-parameter DependsOnInputs breaks Aspire ParameterProcessor modals when the
+        // dependency is not in the same form (tenant already set / ClientId prompted alone).
+        Assert.True(
+            clientInput.DynamicLoading.DependsOnInputs is null
+            || clientInput.DynamicLoading.DependsOnInputs.Count == 0);
         Assert.NotNull(clientInput.DynamicLoading.LoadCallback);
         Assert.NotNull(clientInput.Options);
         Assert.Contains(

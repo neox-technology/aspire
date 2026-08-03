@@ -5,7 +5,11 @@ namespace Neox.Aspire.Hosting.Auth;
 /// <summary>
 /// Dashboard child resource for an Entra Auth app client secret (<c>{app}-clientsecret</c>).
 /// </summary>
-public sealed class EntraClientSecretResource : Resource, IResourceWithParent<EntraAuthAppRegistrationResource>
+/// <remarks>
+/// Does not implement <see cref="IResourceWithParent"/> so Aspire does not inherit the parent app's
+/// <c>HealthCheckAnnotation</c> onto this leaf. Dashboard nesting uses <c>WithParentRelationship</c>.
+/// </remarks>
+public sealed class EntraClientSecretResource : Resource
 {
     public EntraClientSecretResource(
         string name,
@@ -22,10 +26,8 @@ public sealed class EntraClientSecretResource : Resource, IResourceWithParent<En
     /// <summary>Auth app that owns this client secret.</summary>
     public EntraAuthAppRegistrationResource Owner { get; }
 
-    /// <inheritdoc />
+    /// <summary>Auth app that owns this client secret (dashboard parent).</summary>
     public EntraAuthAppRegistrationResource Parent => Owner;
-
-    IResource IResourceWithParent.Parent => Owner;
 
     /// <summary>Workload secret parameter bound to this resource.</summary>
     public ParameterResource Parameter { get; }

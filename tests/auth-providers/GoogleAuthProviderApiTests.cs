@@ -38,6 +38,23 @@ public class GoogleAuthProviderApiTests
     }
 
     [Fact]
+    public void Google_WithAuth_WaitsForAuthApp_Deduped()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var google = builder.AddAuthProvider("provider-google")
+            .Google(o => o.ProjectId = builder.AddParameter("p", "proj"));
+        var web = google.AddAppRegistration("web", "Web");
+
+        var api = builder.AddContainer("api", "mcr.microsoft.com/dotnet/runtime", "10.0");
+        api.WithAuth(web);
+        api.WithAuth(web, env => env.IncludeClientSecret = true);
+
+        var wait = Assert.Single(api.Resource.Annotations.OfType<WaitAnnotation>());
+        Assert.Same(web.Resource, wait.Resource);
+        Assert.Equal(WaitType.WaitUntilHealthy, wait.WaitType);
+    }
+
+    [Fact]
     public async Task Google_RegistersPipelineFanIn()
     {
         var builder = DistributedApplication.CreateBuilder(new DistributedApplicationOptions

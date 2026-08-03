@@ -184,7 +184,7 @@ public static class GoogleAuthOpsExtensions
         this IResourceBuilder<T> builder,
         IResourceBuilder<GoogleAuthAppRegistrationResource> authApp,
         Action<AuthEnvOptions>? configure = null)
-        where T : IResourceWithEnvironment
+        where T : IResourceWithEnvironment, IResourceWithWaitSupport
     {
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(authApp);
@@ -198,7 +198,7 @@ public static class GoogleAuthOpsExtensions
         this IResourceBuilder<T> builder,
         GoogleAuthAppRegistrationResource authApp,
         Action<AuthEnvOptions>? configure = null)
-        where T : IResourceWithEnvironment
+        where T : IResourceWithEnvironment, IResourceWithWaitSupport
     {
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(authApp);
@@ -224,6 +224,8 @@ public static class GoogleAuthOpsExtensions
             var authorityName = envOptions.ResolveName(AuthOutput.Authority, prefix);
             builder.WithEnvironment(authorityName, authority(authApp.TenantIdParameter));
         }
+
+        AuthOpsExtensions.EnsureWaitFor(builder, authApp);
 
         return builder;
     }

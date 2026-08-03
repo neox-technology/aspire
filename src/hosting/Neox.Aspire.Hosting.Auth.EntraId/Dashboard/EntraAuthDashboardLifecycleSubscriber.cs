@@ -8,8 +8,11 @@ using Microsoft.Extensions.Logging;
 namespace Neox.Aspire.Hosting.Auth;
 
 /// <summary>
-/// Publishes Entra AuthOps dashboard statuses after resources are created,
+/// Publishes Entra AuthOps dashboard statuses on AppHost start (before resource waits),
 /// when Auth parameters are set, and on a periodic refresh loop.
+/// Uses <see cref="BeforeStartEvent"/> instead of <see cref="AfterResourcesCreatedEvent"/>
+/// because Aspire blocks the latter until <c>WaitFor</c> dependencies are healthy — and
+/// Auth apps only become healthy via this refresh (deadlock with <c>WithAuth</c> WaitFor).
 /// </summary>
 internal sealed class EntraAuthDashboardLifecycleSubscriber : IDistributedApplicationEventingSubscriber
 {
@@ -26,7 +29,7 @@ internal sealed class EntraAuthDashboardLifecycleSubscriber : IDistributedApplic
             return Task.CompletedTask;
         }
 
-        eventing.Subscribe<AfterResourcesCreatedEvent>(async (@event, ct) =>
+        eventing.Subscribe<BeforeStartEvent>((@event, ct) =>
         {
             var services = @event.Services;
             var model = @event.Model;
@@ -37,10 +40,19 @@ internal sealed class EntraAuthDashboardLifecycleSubscriber : IDistributedApplic
 
             var authParameterNames = CollectAuthParameterNames(model);
 
-            await statusService.RefreshAsync(services, model, ct).ConfigureAwait(false);
-
+            // Do not await Graph refresh on the BeforeStart critical path; run in background
+            // so WaitFor workloads are not delayed by the first probe.
             _ = Task.Run(async () =>
             {
+                try
+                {
+                    await statusService.RefreshAsync(services, model, ct).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    logger?.LogDebug(ex, "Entra AuthOps initial dashboard status refresh failed.");
+                }
+
                 using var timer = new PeriodicTimer(EntraAuthDashboardStatusService.RefreshInterval);
                 try
                 {
@@ -92,6 +104,8 @@ internal sealed class EntraAuthDashboardLifecycleSubscriber : IDistributedApplic
                     logger?.LogDebug(ex, "Entra AuthOps parameter watch failed.");
                 }
             }, CancellationToken.None);
+
+            return Task.CompletedTask;
         });
 
         return Task.CompletedTask;

@@ -1,5 +1,7 @@
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace Neox.Aspire.Hosting.Auth;
 
@@ -43,10 +45,20 @@ internal sealed class EntraAuthProviderBuilder(
 
         provider.RegisterApp(app);
 
+        var healthCheckKey = EntraAuthAppRegistrationHealthCheck.GetKey(name);
+        applicationBuilder.Services.AddHealthChecks().Add(new HealthCheckRegistration(
+            healthCheckKey,
+            sp => new EntraAuthAppRegistrationHealthCheck(
+                name,
+                sp.GetRequiredService<EntraAuthDashboardStatusService>()),
+            failureStatus: null,
+            tags: null));
+
         var appBuilder = applicationBuilder.AddResource(app)
             .ExcludeFromManifest()
             .WithParentRelationship(providerBuilder)
             .WithInitialState(AuthDashboardSnapshots.Waiting("EntraAuthAppRegistration"))
+            .WithHealthCheck(healthCheckKey)
             .WithProvisionAuthCommand();
 
         clientId.WithParentRelationship(appBuilder);
