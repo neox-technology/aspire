@@ -91,7 +91,8 @@ internal static class EntraApiPermissionApplicator
     public static string FormatKey(AuthDesiredRequiredResourceAccess entry) => Key(entry);
 
     /// <summary>
-    /// Permission id from exposer plan remap by value when available; otherwise model Guid.
+    /// Permission id from exposer Graph snapshot / plan by value when available; otherwise model Guid.
+    /// Prefer <see cref="AuthAppRegistrationExistingSnapshot"/> (adopt truth) over desired (may still be model Guid).
     /// </summary>
     public static Guid ResolvePermissionId(ApiExposition exposition)
     {
@@ -105,17 +106,223 @@ internal static class EntraApiPermissionApplicator
         switch (exposition)
         {
             case ScopeApiExposition scope:
-                return exposerPlan?.DesiredScopes
-                    .FirstOrDefault(s => string.Equals(s.Value, scope.ScopeValue, StringComparison.Ordinal))
-                    ?.Id
-                    ?? scope.PermissionId;
+            {
+                var fromExisting = exposerPlan?.Existing?.Scopes
+                    .FirstOrDefault(s => string.Equals(s.Value, scope.ScopeValue, StringComparison.Ordinal));
+                if (fromExisting is { Id: var existingId } && existingId != Guid.Empty)
+                {
+                    return existingId;
+                }
+
+                var fromDesired = exposerPlan?.DesiredScopes
+                    .FirstOrDefault(s => string.Equals(s.Value, scope.ScopeValue, StringComparison.Ordinal));
+                if (fromDesired is { Id: var desiredId } && desiredId != Guid.Empty)
+                {
+                    return desiredId;
+                }
+
+                return scope.PermissionId;
+            }
             case AppRoleApiExposition role:
-                return exposerPlan?.DesiredAppRoles
-                    .FirstOrDefault(r => string.Equals(r.Value, role.Value, StringComparison.Ordinal))
-                    ?.Id
-                    ?? role.RoleId;
+            {
+                var fromExisting = exposerPlan?.Existing?.AppRoles
+                    .FirstOrDefault(r => string.Equals(r.Value, role.Value, StringComparison.Ordinal));
+                if (fromExisting is { Id: var existingId } && existingId != Guid.Empty)
+                {
+                    return existingId;
+                }
+
+                var fromDesired = exposerPlan?.DesiredAppRoles
+                    .FirstOrDefault(r => string.Equals(r.Value, role.Value, StringComparison.Ordinal));
+                if (fromDesired is { Id: var desiredId } && desiredId != Guid.Empty)
+                {
+                    return desiredId;
+                }
+
+                return role.RoleId;
+            }
             default:
                 return Guid.Empty;
+        }
+    }
+
+    /// <summary>
+    /// Model Guids generated at AppHost build time for in-model expositions (stale after restart vs Graph).
+    /// </summary>
+    public static IReadOnlySet<Guid> CollectModelPermissionIds(EntraAuthAppRegistrationResource app)
+    {
+        ArgumentNullException.ThrowIfNull(app);
+
+        var ids = new HashSet<Guid>();
+        foreach (var annotation in app.Annotations.OfType<ApiPermissionAnnotation>())
+        {
+            switch (annotation.PermissionResource.Exposition)
+            {
+                case ScopeApiExposition scope:
+                    ids.Add(scope.PermissionId);
+                    break;
+                case AppRoleApiExposition role:
+                    ids.Add(role.RoleId);
+                    break;
+            }
+        }
+
+        return ids;
+    }
+
+    /// <summary>
+    /// Remaps one in-model permission using a Graph exposer application (match scope/role by value).
+    /// </summary>
+    public static bool TryRemapFromExposerApplication(
+        ApiPermissionResource permission,
+        string resourceAppId,
+        Application exposerApplication,
+        out AuthDesiredRequiredResourceAccess remapped)
+    {
+        ArgumentNullException.ThrowIfNull(permission);
+        ArgumentException.ThrowIfNullOrWhiteSpace(resourceAppId);
+        ArgumentNullException.ThrowIfNull(exposerApplication);
+
+        if (permission.Exposition is not { } exposition)
+        {
+            remapped = null!;
+            return false;
+        }
+
+        switch (exposition)
+        {
+            case ScopeApiExposition scope:
+            {
+                var graphScope = EntraApiExpositionApplicator.ExtractScopes(exposerApplication)
+                    .FirstOrDefault(s => string.Equals(s.Value, scope.ScopeValue, StringComparison.Ordinal));
+                if (graphScope is null || graphScope.Id == Guid.Empty)
+                {
+                    remapped = null!;
+                    return false;
+                }
+
+                remapped = new AuthDesiredRequiredResourceAccess
+                {
+                    ResourceAppId = resourceAppId,
+                    PermissionId = graphScope.Id,
+                    Type = "Scope"
+                };
+                return true;
+            }
+            case AppRoleApiExposition role:
+            {
+                var graphRole = EntraApiExpositionApplicator.ExtractAppRoles(exposerApplication)
+                    .FirstOrDefault(r => string.Equals(r.Value, role.Value, StringComparison.Ordinal));
+                if (graphRole is null || graphRole.Id == Guid.Empty)
+                {
+                    remapped = null!;
+                    return false;
+                }
+
+                remapped = new AuthDesiredRequiredResourceAccess
+                {
+                    ResourceAppId = resourceAppId,
+                    PermissionId = graphRole.Id,
+                    Type = "Role"
+                };
+                return true;
+            }
+            default:
+                remapped = null!;
+                return false;
+        }
+    }
+
+    /// <summary>
+    /// Rebuilds desired required resource access, remapping in-model entries from live exposer apps.
+    /// </summary>
+    public static IReadOnlyList<AuthDesiredRequiredResourceAccess> RebuildDesiredWithExposerApplications(
+        EntraAuthAppRegistrationResource app,
+        Func<EntraAuthAppRegistrationResource, string?> resolveExposerClientId,
+        IReadOnlyDictionary<string, Application> exposersByClientId)
+    {
+        ArgumentNullException.ThrowIfNull(app);
+        ArgumentNullException.ThrowIfNull(resolveExposerClientId);
+        ArgumentNullException.ThrowIfNull(exposersByClientId);
+
+        var result = new List<AuthDesiredRequiredResourceAccess>();
+
+        foreach (var annotation in app.Annotations.OfType<WellKnownApiPermissionAnnotation>())
+        {
+            if (TryResolveDesired(annotation.PermissionResource, resolveExposerClientId, out var wellKnown))
+            {
+                result.Add(wellKnown);
+            }
+        }
+
+        foreach (var annotation in app.Annotations.OfType<ApiPermissionAnnotation>())
+        {
+            var permission = annotation.PermissionResource;
+            if (permission.Exposition is not { } exposition)
+            {
+                continue;
+            }
+
+            var resourceAppId = resolveExposerClientId(exposition.Owner);
+            if (string.IsNullOrWhiteSpace(resourceAppId))
+            {
+                continue;
+            }
+
+            if (exposersByClientId.TryGetValue(resourceAppId, out var exposerApp)
+                && TryRemapFromExposerApplication(permission, resourceAppId, exposerApp, out var remapped))
+            {
+                result.Add(remapped);
+                continue;
+            }
+
+            if (TryResolveDesired(permission, resolveExposerClientId, out var fallback))
+            {
+                result.Add(fallback);
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Remaps an in-model desired entry using exposer probe scope/role ids by value when available.
+    /// </summary>
+    public static AuthDesiredRequiredResourceAccess RemapDesiredWithExposerProbe(
+        ApiPermissionResource permission,
+        AuthDesiredRequiredResourceAccess desired,
+        EntraAuthAppProbeResult? exposerProbe)
+    {
+        ArgumentNullException.ThrowIfNull(permission);
+        ArgumentNullException.ThrowIfNull(desired);
+
+        if (exposerProbe is null || !exposerProbe.Exists)
+        {
+            return desired;
+        }
+
+        switch (permission.Exposition)
+        {
+            case ScopeApiExposition scope
+                when exposerProbe.ScopeIdsByValue.TryGetValue(scope.ScopeValue, out var scopeId)
+                     && scopeId != Guid.Empty:
+                return new AuthDesiredRequiredResourceAccess
+                {
+                    ResourceAppId = desired.ResourceAppId,
+                    PermissionId = scopeId,
+                    Type = desired.Type
+                };
+            case AppRoleApiExposition role
+                when exposerProbe.AppRoleIdsByValue.TryGetValue(role.Value, out var roleId)
+                     && roleId != Guid.Empty:
+                return new AuthDesiredRequiredResourceAccess
+                {
+                    ResourceAppId = desired.ResourceAppId,
+                    PermissionId = roleId,
+                    Type = desired.Type
+                };
+            default:
+                return desired;
         }
     }
 

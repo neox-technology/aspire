@@ -49,15 +49,25 @@ internal sealed class EntraGraphAuthHealthProbe : IEntraAuthHealthProbe
                 return EntraAuthAppProbeResult.Missing();
             }
 
-            var scopes = EntraApiExpositionApplicator.ExtractScopes(application)
+            var extractedScopes = EntraApiExpositionApplicator.ExtractScopes(application);
+            var scopes = extractedScopes
                 .Select(s => s.Value)
                 .Where(v => !string.IsNullOrWhiteSpace(v))
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var scopeIdsByValue = extractedScopes
+                .Where(s => !string.IsNullOrWhiteSpace(s.Value) && s.Id != Guid.Empty)
+                .GroupBy(s => s.Value, StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => g.First().Id, StringComparer.Ordinal);
 
-            var roles = EntraApiExpositionApplicator.ExtractAppRoles(application)
+            var extractedRoles = EntraApiExpositionApplicator.ExtractAppRoles(application);
+            var roles = extractedRoles
                 .Select(r => r.Value)
                 .Where(v => !string.IsNullOrWhiteSpace(v))
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var roleIdsByValue = extractedRoles
+                .Where(r => !string.IsNullOrWhiteSpace(r.Value) && r.Id != Guid.Empty)
+                .GroupBy(r => r.Value, StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => g.First().Id, StringComparer.Ordinal);
 
             var requiredAccessKeys = EntraApiPermissionApplicator.Extract(application)
                 .Select(EntraApiPermissionApplicator.FormatKey)
@@ -69,6 +79,8 @@ internal sealed class EntraGraphAuthHealthProbe : IEntraAuthHealthProbe
                 ObjectId = application.Id,
                 ScopeValues = scopes,
                 AppRoleValues = roles,
+                ScopeIdsByValue = scopeIdsByValue,
+                AppRoleIdsByValue = roleIdsByValue,
                 RequiredResourceAccessKeys = requiredAccessKeys,
                 RedirectUris = EntraRedirectUriApplicator.Extract(application)
             };

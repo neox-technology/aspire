@@ -204,20 +204,128 @@ public class ApiExpositionTests
     }
 
     [Fact]
-    public void CollectDesired_IncludesWellKnownPermissions_WithoutExposerClientId()
+    public void RebuildDesired_RemapsPermissionIds_FromExposerGraphApplication()
     {
         var builder = DistributedApplication.CreateBuilder();
         var entra = builder.AddAuthProvider("entra").Entra();
+        IResourceBuilder<ScopeApiExposition>? scope = null;
+
+        var api = entra.AddAppRegistration("api", "Api")
+            .WithApiExposition("api://aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", b =>
+            {
+                scope = b.AddScopeWithAdminConsent("access_as_user", "Access", "Desc");
+            });
+        var role = api.WithAppRoleExposition(AllowedMemberType.Applications, "Api.Caller", "Callers");
+
         var web = entra.AddAppRegistration("web", "Web")
-            .WithApiPermission(MicrosoftGraph.Delegated.UserRead);
+            .WithApiPermission(scope!)
+            .WithApiPermission(role);
 
-        Assert.True(EntraApiPermissionApplicator.HasDeclaredPermissions(web.Resource));
+        var graphScopeId = Guid.Parse("648a9683-c59e-4995-a45f-27b88697311f");
+        var graphRoleId = Guid.Parse("93ff8454-64a6-4c91-89f2-aa170d011320");
+        var orphanScopeId = Guid.Parse("6157c50d-6989-4f47-99c7-2b2b25288aed");
+        var exposerApp = new Application
+        {
+            AppId = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+            IdentifierUris = ["api://aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"],
+            Api = new ApiApplication
+            {
+                Oauth2PermissionScopes =
+                [
+                    new PermissionScope
+                    {
+                        Id = graphScopeId,
+                        Value = "access_as_user",
+                        AdminConsentDisplayName = "Access",
+                        AdminConsentDescription = "Desc",
+                        Type = "Admin",
+                        IsEnabled = true
+                    }
+                ]
+            },
+            AppRoles =
+            [
+                new AppRole
+                {
+                    Id = graphRoleId,
+                    Value = "Api.Caller",
+                    DisplayName = "Api.Caller",
+                    Description = "Callers",
+                    AllowedMemberTypes = ["Application"],
+                    IsEnabled = true
+                }
+            ]
+        };
 
-        var desired = EntraApiPermissionApplicator.CollectDesired(web.Resource, _ => null);
-        var entry = Assert.Single(desired);
-        Assert.Equal(MicrosoftGraph.AppId, entry.ResourceAppId);
-        Assert.Equal(MicrosoftGraph.Delegated.UserRead.PermissionId, entry.PermissionId);
-        Assert.Equal("Scope", entry.Type);
+        var desired = EntraApiPermissionApplicator.RebuildDesiredWithExposerApplications(
+            web.Resource,
+            _ => "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+            new Dictionary<string, Application>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"] = exposerApp
+            });
+
+        Assert.Equal(2, desired.Count);
+        Assert.Contains(desired, d => d.PermissionId == graphScopeId && d.Type == "Scope");
+        Assert.Contains(desired, d => d.PermissionId == graphRoleId && d.Type == "Role");
+        Assert.DoesNotContain(desired, d => d.PermissionId == scope!.Resource.PermissionId);
+        Assert.DoesNotContain(desired, d => d.PermissionId == role.Resource.RoleId);
+
+        var existingWithOrphans = new[]
+        {
+            new AuthDesiredRequiredResourceAccess
+            {
+                ResourceAppId = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                PermissionId = orphanScopeId,
+                Type = "Scope"
+            },
+            new AuthDesiredRequiredResourceAccess
+            {
+                ResourceAppId = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                PermissionId = graphScopeId,
+                Type = "Scope"
+            },
+            new AuthDesiredRequiredResourceAccess
+            {
+                ResourceAppId = MicrosoftGraph.AppId,
+                PermissionId = MicrosoftGraph.Delegated.UserRead.PermissionId,
+                Type = "Scope"
+            }
+        };
+
+        var validIds = new HashSet<Guid> { graphScopeId, graphRoleId };
+        var cleaned = existingWithOrphans
+            .Where(e =>
+                !string.Equals(e.ResourceAppId, "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", StringComparison.OrdinalIgnoreCase)
+                || validIds.Contains(e.PermissionId))
+            .ToList();
+        var merged = EntraApiPermissionApplicator.MergeForApply(desired, cleaned);
+
+        var apiAccess = Assert.Single(
+            merged,
+            r => string.Equals(r.ResourceAppId, "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(2, apiAccess.ResourceAccess!.Count);
+        Assert.DoesNotContain(apiAccess.ResourceAccess, a => a.Id == orphanScopeId);
+        Assert.Contains(merged, r => r.ResourceAppId == MicrosoftGraph.AppId);
+    }
+
+    [Fact]
+    public void CollectModelPermissionIds_ReturnsExpositionGuids()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var entra = builder.AddAuthProvider("entra").Entra();
+        IResourceBuilder<ScopeApiExposition>? scope = null;
+
+        var api = entra.AddAppRegistration("api", "Api")
+            .WithApiExposition(b =>
+            {
+                scope = b.AddScopeWithAdminConsent("access_as_user", "Access", "Desc");
+            });
+        var web = entra.AddAppRegistration("web", "Web")
+            .WithApiPermission(scope!);
+
+        var modelIds = EntraApiPermissionApplicator.CollectModelPermissionIds(web.Resource);
+        Assert.Equal(scope!.Resource.PermissionId, Assert.Single(modelIds));
     }
 
     [Fact]

@@ -13,6 +13,8 @@ internal sealed class EntraAuthDashboardStatusService
 
     private readonly object _gate = new();
     private readonly HashSet<string> _provisioningApps = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, AuthDashboardStatus> _appStatuses =
+        new(StringComparer.Ordinal);
     private int _refreshing;
 
     public bool IsProvisioning(string appResourceName)
@@ -37,6 +39,27 @@ internal sealed class EntraAuthDashboardStatusService
             {
                 _provisioningApps.Remove(appResourceName);
             }
+        }
+    }
+
+    /// <summary>
+    /// Last published dashboard status for an Entra app registration (WaitFor health check source).
+    /// </summary>
+    public bool TryGetAppStatus(string appResourceName, out AuthDashboardStatus status)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(appResourceName);
+        lock (_gate)
+        {
+            return _appStatuses.TryGetValue(appResourceName, out status);
+        }
+    }
+
+    internal void SetAppStatus(string appResourceName, AuthDashboardStatus status)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(appResourceName);
+        lock (_gate)
+        {
+            _appStatuses[appResourceName] = status;
         }
     }
 
@@ -80,6 +103,7 @@ internal sealed class EntraAuthDashboardStatusService
             foreach (var provider in entraProviders)
             {
                 var providerStatus = await RefreshProviderAsync(
+                        this,
                         services,
                         notifications,
                         probe,
@@ -110,6 +134,7 @@ internal sealed class EntraAuthDashboardStatusService
     }
 
     private static async Task<AuthDashboardStatus> RefreshProviderAsync(
+        EntraAuthDashboardStatusService statusService,
         IServiceProvider services,
         ResourceNotificationService notifications,
         IEntraAuthHealthProbe probe,
@@ -131,17 +156,25 @@ internal sealed class EntraAuthDashboardStatusService
             // Children stay Waiting while tenant is unresolved.
             foreach (var app in provider.Apps.OfType<EntraAuthAppRegistrationResource>())
             {
-                await PublishWaitingTreeAsync(notifications, app, "Waiting for provider tenant id.", cancellationToken)
+                await PublishWaitingTreeAsync(
+                        statusService,
+                        notifications,
+                        app,
+                        "Waiting for provider tenant id.",
+                        cancellationToken)
                     .ConfigureAwait(false);
             }
 
             return AuthDashboardStatus.Waiting;
         }
 
-        var appStatuses = new List<AuthDashboardStatus>();
-        foreach (var app in provider.Apps.OfType<EntraAuthAppRegistrationResource>())
+        var apps = provider.Apps.OfType<EntraAuthAppRegistrationResource>().ToList();
+
+        // Pass 1: own Graph/children status (order-independent; no final app publish yet).
+        var computed = new Dictionary<string, AppOwnStatusResult>(StringComparer.Ordinal);
+        foreach (var app in apps)
         {
-            var appStatus = await RefreshAppAsync(
+            var own = await ComputeAppOwnStatusAsync(
                     services,
                     notifications,
                     probe,
@@ -149,6 +182,54 @@ internal sealed class EntraAuthDashboardStatusService
                     logger,
                     cancellationToken)
                 .ConfigureAwait(false);
+            computed[app.Name] = own;
+        }
+
+        // Pass 2: worst-wins with in-model WithApiPermission exposers, then publish apps.
+        var appStatuses = new List<AuthDashboardStatus>(apps.Count);
+        foreach (var app in apps)
+        {
+            var own = computed[app.Name];
+            var statuses = new List<AuthDashboardStatus> { own.Status };
+            foreach (var exposer in CollectDistinctInModelExposers(app))
+            {
+                if (computed.TryGetValue(exposer.Name, out var exposerOwn))
+                {
+                    statuses.Add(exposerOwn.Status);
+                }
+                else if (statusService.TryGetAppStatus(exposer.Name, out var cached))
+                {
+                    statuses.Add(cached);
+                }
+                else
+                {
+                    statuses.Add(AuthDashboardStatus.Waiting);
+                }
+            }
+
+            var appStatus = AuthStatusAggregator.WorstWins(statuses);
+            var description = own.Description;
+            if (appStatus != own.Status)
+            {
+                description = appStatus switch
+                {
+                    AuthDashboardStatus.Waiting =>
+                        "Waiting for in-model WithApiPermission exposer Auth app(s).",
+                    AuthDashboardStatus.Unhealthy =>
+                        "In-model WithApiPermission exposer Auth app(s) are unhealthy.",
+                    _ => own.Description
+                };
+            }
+
+            statusService.SetAppStatus(app.Name, appStatus);
+            await AuthDashboardStatusPublisher.PublishAsync(
+                    notifications,
+                    app,
+                    appStatus,
+                    description: description,
+                    cancellationToken)
+                .ConfigureAwait(false);
+
             appStatuses.Add(appStatus);
         }
 
@@ -167,7 +248,13 @@ internal sealed class EntraAuthDashboardStatusService
         return providerStatus;
     }
 
-    private static async Task<AuthDashboardStatus> RefreshAppAsync(
+    private readonly record struct AppOwnStatusResult(AuthDashboardStatus Status, string? Description);
+
+    /// <summary>
+    /// Computes own Graph + children status and publishes children; does not publish the app
+    /// (provider pass 2 applies exposer gating then publishes).
+    /// </summary>
+    private static async Task<AppOwnStatusResult> ComputeAppOwnStatusAsync(
         IServiceProvider services,
         ResourceNotificationService notifications,
         IEntraAuthHealthProbe probe,
@@ -184,14 +271,6 @@ internal sealed class EntraAuthDashboardStatusService
             || string.IsNullOrWhiteSpace(clientId)
             || EntraAppRegistrationParameterPrompt.IsCreateSentinel(clientId))
         {
-            await AuthDashboardStatusPublisher.PublishAsync(
-                    notifications,
-                    app,
-                    AuthDashboardStatus.Waiting,
-                    description: "Waiting for client id.",
-                    cancellationToken)
-                .ConfigureAwait(false);
-
             foreach (var exposition in expositions)
             {
                 await AuthDashboardStatusPublisher.PublishAsync(
@@ -224,7 +303,7 @@ internal sealed class EntraAuthDashboardStatusService
                     cancellationToken)
                 .ConfigureAwait(false);
 
-            return AuthDashboardStatus.Waiting;
+            return new AppOwnStatusResult(AuthDashboardStatus.Waiting, "Waiting for client id.");
         }
 
         EntraAuthAppProbeResult probeResult;
@@ -264,14 +343,16 @@ internal sealed class EntraAuthDashboardStatusService
                     "Entra AuthOps redirect URI resolve pending for app '{App}'.",
                     app.Name);
 
-                await PublishWaitingTreeAsync(
+                await PublishWaitingChildrenAsync(
                         notifications,
                         app,
                         $"Waiting for redirect URI parameter: {ex.Message}",
                         cancellationToken)
                     .ConfigureAwait(false);
 
-                return AuthDashboardStatus.Waiting;
+                return new AppOwnStatusResult(
+                    AuthDashboardStatus.Waiting,
+                    $"Waiting for redirect URI parameter: {ex.Message}");
             }
 
             if (EntraRedirectUriApplicator.Differ(desiredRedirects, probeResult.RedirectUris))
@@ -284,6 +365,7 @@ internal sealed class EntraAuthDashboardStatusService
         var childStatuses = new List<AuthDashboardStatus>(expositions.Count + apiPermissions.Count);
         // Gate expositions/permissions on Graph existence only — redirect mismatch must not force children Waiting.
         var parentExists = graphExists;
+        var exposerProbeCache = new Dictionary<string, EntraAuthAppProbeResult>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var exposition in expositions)
         {
@@ -352,8 +434,33 @@ internal sealed class EntraAuthDashboardStatusService
             }
             else
             {
-                var present = probeResult.RequiredResourceAccessKeys.Contains(
-                    EntraApiPermissionApplicator.FormatKey(desired));
+                EntraAuthAppProbeResult? exposerProbe = null;
+                if (permission.Exposition?.Owner is { } exposer
+                    && ResolveExposerClientId(services, exposer) is { } exposerClientId)
+                {
+                    if (!exposerProbeCache.TryGetValue(exposerClientId, out exposerProbe))
+                    {
+                        try
+                        {
+                            exposerProbe = await probe.ProbeAppAsync(exposerClientId, cancellationToken)
+                                .ConfigureAwait(false);
+                        }
+                        catch (Exception ex) when (ex is not OperationCanceledException)
+                        {
+                            exposerProbe = EntraAuthAppProbeResult.Failed(ex.Message);
+                        }
+
+                        exposerProbeCache[exposerClientId] = exposerProbe;
+                    }
+
+                    desired = EntraApiPermissionApplicator.RemapDesiredWithExposerProbe(
+                        permission,
+                        desired,
+                        exposerProbe);
+                }
+
+                var desiredKey = EntraApiPermissionApplicator.FormatKey(desired);
+                var present = probeResult.RequiredResourceAccessKeys.Contains(desiredKey);
                 childStatus = present ? AuthDashboardStatus.Healthy : AuthDashboardStatus.Unhealthy;
                 description = present
                     ? $"API permission '{permission.Value}' present in Graph."
@@ -382,21 +489,71 @@ internal sealed class EntraAuthDashboardStatusService
                 cancellationToken)
             .ConfigureAwait(false);
 
-        // App status: own existence + redirect match + children (worst-wins).
+        // Own status: existence + redirect match + children (worst-wins). Exposer gate is pass 2.
         var aggregatedChildren = AuthStatusAggregator.WorstWins(
             childStatuses,
             whenEmpty: AuthDashboardStatus.Healthy);
         var appStatus = AuthStatusAggregator.WorstWins([ownStatus, aggregatedChildren]);
 
-        await AuthDashboardStatusPublisher.PublishAsync(
-                notifications,
-                app,
-                appStatus,
-                description: ownDescription,
-                cancellationToken)
-            .ConfigureAwait(false);
+        return new AppOwnStatusResult(appStatus, ownDescription);
+    }
 
-        return appStatus;
+    private static IEnumerable<EntraAuthAppRegistrationResource> CollectDistinctInModelExposers(
+        EntraAuthAppRegistrationResource app)
+    {
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var annotation in app.Annotations.OfType<ApiPermissionAnnotation>())
+        {
+            if (annotation.PermissionResource.Exposition?.Owner is not { } exposer
+                || ReferenceEquals(exposer, app)
+                || !seen.Add(exposer.Name))
+            {
+                continue;
+            }
+
+            yield return exposer;
+        }
+    }
+
+    private static async Task PublishWaitingChildrenAsync(
+        ResourceNotificationService notifications,
+        EntraAuthAppRegistrationResource app,
+        string description,
+        CancellationToken cancellationToken)
+    {
+        foreach (var exposition in app.Annotations.OfType<ExposedApiAnnotation>().Select(a => a.Exposition))
+        {
+            await AuthDashboardStatusPublisher.PublishAsync(
+                    notifications,
+                    exposition,
+                    AuthDashboardStatus.Waiting,
+                    description,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        foreach (var permission in CollectApiPermissionResources(app))
+        {
+            await AuthDashboardStatusPublisher.PublishAsync(
+                    notifications,
+                    permission,
+                    AuthDashboardStatus.Waiting,
+                    description,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        var secretResource = app.Annotations.OfType<ClientSecretAnnotation>().LastOrDefault()?.SecretResource;
+        if (secretResource is not null)
+        {
+            await AuthDashboardStatusPublisher.PublishAsync(
+                    notifications,
+                    secretResource,
+                    AuthDashboardStatus.Waiting,
+                    description,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
     }
 
     private static async Task PublishClientSecretStatusAsync(
@@ -453,11 +610,13 @@ internal sealed class EntraAuthDashboardStatusService
     }
 
     private static async Task PublishWaitingTreeAsync(
+        EntraAuthDashboardStatusService statusService,
         ResourceNotificationService notifications,
         EntraAuthAppRegistrationResource app,
         string description,
         CancellationToken cancellationToken)
     {
+        statusService.SetAppStatus(app.Name, AuthDashboardStatus.Waiting);
         await AuthDashboardStatusPublisher.PublishAsync(
                 notifications,
                 app,

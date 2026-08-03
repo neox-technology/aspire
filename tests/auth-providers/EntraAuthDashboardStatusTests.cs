@@ -58,6 +58,79 @@ public class EntraAuthDashboardStatusTests
     }
 
     [Fact]
+    public void AppRegistration_HasHealthCheckAnnotation()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var entra = builder.AddAuthProvider("provider-entra").Entra();
+        var app = entra.AddAppRegistration("web", "Web");
+
+        var healthCheck = Assert.Single(app.Resource.Annotations.OfType<HealthCheckAnnotation>());
+        Assert.Equal(EntraAuthAppRegistrationHealthCheck.GetKey("web"), healthCheck.Key);
+    }
+
+    [Fact]
+    public async Task HealthCheck_MapsCachedDashboardStatus()
+    {
+        var statusService = new EntraAuthDashboardStatusService();
+        var healthCheck = new EntraAuthAppRegistrationHealthCheck("web", statusService);
+        var context = new HealthCheckContext();
+
+        var unknown = await healthCheck.CheckHealthAsync(context);
+        Assert.Equal(HealthStatus.Unhealthy, unknown.Status);
+
+        statusService.SetAppStatus("web", AuthDashboardStatus.Waiting);
+        var waiting = await healthCheck.CheckHealthAsync(context);
+        Assert.Equal(HealthStatus.Unhealthy, waiting.Status);
+
+        statusService.SetAppStatus("web", AuthDashboardStatus.Unhealthy);
+        var unhealthy = await healthCheck.CheckHealthAsync(context);
+        Assert.Equal(HealthStatus.Unhealthy, unhealthy.Status);
+
+        statusService.SetAppStatus("web", AuthDashboardStatus.Healthy);
+        var healthy = await healthCheck.CheckHealthAsync(context);
+        Assert.Equal(HealthStatus.Healthy, healthy.Status);
+    }
+
+    [Fact]
+    public async Task StatusService_Refresh_CachesAppStatusForHealthCheck()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var entra = builder.AddAuthProvider("provider-entra").Entra();
+        var api = entra.AddAppRegistration("api", "Api");
+
+        var probe = new FakeEntraAuthHealthProbe
+        {
+            Results =
+            {
+                ["client-1"] = new EntraAuthAppProbeResult
+                {
+                    Exists = true,
+                    ScopeValues = new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+                    AppRoleValues = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                }
+            }
+        };
+
+        await using var services = CreateStatusHost(builder.Resources, probe);
+
+        await AuthParameterValue.SetAsync(
+            services, entra.Resource.Resource.TenantIdParameter, "tenant-1", CancellationToken.None);
+        await AuthParameterValue.SetAsync(
+            services, api.Resource.ClientIdParameter, "client-1", CancellationToken.None);
+
+        var statusService = services.GetRequiredService<EntraAuthDashboardStatusService>();
+        var model = services.GetRequiredService<DistributedApplicationModel>();
+        await statusService.RefreshAsync(services, model, CancellationToken.None);
+
+        Assert.True(statusService.TryGetAppStatus(api.Resource.Name, out var cached));
+        Assert.Equal(AuthDashboardStatus.Healthy, cached);
+
+        var healthCheck = new EntraAuthAppRegistrationHealthCheck(api.Resource.Name, statusService);
+        var result = await healthCheck.CheckHealthAsync(new HealthCheckContext());
+        Assert.Equal(HealthStatus.Healthy, result.Status);
+    }
+
+    [Fact]
     public void PublisherApply_MapsWaitingHealthyUnhealthy()
     {
         var baseSnapshot = new CustomResourceSnapshot
@@ -218,6 +291,72 @@ public class EntraAuthDashboardStatusTests
     }
 
     [Fact]
+    public async Task StatusService_ApiPermission_Present_IsHealthy_WhenGraphIdsDifferFromModel()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var entra = builder.AddAuthProvider("provider-entra").Entra();
+        IResourceBuilder<ScopeApiExposition>? scope = null;
+        var api = entra.AddAppRegistration("api", "Api")
+            .WithApiExposition(a =>
+            {
+                scope = a.AddScopeWithAdminConsent("access_as_user", "Access", "Desc");
+            });
+        var web = entra.AddAppRegistration("web", "Web")
+            .WithApiPermission(scope!);
+
+        var scopePerm = Assert.Single(web.Resource.Annotations.OfType<ApiPermissionAnnotation>());
+        var graphScopeId = Guid.Parse("648a9683-c59e-4995-a45f-27b88697311f");
+        Assert.NotEqual(graphScopeId, scope!.Resource.PermissionId);
+
+        var graphKey = EntraApiPermissionApplicator.FormatKey(new AuthDesiredRequiredResourceAccess
+        {
+            ResourceAppId = "api-client",
+            PermissionId = graphScopeId,
+            Type = "Scope"
+        });
+
+        var probe = new FakeEntraAuthHealthProbe
+        {
+            Results =
+            {
+                ["api-client"] = new EntraAuthAppProbeResult
+                {
+                    Exists = true,
+                    ScopeValues = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "access_as_user" },
+                    ScopeIdsByValue = new Dictionary<string, Guid>(StringComparer.Ordinal)
+                    {
+                        ["access_as_user"] = graphScopeId
+                    }
+                },
+                ["web-client"] = new EntraAuthAppProbeResult
+                {
+                    Exists = true,
+                    RequiredResourceAccessKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        graphKey
+                    }
+                }
+            }
+        };
+
+        await using var services = CreateStatusHost(builder.Resources, probe);
+        await AuthParameterValue.SetAsync(
+            services, entra.Resource.Resource.TenantIdParameter, "tenant-1", CancellationToken.None);
+        await AuthParameterValue.SetAsync(
+            services, api.Resource.ClientIdParameter, "api-client", CancellationToken.None);
+        await AuthParameterValue.SetAsync(
+            services, web.Resource.ClientIdParameter, "web-client", CancellationToken.None);
+
+        var statusService = services.GetRequiredService<EntraAuthDashboardStatusService>();
+        var model = services.GetRequiredService<DistributedApplicationModel>();
+        await statusService.RefreshAsync(services, model, CancellationToken.None);
+
+        var notifications = services.GetRequiredService<ResourceNotificationService>();
+        Assert.True(notifications.TryGetCurrentState(scopePerm.PermissionResource.Name, out var scopePermEvent));
+        Assert.Equal(HealthStatus.Healthy, scopePermEvent.Snapshot.HealthStatus);
+    }
+
+    [Fact]
     public async Task StatusService_ApiPermission_Present_IsHealthy()
     {
         var builder = DistributedApplication.CreateBuilder();
@@ -287,6 +426,181 @@ public class EntraAuthDashboardStatusTests
         Assert.Equal(HealthStatus.Healthy, graphPermEvent.Snapshot.HealthStatus);
         Assert.True(notifications.TryGetCurrentState(web.Resource.Name, out var webEvent));
         Assert.Equal(HealthStatus.Healthy, webEvent.Snapshot.HealthStatus);
+    }
+
+    [Fact]
+    public async Task StatusService_ApiPermission_ExposerUnhealthy_ConsumerUnhealthy()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var entra = builder.AddAuthProvider("provider-entra").Entra();
+        IResourceBuilder<ScopeApiExposition>? scope = null;
+        var api = entra.AddAppRegistration("api", "Api")
+            .WithApiExposition(a =>
+            {
+                scope = a.AddScopeWithAdminConsent("access_as_user", "Access", "Desc");
+            });
+        var web = entra.AddAppRegistration("web", "Web")
+            .WithApiPermission(scope!);
+
+        var scopeKey = EntraApiPermissionApplicator.FormatKey(new AuthDesiredRequiredResourceAccess
+        {
+            ResourceAppId = "api-client",
+            PermissionId = scope!.Resource.PermissionId,
+            Type = "Scope"
+        });
+
+        var probe = new FakeEntraAuthHealthProbe
+        {
+            Results =
+            {
+                // Exposer missing in Graph → Unhealthy
+                ["api-client"] = new EntraAuthAppProbeResult { Exists = false },
+                ["web-client"] = new EntraAuthAppProbeResult
+                {
+                    Exists = true,
+                    RequiredResourceAccessKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        scopeKey
+                    }
+                }
+            }
+        };
+
+        await using var services = CreateStatusHost(builder.Resources, probe);
+        await AuthParameterValue.SetAsync(
+            services, entra.Resource.Resource.TenantIdParameter, "tenant-1", CancellationToken.None);
+        await AuthParameterValue.SetAsync(
+            services, api.Resource.ClientIdParameter, "api-client", CancellationToken.None);
+        await AuthParameterValue.SetAsync(
+            services, web.Resource.ClientIdParameter, "web-client", CancellationToken.None);
+
+        var statusService = services.GetRequiredService<EntraAuthDashboardStatusService>();
+        var model = services.GetRequiredService<DistributedApplicationModel>();
+        await statusService.RefreshAsync(services, model, CancellationToken.None);
+
+        var notifications = services.GetRequiredService<ResourceNotificationService>();
+        Assert.True(notifications.TryGetCurrentState(api.Resource.Name, out var apiEvent));
+        Assert.Equal(HealthStatus.Unhealthy, apiEvent.Snapshot.HealthStatus);
+
+        Assert.True(notifications.TryGetCurrentState(web.Resource.Name, out var webEvent));
+        Assert.Equal(KnownResourceStates.Running, webEvent.Snapshot.State?.Text);
+        Assert.Equal(HealthStatus.Unhealthy, webEvent.Snapshot.HealthStatus);
+        Assert.True(statusService.TryGetAppStatus(web.Resource.Name, out var cached));
+        Assert.Equal(AuthDashboardStatus.Unhealthy, cached);
+    }
+
+    [Fact]
+    public async Task StatusService_ApiPermission_ExposerWaiting_ConsumerWaiting()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var entra = builder.AddAuthProvider("provider-entra").Entra();
+        IResourceBuilder<ScopeApiExposition>? scope = null;
+        // Register consumer before exposer to prove two-pass order independence.
+        var webBuilder = entra.AddAppRegistration("web", "Web");
+        var api = entra.AddAppRegistration("api", "Api")
+            .WithApiExposition(a =>
+            {
+                scope = a.AddScopeWithAdminConsent("access_as_user", "Access", "Desc");
+            });
+        var web = webBuilder.WithApiPermission(scope!);
+
+        var scopeKey = EntraApiPermissionApplicator.FormatKey(new AuthDesiredRequiredResourceAccess
+        {
+            ResourceAppId = "api-client",
+            PermissionId = scope!.Resource.PermissionId,
+            Type = "Scope"
+        });
+
+        var probe = new FakeEntraAuthHealthProbe
+        {
+            Results =
+            {
+                ["api-client"] = new EntraAuthAppProbeResult
+                {
+                    Exists = true,
+                    ScopeValues = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "access_as_user" }
+                },
+                ["web-client"] = new EntraAuthAppProbeResult
+                {
+                    Exists = true,
+                    RequiredResourceAccessKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        scopeKey
+                    }
+                }
+            }
+        };
+
+        await using var services = CreateStatusHost(builder.Resources, probe);
+        await AuthParameterValue.SetAsync(
+            services, entra.Resource.Resource.TenantIdParameter, "tenant-1", CancellationToken.None);
+        // Exposer ClientId unset → Waiting; consumer fully resolvable otherwise.
+        await AuthParameterValue.SetAsync(
+            services, web.Resource.ClientIdParameter, "web-client", CancellationToken.None);
+
+        var statusService = services.GetRequiredService<EntraAuthDashboardStatusService>();
+        var model = services.GetRequiredService<DistributedApplicationModel>();
+        await statusService.RefreshAsync(services, model, CancellationToken.None);
+
+        var notifications = services.GetRequiredService<ResourceNotificationService>();
+        Assert.True(notifications.TryGetCurrentState(api.Resource.Name, out var apiEvent));
+        Assert.Equal(KnownResourceStates.Waiting, apiEvent.Snapshot.State?.Text);
+
+        Assert.True(notifications.TryGetCurrentState(web.Resource.Name, out var webEvent));
+        Assert.Equal(KnownResourceStates.Waiting, webEvent.Snapshot.State?.Text);
+        Assert.True(statusService.TryGetAppStatus(web.Resource.Name, out var cached));
+        Assert.Equal(AuthDashboardStatus.Waiting, cached);
+    }
+
+    [Fact]
+    public async Task StatusService_ApiPermission_SelfOwned_DoesNotGateOnSelf()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var entra = builder.AddAuthProvider("provider-entra").Entra();
+        IResourceBuilder<ScopeApiExposition>? scope = null;
+        var api = entra.AddAppRegistration("api", "Api")
+            .WithApiExposition(a =>
+            {
+                scope = a.AddScopeWithAdminConsent("access_as_user", "Access", "Desc");
+            })
+            .WithApiPermission(scope!);
+
+        var scopeKey = EntraApiPermissionApplicator.FormatKey(new AuthDesiredRequiredResourceAccess
+        {
+            ResourceAppId = "api-client",
+            PermissionId = scope!.Resource.PermissionId,
+            Type = "Scope"
+        });
+
+        var probe = new FakeEntraAuthHealthProbe
+        {
+            Results =
+            {
+                ["api-client"] = new EntraAuthAppProbeResult
+                {
+                    Exists = true,
+                    ScopeValues = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "access_as_user" },
+                    RequiredResourceAccessKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        scopeKey
+                    }
+                }
+            }
+        };
+
+        await using var services = CreateStatusHost(builder.Resources, probe);
+        await AuthParameterValue.SetAsync(
+            services, entra.Resource.Resource.TenantIdParameter, "tenant-1", CancellationToken.None);
+        await AuthParameterValue.SetAsync(
+            services, api.Resource.ClientIdParameter, "api-client", CancellationToken.None);
+
+        var statusService = services.GetRequiredService<EntraAuthDashboardStatusService>();
+        var model = services.GetRequiredService<DistributedApplicationModel>();
+        await statusService.RefreshAsync(services, model, CancellationToken.None);
+
+        var notifications = services.GetRequiredService<ResourceNotificationService>();
+        Assert.True(notifications.TryGetCurrentState(api.Resource.Name, out var apiEvent));
+        Assert.Equal(HealthStatus.Healthy, apiEvent.Snapshot.HealthStatus);
     }
 
     [Fact]
