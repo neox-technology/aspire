@@ -453,8 +453,35 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
         if (plan.Actions.Contains(AuthAppRegistrationPlanAction.UpdateRequiredResourceAccess)
             && EntraApiPermissionApplicator.HasDeclaredPermissions(app))
         {
-            // Re-collect after exposer provision (DependsOn) so ClientId is available.
-            var desired = EntraApiPermissionApplicator.CollectDesired(app, TryResolveClientId);
+            var exposersByClientId = new Dictionary<string, Application>(StringComparer.OrdinalIgnoreCase);
+            foreach (var annotation in app.Annotations.OfType<ApiPermissionAnnotation>())
+            {
+                var exposer = annotation.PermissionResource.Exposition?.Owner;
+                if (exposer is null)
+                {
+                    continue;
+                }
+
+                var exposerClientId = TryResolveClientId(exposer);
+                if (string.IsNullOrWhiteSpace(exposerClientId)
+                    || exposersByClientId.ContainsKey(exposerClientId))
+                {
+                    continue;
+                }
+
+                var exposerApp = await GetByAppIdAsync(exposerClientId, cancellationToken)
+                    .ConfigureAwait(false);
+                if (exposerApp is not null)
+                {
+                    exposersByClientId[exposerClientId] = exposerApp;
+                }
+            }
+
+            // Re-collect after exposer provision (DependsOn); remap Scope/Role ids from live Graph by value.
+            var desired = EntraApiPermissionApplicator.RebuildDesiredWithExposerApplications(
+                app,
+                TryResolveClientId,
+                exposersByClientId);
             if (desired.Count == 0)
             {
                 throw new InvalidOperationException(
@@ -462,10 +489,53 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
                     "Ensure provision-{exposer}-auth runs before this step.");
             }
 
-            // Remap permission ids from exposer plan when adopt reused Graph ids.
-            desired = RemapPermissionIdsFromExposerPlans(app, desired);
+            var modelIds = EntraApiPermissionApplicator.CollectModelPermissionIds(app);
+            var remappedIds = desired.Select(d => d.PermissionId).ToHashSet();
+            var staleModelIds = modelIds.Where(id => !remappedIds.Contains(id)).ToHashSet();
 
-            var merged = EntraApiPermissionApplicator.MergeForApply(desired, existingPermissions);
+            // Drop orphans from prior AppHost runs: access ids that are not real scopes/roles on the exposer.
+            var validExposerPermissionIds = new HashSet<Guid>();
+            foreach (var exposerApp in exposersByClientId.Values)
+            {
+                foreach (var s in EntraApiExpositionApplicator.ExtractScopes(exposerApp))
+                {
+                    if (s.Id != Guid.Empty)
+                    {
+                        validExposerPermissionIds.Add(s.Id);
+                    }
+                }
+
+                foreach (var r in EntraApiExpositionApplicator.ExtractAppRoles(exposerApp))
+                {
+                    if (r.Id != Guid.Empty)
+                    {
+                        validExposerPermissionIds.Add(r.Id);
+                    }
+                }
+            }
+
+            var managedResourceAppIds = new HashSet<string>(
+                exposersByClientId.Keys,
+                StringComparer.OrdinalIgnoreCase);
+
+            var existingClean = existingPermissions
+                .Where(e =>
+                {
+                    if (staleModelIds.Contains(e.PermissionId))
+                    {
+                        return false;
+                    }
+
+                    if (!managedResourceAppIds.Contains(e.ResourceAppId))
+                    {
+                        return true;
+                    }
+
+                    return validExposerPermissionIds.Contains(e.PermissionId);
+                })
+                .ToList();
+
+            var merged = EntraApiPermissionApplicator.MergeForApply(desired, existingClean);
             EntraApiPermissionApplicator.Apply(patch, merged);
             needsPatch = true;
         }
@@ -475,25 +545,6 @@ public sealed class EntraGraphAppProvisioner : IEntraGraphAppProvisioner
             await _graph.Applications[objectId].PatchAsync(patch, cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
         }
-    }
-
-    private static IReadOnlyList<AuthDesiredRequiredResourceAccess> RemapPermissionIdsFromExposerPlans(
-        EntraAuthAppRegistrationResource app,
-        IReadOnlyList<AuthDesiredRequiredResourceAccess> desired)
-    {
-        var result = new List<AuthDesiredRequiredResourceAccess>();
-        foreach (var annotation in app.Annotations.OfType<ApiPermissionAnnotation>())
-        {
-            if (EntraApiPermissionApplicator.TryResolveDesired(
-                    annotation.PermissionResource,
-                    TryResolveClientId,
-                    out var entry))
-            {
-                result.Add(entry);
-            }
-        }
-
-        return result.Count > 0 ? result : desired;
     }
 
     private static IReadOnlyList<AuthDesiredOauth2PermissionScope> RemapScopeIds(

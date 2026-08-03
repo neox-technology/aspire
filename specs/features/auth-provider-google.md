@@ -4,7 +4,7 @@
 |-------|-------|
 | Slug | `auth-provider-google` |
 | Status | implemented |
-| Last code review | 2026-08-02 |
+| Last code review | 2026-08-03 |
 
 ## Summary
 
@@ -56,6 +56,7 @@ None — pipeline steps only.
 - [x] ClientId Choice: listed oauthClients (when enum succeeds) + custom; **no** Create option; empty/create-sentinel → clear error in plan.
 - [x] `plan` / `provision` bind ProjectId + ClientId only (no IAM create/patch).
 - [x] Google `WithAuth(GoogleAuthAppRegistrationResource)` emits `AUTH_GOOGLE_*` (multi-app: `AUTH_GOOGLE_{APP}_*`); `AUTH_GOOGLE_TENANT_ID` holds ProjectId.
+- [x] Google `WithAuth` also **WaitFor**s the source Auth app registration (`WaitAnnotation`, deduped on repeated bind); constrained to `IResourceWithEnvironment` + `IResourceWithWaitSupport`.
 - [x] Unit tests with bind fakes; sample AppHost wires a Google Auth app; smoke `dotnet build` only.
 - [x] Package README documents adopt/bind, ADC, env table, create out of scope.
 - [x] Glossary + specs index aligned.

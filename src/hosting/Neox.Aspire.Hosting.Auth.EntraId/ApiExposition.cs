@@ -6,7 +6,12 @@ namespace Neox.Aspire.Hosting.Auth;
 /// Base Aspire resource for an API permission exposed by an <see cref="EntraAuthAppRegistrationResource"/>
 /// (OAuth2 permission scope or app role).
 /// </summary>
-public abstract class ApiExposition : Resource, IResourceWithParent<EntraAuthAppRegistrationResource>
+/// <remarks>
+/// Does not implement <see cref="IResourceWithParent"/> so Aspire does not inherit the parent app's
+/// <c>HealthCheckAnnotation</c> onto this leaf (which would pin child health to the app registration).
+/// Dashboard nesting uses <c>WithParentRelationship</c> only.
+/// </remarks>
+public abstract class ApiExposition : Resource
 {
     protected ApiExposition(string name, EntraAuthAppRegistrationResource owner)
         : base(name)
@@ -20,8 +25,6 @@ public abstract class ApiExposition : Resource, IResourceWithParent<EntraAuthApp
     /// </summary>
     public EntraAuthAppRegistrationResource Owner { get; }
 
-    /// <inheritdoc />
+    /// <summary>Auth app that exposes this permission (dashboard parent).</summary>
     public EntraAuthAppRegistrationResource Parent => Owner;
-
-    IResource IResourceWithParent.Parent => Owner;
 }

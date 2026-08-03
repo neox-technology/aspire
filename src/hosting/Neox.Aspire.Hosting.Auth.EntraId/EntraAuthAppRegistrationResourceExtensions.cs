@@ -249,6 +249,8 @@ public static class EntraAuthAppRegistrationResourceExtensions
             .WithParentRelationship(builder.Resource)
             .WithInitialState(AuthDashboardSnapshots.Waiting("AuthApiPermission"));
 
+        AuthOpsExtensions.EnsureWaitFor(builder, exposition.Resource.Owner);
+
         return builder;
     }
 

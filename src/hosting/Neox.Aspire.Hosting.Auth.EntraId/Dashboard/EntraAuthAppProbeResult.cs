@@ -19,6 +19,18 @@ internal sealed class EntraAuthAppProbeResult
         new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
+    /// Graph oauth2PermissionScope ids keyed by <c>value</c> (for remapping consumer apiperm checks).
+    /// </summary>
+    public IReadOnlyDictionary<string, Guid> ScopeIdsByValue { get; init; } =
+        new Dictionary<string, Guid>(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Graph appRole ids keyed by <c>value</c> (for remapping consumer apiperm checks).
+    /// </summary>
+    public IReadOnlyDictionary<string, Guid> AppRoleIdsByValue { get; init; } =
+        new Dictionary<string, Guid>(StringComparer.Ordinal);
+
+    /// <summary>
     /// Graph <c>requiredResourceAccess</c> keys (<c>resourceAppId|permissionId|type</c>)
     /// when the app exists; empty otherwise.
     /// </summary>

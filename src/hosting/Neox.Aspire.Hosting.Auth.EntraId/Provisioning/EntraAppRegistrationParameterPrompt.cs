@@ -38,7 +38,7 @@ internal static class EntraAppRegistrationParameterPrompt
         string providerResourceName,
         string appName,
         string parameterName) =>
-        $"Select Create to provision a new app registration for '{appName}' on provider '{providerResourceName}' (parameter '{parameterName}'), or Other for a custom Client ID (GUID). Existing apps load after a tenant is selected.";
+        $"Select Create to provision a new app registration for '{appName}' on provider '{providerResourceName}' (parameter '{parameterName}'), or Other for a custom Client ID (GUID). Existing apps load from the resolved tenant parameter.";
 
     public static void ConfigureClientIdChoiceInput(
         IResourceBuilder<ParameterResource> clientIdParam,
@@ -59,6 +59,9 @@ internal static class EntraAppRegistrationParameterPrompt
 
         var tenantParameterName = tenantIdParameter.Name;
 
+        // Do not set DependsOnInputs to another ParameterResource name: ParameterProcessor
+        // prompts ClientId alone (notification / Set), and Aspire InteractionService rejects
+        // DependsOnInputs that are not in the same form.
         clientIdParam.WithCustomInput(parameter => new InteractionInput
         {
             Name = parameter.Name,
@@ -73,7 +76,6 @@ internal static class EntraAppRegistrationParameterPrompt
             Options = BuildOptions(displayNameForCreate, apps: []),
             DynamicLoading = new InputLoadOptions
             {
-                DependsOnInputs = [tenantParameterName],
                 AlwaysLoadOnStart = true,
                 LoadCallback = async context =>
                 {

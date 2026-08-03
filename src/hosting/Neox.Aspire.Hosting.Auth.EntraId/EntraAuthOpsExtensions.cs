@@ -117,19 +117,36 @@ public static class EntraAuthOpsExtensions
             }
         });
 
-        appBuilder.WithPipelineStepFactory(_ => new PipelineStep
+        appBuilder.WithPipelineStepFactory(_ =>
         {
-            Name = planName,
-            Description = $"Plan AuthOps app registration changes for '{app.Name}'.",
-            Tags = ["auth-ops"],
-            Resource = app,
-            DependsOnSteps = [prereqName],
-            Action = async context =>
+            var planDependsOn = new List<string> { prereqName };
+            foreach (var permission in app.Annotations.OfType<ApiPermissionAnnotation>())
             {
-                var provisioner = ResolveProvisioner(context.Services);
-                var plan = await provisioner.PlanAsync(app, context.CancellationToken).ConfigureAwait(false);
-                appBuilder.WithAnnotation(new AuthAppRegistrationPlanAnnotation(plan));
+                var exposer = permission.Exposition.Owner;
+                if (!ReferenceEquals(exposer, app))
+                {
+                    var exposerPlan = AuthOpsExtensions.GetPlanAuthStepName(exposer.Name);
+                    if (!planDependsOn.Contains(exposerPlan, StringComparer.Ordinal))
+                    {
+                        planDependsOn.Add(exposerPlan);
+                    }
+                }
             }
+
+            return new PipelineStep
+            {
+                Name = planName,
+                Description = $"Plan AuthOps app registration changes for '{app.Name}'.",
+                Tags = ["auth-ops"],
+                Resource = app,
+                DependsOnSteps = planDependsOn,
+                Action = async context =>
+                {
+                    var provisioner = ResolveProvisioner(context.Services);
+                    var plan = await provisioner.PlanAsync(app, context.CancellationToken).ConfigureAwait(false);
+                    appBuilder.WithAnnotation(new AuthAppRegistrationPlanAnnotation(plan));
+                }
+            };
         });
 
         appBuilder.WithPipelineStepFactory(_ =>
@@ -205,7 +222,7 @@ public static class EntraAuthOpsExtensions
         this IResourceBuilder<T> builder,
         IResourceBuilder<EntraAuthAppRegistrationResource> authApp,
         Action<EntraAuthEnvOptions>? configure = null)
-        where T : IResourceWithEnvironment
+        where T : IResourceWithEnvironment, IResourceWithWaitSupport
     {
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(authApp);
@@ -219,7 +236,7 @@ public static class EntraAuthOpsExtensions
         this IResourceBuilder<T> builder,
         EntraAuthAppRegistrationResource authApp,
         Action<EntraAuthEnvOptions>? configure = null)
-        where T : IResourceWithEnvironment
+        where T : IResourceWithEnvironment, IResourceWithWaitSupport
     {
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(authApp);
@@ -244,6 +261,8 @@ public static class EntraAuthOpsExtensions
                 envOptions.ResolveName(AuthOutput.ClientSecret),
                 authApp.ClientSecretParameter);
         }
+
+        AuthOpsExtensions.EnsureWaitFor(builder, authApp);
 
         return builder;
     }

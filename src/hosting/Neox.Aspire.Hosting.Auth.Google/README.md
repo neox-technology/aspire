@@ -16,7 +16,7 @@ var web = google.AddAppRegistration("web", "MyApp-Local")
     .WithLocalhostRedirectUri(7281, "/signin-oidc"); // model only — not applied to Google
 
 builder.AddProject<Projects.Api>("api")
-    .WithAuth(web); // GoogleAuthAppRegistrationResource → AUTH_GOOGLE_*
+    .WithAuth(web); // AUTH_GOOGLE_* + WaitFor(web)
 ```
 
 Then run `aspire do` / `aspire deploy`. Pipeline: `prereq-provider-google-auth` → `prereq-providers-auth` → `prereq-{app}-auth` → `plan-{app}-auth` → `provision-{app}-auth` → `deploy-auth` (shared on `auth-ops`).

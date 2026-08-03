@@ -37,7 +37,7 @@ internal static class GoogleOauthClientParameterPrompt
         string providerResourceName,
         string appName,
         string parameterName) =>
-        $"Select or paste an existing Client ID for '{appName}' on provider '{providerResourceName}' (parameter '{parameterName}'). Existing clients load after a project is selected. Google AuthOps does not create clients.";
+        $"Select or paste an existing Client ID for '{appName}' on provider '{providerResourceName}' (parameter '{parameterName}'). Existing clients load from the resolved project parameter. Google AuthOps does not create clients.";
 
     public static void ConfigureClientIdChoiceInput(
         IResourceBuilder<ParameterResource> clientIdParam,
@@ -58,6 +58,8 @@ internal static class GoogleOauthClientParameterPrompt
 
         var projectParameterName = projectIdParameter.Name;
 
+        // Do not set DependsOnInputs to another ParameterResource name: ParameterProcessor
+        // prompts ClientId alone, and Aspire InteractionService rejects missing dependencies.
         clientIdParam.WithCustomInput(parameter => new InteractionInput
         {
             Name = parameter.Name,
@@ -72,7 +74,6 @@ internal static class GoogleOauthClientParameterPrompt
             Options = [],
             DynamicLoading = new InputLoadOptions
             {
-                DependsOnInputs = [projectParameterName],
                 AlwaysLoadOnStart = true,
                 LoadCallback = async context =>
                 {

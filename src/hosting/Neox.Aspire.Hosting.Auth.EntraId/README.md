@@ -16,10 +16,10 @@ var web = entra.AddAppRegistration("web", "MyApp-Local")
     .WithSupportedAccounts(SupportedAccountsType.SingleTenant);
 
 builder.AddProject<Projects.Api>("api")
-    .WithAuth(web);
+    .WithAuth(web); // also WaitFor(web) until the Auth app is Healthy
 ```
 
-Then run `aspire do` / `aspire deploy`. Pipeline steps: `prereq-auth-provider-entra-auth` → `prereq-providers-auth` → `prereq-{app}-auth` → `plan-{app}-auth` → `provision-{app}-auth` → `deploy-auth` on each `EntraAuthAppRegistrationResource`.
+Then run `aspire do` / `aspire deploy`. Pipeline steps: `prereq-auth-provider-entra-auth` → `prereq-providers-auth` → `prereq-{app}-auth` → `plan-{app}-auth` → `provision-{app}-auth` → `deploy-auth` on each `EntraAuthAppRegistrationResource`. In-model `WithApiPermission` makes the consumer Auth app **WaitFor** the exposer (well-known Graph permissions do not).
 
 ## Client secret (`WithClientSecret`)
 
