@@ -153,11 +153,14 @@ public static class AuthOpsExtensions
     /// Uses a direct <see cref="WaitAnnotation"/> (not <c>WaitFor</c>) so sibling Auth apps
     /// under the same provider do not hit Aspire's "cannot wait for its parent" guard, and
     /// workloads do not inherit waits on the whole AuthOps parent chain.
+    /// Auth app registrations intentionally do <strong>not</strong> implement
+    /// <see cref="IResourceWithWaitSupport"/> — otherwise Aspire would block their lifecycle
+    /// on sibling <c>WaitUntilHealthy</c> waits and dashboard status would stay Waiting forever.
     /// </summary>
     internal static void EnsureWaitFor<T>(
         IResourceBuilder<T> waiter,
         IResource dependency)
-        where T : IResourceWithWaitSupport
+        where T : IResource
     {
         ArgumentNullException.ThrowIfNull(waiter);
         ArgumentNullException.ThrowIfNull(dependency);
