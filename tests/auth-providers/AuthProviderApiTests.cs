@@ -57,6 +57,24 @@ public class AuthProviderApiTests
         });
 
         Assert.NotNull(api.Resource);
+        var wait = Assert.Single(api.Resource.Annotations.OfType<WaitAnnotation>());
+        Assert.Same(web.Resource, wait.Resource);
+        Assert.Equal(WaitType.WaitUntilHealthy, wait.WaitType);
+    }
+
+    [Fact]
+    public void WithAuth_WaitsForAuthApp()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var tenant = builder.AddParameter("t", "t");
+        var entra = builder.AddAuthProvider("entra").Entra(o => o.TenantId = tenant);
+        var spa = entra.AddAppRegistration("spa", "Spa");
+
+        var ops = builder.AddContainer("ops", "mcr.microsoft.com/dotnet/runtime", "10.0");
+        ops.WithAuth(spa);
+
+        var wait = Assert.Single(ops.Resource.Annotations.OfType<WaitAnnotation>());
+        Assert.Same(spa.Resource, wait.Resource);
     }
 
     [Fact]

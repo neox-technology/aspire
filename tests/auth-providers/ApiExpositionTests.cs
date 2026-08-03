@@ -125,6 +125,61 @@ public class ApiExpositionTests
     }
 
     [Fact]
+    public void WithApiPermission_WaitsForExposerAuthApp()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var entra = builder.AddAuthProvider("entra").Entra();
+        IResourceBuilder<ScopeApiExposition>? scope = null;
+        IResourceBuilder<AppRoleApiExposition>? role = null;
+
+        var api = entra.AddAppRegistration("api", "Api")
+            .WithApiExposition(b =>
+            {
+                scope = b.AddScopeWithAdminConsent("s", "S", "S desc");
+            });
+        role = api.WithAppRoleExposition(AllowedMemberType.Applications, "Api.Caller", "Caller");
+
+        var web = entra.AddAppRegistration("web", "Web")
+            .WithApiPermission(scope!)
+            .WithApiPermission(role!);
+
+        var waits = web.Resource.Annotations.OfType<WaitAnnotation>()
+            .Where(a => ReferenceEquals(a.Resource, api.Resource))
+            .ToList();
+        Assert.Single(waits);
+        Assert.Equal(WaitType.WaitUntilHealthy, waits[0].WaitType);
+    }
+
+    [Fact]
+    public void WithApiPermission_WellKnown_DoesNotWaitForAuthApp()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var entra = builder.AddAuthProvider("entra").Entra();
+
+        var web = entra.AddAppRegistration("web", "Web")
+            .WithApiPermission(MicrosoftGraph.Delegated.UserRead);
+
+        Assert.Empty(web.Resource.Annotations.OfType<WaitAnnotation>());
+    }
+
+    [Fact]
+    public void WithApiPermission_SelfOwnedExposition_DoesNotSelfWait()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var entra = builder.AddAuthProvider("entra").Entra();
+        IResourceBuilder<ScopeApiExposition>? scope = null;
+
+        var api = entra.AddAppRegistration("api", "Api")
+            .WithApiExposition(b =>
+            {
+                scope = b.AddScopeWithAdminConsent("s", "S", "S desc");
+            })
+            .WithApiPermission(scope!);
+
+        Assert.Empty(api.Resource.Annotations.OfType<WaitAnnotation>());
+    }
+
+    [Fact]
     public void WithApiPermission_WellKnown_RecordsAnnotation()
     {
         var builder = DistributedApplication.CreateBuilder();

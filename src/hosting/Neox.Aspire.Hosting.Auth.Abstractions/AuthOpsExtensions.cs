@@ -146,4 +146,34 @@ public static class AuthOpsExtensions
 
         return applicationBuilder.AddParameter(parameterName, secret: secret);
     }
+
+    /// <summary>
+    /// Adds Aspire <c>WaitFor</c> on <paramref name="waiter"/> for <paramref name="dependency"/>
+    /// when not already present (dedupes repeated binds / multiple permissions).
+    /// Uses a direct <see cref="WaitAnnotation"/> (not <c>WaitFor</c>) so sibling Auth apps
+    /// under the same provider do not hit Aspire's "cannot wait for its parent" guard, and
+    /// workloads do not inherit waits on the whole AuthOps parent chain.
+    /// </summary>
+    internal static void EnsureWaitFor<T>(
+        IResourceBuilder<T> waiter,
+        IResource dependency)
+        where T : IResourceWithWaitSupport
+    {
+        ArgumentNullException.ThrowIfNull(waiter);
+        ArgumentNullException.ThrowIfNull(dependency);
+
+        if (ReferenceEquals(waiter.Resource, dependency))
+        {
+            return;
+        }
+
+        if (waiter.Resource.Annotations.OfType<WaitAnnotation>()
+            .Any(a => ReferenceEquals(a.Resource, dependency)))
+        {
+            return;
+        }
+
+        waiter.WithAnnotation(new WaitAnnotation(dependency, WaitType.WaitUntilHealthy));
+        waiter.WithRelationship(dependency, "WaitFor");
+    }
 }

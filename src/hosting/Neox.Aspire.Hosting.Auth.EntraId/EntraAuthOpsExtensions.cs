@@ -205,7 +205,7 @@ public static class EntraAuthOpsExtensions
         this IResourceBuilder<T> builder,
         IResourceBuilder<EntraAuthAppRegistrationResource> authApp,
         Action<EntraAuthEnvOptions>? configure = null)
-        where T : IResourceWithEnvironment
+        where T : IResourceWithEnvironment, IResourceWithWaitSupport
     {
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(authApp);
@@ -219,7 +219,7 @@ public static class EntraAuthOpsExtensions
         this IResourceBuilder<T> builder,
         EntraAuthAppRegistrationResource authApp,
         Action<EntraAuthEnvOptions>? configure = null)
-        where T : IResourceWithEnvironment
+        where T : IResourceWithEnvironment, IResourceWithWaitSupport
     {
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(authApp);
@@ -244,6 +244,8 @@ public static class EntraAuthOpsExtensions
                 envOptions.ResolveName(AuthOutput.ClientSecret),
                 authApp.ClientSecretParameter);
         }
+
+        AuthOpsExtensions.EnsureWaitFor(builder, authApp);
 
         return builder;
     }

@@ -6,7 +6,7 @@ namespace Neox.Aspire.Hosting.Auth;
 /// Abstract logical app registration under an Auth provider. Concrete types are provider-owned
 /// (<c>EntraAuthAppRegistrationResource</c>, <c>GoogleAuthAppRegistrationResource</c>).
 /// </summary>
-public abstract class AuthAppRegistrationResource : Resource, IResourceWithParent<AuthOpsResourceBase>
+public abstract class AuthAppRegistrationResource : Resource, IResourceWithParent<AuthOpsResourceBase>, IResourceWithWaitSupport
 {
     protected AuthAppRegistrationResource(string name, AuthOpsResourceBase provider, string displayName)
         : base(name)
