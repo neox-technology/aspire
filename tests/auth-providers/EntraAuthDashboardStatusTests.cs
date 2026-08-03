@@ -165,6 +165,33 @@ public class EntraAuthDashboardStatusTests
     }
 
     [Fact]
+    public void PublisherApply_UsesHealthCheckAnnotationKey_WhenPresent()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var entra = builder.AddAuthProvider("provider-entra").Entra();
+        var app = entra.AddAppRegistration("web", "Web");
+
+        var baseSnapshot = new CustomResourceSnapshot
+        {
+            ResourceType = "EntraAuthAppRegistration",
+            State = KnownResourceStates.NotStarted,
+            Properties = []
+        };
+
+        var expectedKey = EntraAuthAppRegistrationHealthCheck.GetKey(app.Resource.Name);
+        Assert.Equal(expectedKey, AuthDashboardStatusPublisher.ResolveHealthReportName(app.Resource));
+
+        var healthy = AuthDashboardStatusPublisher.Apply(
+            baseSnapshot, AuthDashboardStatus.Healthy, "ok", app.Resource);
+        Assert.Contains(
+            healthy.HealthReports,
+            r => r.Name == expectedKey && r.Status == HealthStatus.Healthy);
+        Assert.DoesNotContain(
+            healthy.HealthReports,
+            r => r.Name == AuthDashboardStatusPublisher.HealthReportName);
+    }
+
+    [Fact]
     public async Task StatusService_ClientIdUnset_AppAndChildrenWaiting()
     {
         var builder = DistributedApplication.CreateBuilder();

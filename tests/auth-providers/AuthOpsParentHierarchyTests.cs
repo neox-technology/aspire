@@ -43,18 +43,24 @@ public class AuthOpsParentHierarchyTests
         AssertHasParentRelationship(scope.Resource, api.Resource);
         Assert.Same(api.Resource, role.Resource.Parent);
         AssertHasParentRelationship(role.Resource, api.Resource);
+        // Leaves must not implement IResourceWithParent — otherwise Aspire inherits the app's
+        // HealthCheckAnnotation and pins child Healthy/Unhealthy to the parent app status.
+        Assert.IsNotAssignableFrom<IResourceWithParent>(scope.Resource);
+        Assert.IsNotAssignableFrom<IResourceWithParent>(role.Resource);
 
         var inModelPerm = Assert.Single(
             builder.Resources.OfType<ApiPermissionResource>(),
             r => r.Name == "appregistration-web-apiperm-access-as-user");
         Assert.Same(web.Resource, inModelPerm.Parent);
         AssertHasParentRelationship(inModelPerm, web.Resource);
+        Assert.IsNotAssignableFrom<IResourceWithParent>(inModelPerm);
 
         var graphPerm = Assert.Single(
             builder.Resources.OfType<ApiPermissionResource>(),
             r => r.Name == "appregistration-web-apiperm-user-read");
         Assert.Same(web.Resource, graphPerm.Parent);
         AssertHasParentRelationship(graphPerm, web.Resource);
+        Assert.IsNotAssignableFrom<IResourceWithParent>(graphPerm);
 
         var tenant = Assert.Single(
             builder.Resources.OfType<ParameterResource>(),
@@ -71,6 +77,7 @@ public class AuthOpsParentHierarchyTests
             r => r.Name == "appregistration-api-clientsecret");
         Assert.Same(api.Resource, secretResource.Owner);
         AssertHasParentRelationship(secretResource, api.Resource);
+        Assert.IsNotAssignableFrom<IResourceWithParent>(secretResource);
 
         var clientSecret = Assert.Single(
             builder.Resources.OfType<ParameterResource>(),
