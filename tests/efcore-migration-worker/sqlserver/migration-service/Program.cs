@@ -18,6 +18,13 @@ public static class Program
         builder.AddSqlServerDbContext<TestDbContext>(connectionName);
         builder.Services.AddEfCoreMigrationService<TestDbContext>();
 
+        var secondaryConnectionName = builder.Configuration["SecondaryConnectionName"];
+        if (!string.IsNullOrWhiteSpace(secondaryConnectionName))
+        {
+            builder.AddSqlServerDbContext<SecondaryDbContext>(secondaryConnectionName);
+            builder.Services.AddEfCoreMigrationService<SecondaryDbContext>();
+        }
+
         builder.Build().Run();
     }
 }
