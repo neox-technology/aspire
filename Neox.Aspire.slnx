@@ -1,9 +1,4 @@
 <Solution>
-  <Folder Name="/eng/" />
-  <Folder Name="/eng/common/" />
-  <Folder Name="/eng/common/internal/">
-    <Project Path="eng/common/internal/Tools.csproj" />
-  </Folder>
   <Folder Name="/src/">
     <Project Path="src/Neox.Aspire.EntityFrameworkCore.MigrationWorker/Neox.Aspire.EntityFrameworkCore.MigrationWorker.csproj" />
   </Folder>
