@@ -17,7 +17,7 @@ Hosting package `Neox.Aspire.Hosting.Azure.CustomDomains` automates ACA custom d
 - Multi-hostname on one compute: string overload is for the primary hostname only; additional hostnames use distinct parameter names + domain-only or full overload (e.g. `api-apex-domain` → cert `api-apex-domain-certificate`).
 - Bootstrap: deploy with empty cert → DomainOps DNS + hostname + managed cert + bind → redeploy with certificate parameter set (GH variable automation is out of scope V1).
 - DNS is upsert-only (TTL `0` by default); credentials never land in generated YAML.
-- Unit tests under `tests/azure-custom-domains/` use fakes (no live Azure / no `az` / no `gh`).
+- Unit tests under `tests/azure-custom-domains/tests/` use fakes (no live Azure / no `az` / no `gh`).
 
 ## Routes (if UI)
 
@@ -68,7 +68,7 @@ See [`domain-glossary`](domain-glossary.md).
 | Source generator | `src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains.Generators.Internal/` |
 | Catalogue refresh | `tools/octodns-provider-catalog/` |
 | ARM client | `ArmAzureContainerAppClient` |
-| Unit tests | `tests/azure-custom-domains/` |
+| Unit tests | `tests/azure-custom-domains/tests/` |
 | Sample AppHost | `tests/azure-custom-domains/sample-apphost/` |
 
 ### Pipeline step contracts

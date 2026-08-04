@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <IsUnitTestProject>true</IsUnitTestProject>
+    <IsTestProject>true</IsTestProject>
+    <RootNamespace>Neox.Aspire.Hosting.Azure.CustomDomains.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\hosting\Neox.Aspire.Hosting.Azure.CustomDomains\Neox.Aspire.Hosting.Azure.CustomDomains.csproj" />
+    <ProjectReference Include="..\..\..\src\hosting\Neox.Aspire.Hosting.Azure.CustomDomains.Generators.Internal\Neox.Aspire.Hosting.Azure.CustomDomains.Generators.Internal.csproj" />
+  </ItemGroup>
+</Project>

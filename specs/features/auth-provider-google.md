@@ -75,7 +75,7 @@ See [`domain-glossary`](domain-glossary.md).
 | Namespace | `Neox.Aspire.Hosting.Auth` |
 | Provider API | `.Google(...)` → `GoogleAuthOpsResource` |
 | Binder | `IGoogleIamOauthClientProvisioner` (`PlanAsync` / `ProvisionAsync` — bind only) |
-| Unit tests | `tests/auth-providers/` |
+| Unit tests | `tests/auth-providers/tests/` |
 | Sample | `tests/auth-providers/sample-apphost/` |
 
 ### Env defaults

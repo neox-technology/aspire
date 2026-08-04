@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <IsUnitTestProject>true</IsUnitTestProject>
+    <IsTestProject>true</IsTestProject>
+    <RootNamespace>Neox.Aspire.Hosting.Auth.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\hosting\Neox.Aspire.Hosting.Auth.EntraId\Neox.Aspire.Hosting.Auth.EntraId.csproj" />
+    <ProjectReference Include="..\..\..\src\hosting\Neox.Aspire.Hosting.Auth.Google\Neox.Aspire.Hosting.Auth.Google.csproj" />
+    <ProjectReference Include="..\..\..\src\hosting\Neox.Aspire.Hosting.Auth.EntraId.Generators.Internal\Neox.Aspire.Hosting.Auth.EntraId.Generators.Internal.csproj" />
+  </ItemGroup>
+</Project>

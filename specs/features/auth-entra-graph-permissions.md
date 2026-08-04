@@ -68,5 +68,5 @@ See [`domain-glossary`](domain-glossary.md).
 | Catalogue | `src/hosting/Neox.Aspire.Hosting.Auth.EntraId/Graph/microsoft-graph-permissions.json` |
 | Catalogue refresh | `tools/microsoft-graph-permissions-catalog/` |
 | Graph app id | `00000003-0000-0000-c000-000000000000` |
-| Unit tests | `tests/auth-providers/` |
+| Unit tests | `tests/auth-providers/tests/` |
 | Sample AppHost | `tests/auth-providers/sample-apphost/` |

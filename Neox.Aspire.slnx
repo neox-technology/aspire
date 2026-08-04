@@ -12,7 +12,6 @@
   </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/auth-providers/">
-    <Project Path="tests/auth-providers/Neox.Aspire.Hosting.Auth.Tests.csproj" />
     <Project Path="tests/auth-providers/sample-apphost/Neox.Aspire.Hosting.Auth.Tests.SampleAppHost.csproj" />
     <Project Path="tests/auth-providers/sample-blazor/Neox.Aspire.Hosting.Auth.Tests.SampleBlazor.csproj" />
   </Folder>
@@ -21,11 +20,16 @@
   </Folder>
   <Folder Name="/tests/auth-providers/sample-apphost/" />
   <Folder Name="/tests/auth-providers/sample-blazor/" />
+  <Folder Name="/tests/auth-providers/tests/">
+    <Project Path="tests/auth-providers/tests/Neox.Aspire.Hosting.Auth.Tests.csproj" />
+  </Folder>
   <Folder Name="/tests/azure-custom-domains/">
-    <Project Path="tests/azure-custom-domains/Neox.Aspire.Hosting.Azure.CustomDomains.Tests.csproj" />
     <Project Path="tests/azure-custom-domains/sample-apphost/Neox.Aspire.Hosting.Azure.CustomDomains.Tests.SampleAppHost.csproj" />
   </Folder>
   <Folder Name="/tests/azure-custom-domains/sample-apphost/" />
+  <Folder Name="/tests/azure-custom-domains/tests/">
+    <Project Path="tests/azure-custom-domains/tests/Neox.Aspire.Hosting.Azure.CustomDomains.Tests.csproj" />
+  </Folder>
   <Folder Name="/tests/efcore-migration-worker/" />
   <Folder Name="/tests/efcore-migration-worker/postgresql/apphost/" />
   <Folder Name="/tests/efcore-migration-worker/postgresql/data/" />
