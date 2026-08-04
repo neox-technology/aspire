@@ -21,6 +21,7 @@ public class EntraAppRegistrationEnumeratorTests
         Assert.True(EntraAppRegistrationParameterPrompt.IsCreateSentinel(""));
         Assert.True(EntraAppRegistrationParameterPrompt.IsCreateSentinel(EntraAppRegistrationParameterPrompt.CreateSentinel));
         Assert.False(EntraAppRegistrationParameterPrompt.IsCreateSentinel("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"));
+        Assert.False(EntraAppRegistrationParameterPrompt.IsCreateSentinel(EntraAppRegistrationParameterPrompt.CustomSentinel));
     }
 
     [Fact]

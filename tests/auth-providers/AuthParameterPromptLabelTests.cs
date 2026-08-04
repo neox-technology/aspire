@@ -18,13 +18,45 @@ public class AuthParameterPromptLabelTests
     }
 
     [Fact]
-    public void ClientId_BuildOptions_IncludesCreateSentinel()
+    public void ClientId_BuildOptions_IncludesCreateAndCustomSentinels()
     {
-        var options = EntraAppRegistrationParameterPrompt.BuildOptions("AuthSample-Ops", apps: []);
-        Assert.Contains(
-            options,
-            o => o.Key == EntraAppRegistrationParameterPrompt.CreateSentinel
-                && o.Value.Contains("AuthSample-Ops", StringComparison.Ordinal));
+        var apps = new List<KeyValuePair<string, string>>
+        {
+            new("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", "Existing — aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+        };
+        var options = EntraAppRegistrationParameterPrompt.BuildOptions("AuthSample-Ops", apps);
+
+        Assert.Equal(EntraAppRegistrationParameterPrompt.CreateSentinel, options[0].Key);
+        Assert.Contains("AuthSample-Ops", options[0].Value, StringComparison.Ordinal);
+        Assert.Contains(options, o => o.Key == "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+        Assert.Equal(EntraAppRegistrationParameterPrompt.CustomSentinel, options[^1].Key);
+        Assert.Equal(EntraAppRegistrationParameterPrompt.FormatCustomLabel(), options[^1].Value);
+    }
+
+    [Theory]
+    [InlineData("__create__", null, "__create__")]
+    [InlineData("Create new application", null, "__create__")]
+    [InlineData("Create new application (AuthSample-Ops)", "AuthSample-Ops", "__create__")]
+    [InlineData("__custom__", null, "__custom__")]
+    [InlineData("Other (enter Client ID GUID)", null, "__custom__")]
+    [InlineData("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", null, "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")]
+    [InlineData("  ", null, null)]
+    [InlineData(null, null, null)]
+    public void NormalizeChoiceValue_MapsKeysLabelsAndRawClientId(
+        string? raw,
+        string? displayName,
+        string? expected)
+    {
+        Assert.Equal(expected, EntraAppRegistrationParameterPrompt.NormalizeChoiceValue(raw, displayName));
+    }
+
+    [Fact]
+    public void IsCustomSentinel_RecognizesCustomKeyOnly()
+    {
+        Assert.True(EntraAppRegistrationParameterPrompt.IsCustomSentinel(EntraAppRegistrationParameterPrompt.CustomSentinel));
+        Assert.False(EntraAppRegistrationParameterPrompt.IsCustomSentinel(EntraAppRegistrationParameterPrompt.CreateSentinel));
+        Assert.False(EntraAppRegistrationParameterPrompt.IsCustomSentinel(null));
+        Assert.False(EntraAppRegistrationParameterPrompt.IsCustomSentinel("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"));
     }
 
     [Fact]
