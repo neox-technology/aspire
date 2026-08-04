@@ -4,7 +4,7 @@
 |-------|-------|
 | Slug | `domain-glossary` |
 | Status | defined |
-| Last code review | 2026-08-01 |
+| Last code review | 2026-08-04 |
 
 ## Summary
 
@@ -14,9 +14,10 @@ Terminology authority for Neox Aspire packages in this **public** repository (`a
 
 | Term | Definition |
 |------|------------|
-| **Neox Aspire packages** | Packable NuGet libraries under the `Neox.Aspire.*` root namespace (hosting and non-hosting), published from this repo to nuget.org. MIT-licensed. |
+| **Neox Aspire packages** | Packable NuGet libraries under the `Neox.Aspire.*` root namespace (hosting and non-hosting), published from this repo to nuget.org (public) and optionally as dailies to GitHub Packages on `release/**`. MIT-licensed. |
 | **hosting package** | A `Neox.Aspire.Hosting.*` library that AppHosts reference for Aspire resource/extension helpers. Lives under `src/hosting/` when present. |
 | **Shipping** | Arcade package output bucket for packages intended for consumers (`artifacts/packages/<Configuration>/Shipping/`). Distinct from non-shipping / internal artifacts. |
+| **daily** | Arcade prerelease label used on `release/**` pushes: packages version as `X.Y.Z-daily.{OfficialBuildId}` and publish to private GitHub Packages for pre-ship validation (not the public nuget.org identity). |
 | **migration worker** | Reusable non-hosting DI helper (`Neox.Aspire.EntityFrameworkCore.MigrationWorker`) that runs EF Core `MigrateAsync` in a one-shot `BackgroundService`, then stops the host via `AddEfCoreMigrationService<TDbContext>()`. |
 | **custom domain ops** | Hosting helpers (`Neox.Aspire.Hosting.Azure.CustomDomains`) that orchestrate ACA custom domain DNS and managed certificates via `aspire do` pipeline steps (plan/provision/deploy split for provider, zone, hostname add, env certs, and resource bind). |
 | **DomainOps provider** | Aspire resource (`DomainOpsProviderResource` and **source-generated** subtypes such as Cloudflare/OVH/Route53) that selects an OctoDNS DNS **provider**, holds auth parameter bindings, and drives generated `octodns.yaml` + Docker image choice. Aligns with octoDNS terminology (**provider**, not provisioner). Types are emitted from the versioned OctoDNS provider catalogue. |

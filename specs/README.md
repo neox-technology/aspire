@@ -37,7 +37,7 @@ Each `specs/features/<slug>.md` file follows this skeleton:
 |------|--------|-------------|
 | [`domain-glossary`](features/domain-glossary.md) | defined | Neox Aspire terminology (seed) |
 | [`gitflow-ci`](features/gitflow-ci.md) | defined | GitFlow Actions (tag-bump start-release, Versions.props align, version guard CI) |
-| [`nuget-org`](features/nuget-org.md) | defined | Arcade pack/publish to nuget.org (Trusted Publishing; DotNetFinalVersionKind) |
+| [`nuget-org`](features/nuget-org.md) | defined | Arcade pack/publish: daily GitHub Packages on `release/**`, nuget.org on `main` (Trusted Publishing) |
 | [`efcore-migration-worker`](features/efcore-migration-worker.md) | implemented | EF Core migration worker + Aspire xUnit harnesses (SqlServer/Postgres/MySQL/Oracle) |
 | [`azure-custom-domains`](features/azure-custom-domains.md) | implemented | ACA custom domain ops (OctoDNS-in-Docker, managed certs, `aspire do`) |
 | [`auth-providers`](features/auth-providers.md) | implemented | AuthOps — Entra Select tenant/ClientId commands + deferred defaults (secrets-only unresolved modal); provision command; `WithAuth` → `AzureAd__*` |

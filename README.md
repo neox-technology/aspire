@@ -90,11 +90,12 @@ Branch model: `feature/*` → `develop`; `release/*` / `hotfix/*` → `main`; `m
 | `workflow_dispatch` on `develop` | [`.github/workflows/gitflow-start-release.yml`](.github/workflows/gitflow-start-release.yml) | Bump from latest `v*` tag (`patch`/`minor`/`major`/`no-op` + optional preview); set [`eng/Versions.props`](eng/Versions.props) on the branch + PR → `main` |
 | Merge `release/**` / `hotfix/**` → `main` | [`.github/workflows/gitflow-finish.yml`](.github/workflows/gitflow-finish.yml) | Tag `v` + branch version (prerelease if suffix), GitHub Release, sync PR `main` → `develop`, delete branch |
 | PR → `develop` or `main` | [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | Build, test, pack (`*-ci` versions); release/hotfix → `main` also guards semver + `Versions.props`; no NuGet push |
-| Push / merge to `main` | [`.github/workflows/publish-nuget.yml`](.github/workflows/publish-nuget.yml) | Pack with `OfficialBuildId` + push to nuget.org |
+| Push `release/**` | [`.github/workflows/publish-nuget.yml`](.github/workflows/publish-nuget.yml) | Pack `X.Y.Z-daily.{OfficialBuildId}` + push to private GitHub Packages |
+| Push / merge to `main` | same | Pack with `OfficialBuildId` + push to nuget.org |
 
-Optional: `workflow_dispatch` on the publish workflow to re-run from `main`. Git automation uses org App **`neox-gitflow`** (not a PAT). Squash-merge only (linear history).
+Optional: `workflow_dispatch` on the publish workflow (from `main` → nuget.org; from `release/*` → daily GitHub Packages). Git automation uses org App **`neox-gitflow`** (not a PAT). Squash-merge only (linear history).
 
-Publishing uses [Trusted Publishing](https://learn.microsoft.com/nuget/nuget-org/trusted-publishing). Versioning follows the Arcade / Aspire model (`VersionPrefix` / `StabilizePackageVersion` → `DotNetFinalVersionKind` in [`eng/Versions.props`](eng/Versions.props); start-release aligns props with the tag core). Spec: [`nuget-org`](specs/features/nuget-org.md).
+Public publishing uses [Trusted Publishing](https://learn.microsoft.com/nuget/nuget-org/trusted-publishing) to nuget.org. On `release/**`, daily builds (`-daily.{OfficialBuildId}`) go to the private feed `https://nuget.pkg.github.com/neox-technology/index.json` (GitHub auth required) for pre-ship validation. Versioning follows the Arcade / Aspire model (`VersionPrefix` / `StabilizePackageVersion` → `DotNetFinalVersionKind` in [`eng/Versions.props`](eng/Versions.props); start-release aligns props with the tag core). Spec: [`nuget-org`](specs/features/nuget-org.md).
 
 ## License
 
