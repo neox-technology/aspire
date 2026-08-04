@@ -20,13 +20,19 @@ internal static class AuthParameterValue
         IServiceProvider services,
         ParameterResource parameter,
         string value,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool persistToDeploymentState = true)
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(parameter);
         ArgumentException.ThrowIfNullOrWhiteSpace(value);
 
         ForceSetWaitForValueTcs(parameter, value);
+        if (!persistToDeploymentState)
+        {
+            return;
+        }
+
         await SaveDeploymentStateAsync(services, parameter.Name, value, cancellationToken).ConfigureAwait(false);
     }
 

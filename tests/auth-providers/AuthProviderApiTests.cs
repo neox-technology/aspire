@@ -32,12 +32,22 @@ public class AuthProviderApiTests
         Assert.Contains(builder.Resources.OfType<ParameterResource>(), p => p.Name == "entra-tenant-id");
         Assert.Contains(builder.Resources.OfType<ParameterResource>(), p => p.Name == "entra-web-client-id");
         Assert.Contains(builder.Resources.OfType<ParameterResource>(), p => p.Name == "entra-web-client-secret");
-        Assert.Contains(tenant.Resource.Annotations.OfType<InputGeneratorAnnotation>(), _ => true);
+        // Choice prompts live on dashboard Select commands / pipeline EnsureReadyAsync — not model-time.
+        Assert.Empty(tenant.Resource.Annotations.OfType<InputGeneratorAnnotation>());
 
         var clientId = Assert.Single(
             builder.Resources.OfType<ParameterResource>(),
             p => p.Name == "entra-web-client-id");
-        Assert.Contains(clientId.Annotations.OfType<InputGeneratorAnnotation>(), _ => true);
+        Assert.Empty(clientId.Annotations.OfType<InputGeneratorAnnotation>());
+        Assert.NotNull(clientId.Default);
+        Assert.IsType<AuthDeferredParameterDefault>(clientId.Default);
+
+        Assert.Contains(
+            entra.Resource.Resource.Annotations.OfType<ResourceCommandAnnotation>(),
+            a => a.Name == EntraAuthProviderCommandExtensions.SelectTenantCommandName);
+        Assert.Contains(
+            web.Resource.Annotations.OfType<ResourceCommandAnnotation>(),
+            a => a.Name == EntraAuthAppRegistrationCommandExtensions.SelectAppRegistrationCommandName);
     }
 
     [Fact]
@@ -176,7 +186,7 @@ public class AuthProviderApiTests
     }
 
     [Fact]
-    public void Entra_AutoCreatesTenantParameter_WithChoiceInput()
+    public void Entra_AutoCreatesTenantParameter_WithDeferredDefaultAndSelectCommand()
     {
         var builder = DistributedApplication.CreateBuilder();
         var entra = builder.AddAuthProvider("auth-provider-entra").Entra();
@@ -185,7 +195,12 @@ public class AuthProviderApiTests
             builder.Resources.OfType<ParameterResource>(),
             p => p.Name == "auth-provider-entra-tenant-id");
         Assert.Same(tenant, entra.Resource.Resource.TenantIdParameter);
-        Assert.Contains(tenant.Annotations.OfType<InputGeneratorAnnotation>(), _ => true);
+        Assert.Empty(tenant.Annotations.OfType<InputGeneratorAnnotation>());
+        Assert.NotNull(tenant.Default);
+        Assert.IsType<AuthDeferredParameterDefault>(tenant.Default);
+        Assert.Contains(
+            entra.Resource.Resource.Annotations.OfType<ResourceCommandAnnotation>(),
+            a => a.Name == EntraAuthProviderCommandExtensions.SelectTenantCommandName);
     }
 
     [Fact]
@@ -232,7 +247,9 @@ public class AuthProviderApiTests
         var clientId = Assert.Single(
             builder.Resources.OfType<ParameterResource>(),
             p => p.Name == "auth-provider-entra-web-client-id");
-        Assert.Contains(clientId.Annotations.OfType<InputGeneratorAnnotation>(), _ => true);
+        Assert.Empty(clientId.Annotations.OfType<InputGeneratorAnnotation>());
+        Assert.NotNull(clientId.Default);
+        Assert.IsType<AuthDeferredParameterDefault>(clientId.Default);
     }
 
     [Fact]

@@ -34,67 +34,20 @@ internal static class EntraAppRegistrationParameterPrompt
             ? $"Select an existing app registration for '{appName}' on provider '{providerResourceName}' (parameter '{parameterName}'). Create for a new one, or Other for a custom Client ID (GUID)."
             : $"Select Create to provision a new app registration for '{appName}' on provider '{providerResourceName}' (parameter '{parameterName}'), or Other for an existing Client ID (GUID). App list was empty or Graph enumeration failed (needs Application.Read.All).";
 
-    internal static string FormatDescriptionPending(
-        string providerResourceName,
-        string appName,
-        string parameterName) =>
-        $"Select Create to provision a new app registration for '{appName}' on provider '{providerResourceName}' (parameter '{parameterName}'), or Other for a custom Client ID (GUID). Existing apps load from the resolved tenant parameter.";
-
-    public static void ConfigureClientIdChoiceInput(
-        IResourceBuilder<ParameterResource> clientIdParam,
-        string appName,
+    internal static List<KeyValuePair<string, string>> BuildOptions(
         string? displayNameForCreate,
-        string providerResourceName,
-        ParameterResource tenantIdParameter)
+        IReadOnlyList<KeyValuePair<string, string>> apps)
     {
-        ArgumentNullException.ThrowIfNull(clientIdParam);
-        ArgumentNullException.ThrowIfNull(tenantIdParameter);
-        ArgumentException.ThrowIfNullOrWhiteSpace(appName);
-        ArgumentException.ThrowIfNullOrWhiteSpace(providerResourceName);
+        var createLabel = string.IsNullOrWhiteSpace(displayNameForCreate)
+            ? "Create new application"
+            : $"Create new application ({displayNameForCreate})";
 
-        if (clientIdParam.Resource.Annotations.OfType<InputGeneratorAnnotation>().Any())
+        var options = new List<KeyValuePair<string, string>>(1 + apps.Count)
         {
-            return;
-        }
-
-        var tenantParameterName = tenantIdParameter.Name;
-
-        // Do not set DependsOnInputs to another ParameterResource name: ParameterProcessor
-        // prompts ClientId alone (notification / Set), and Aspire InteractionService rejects
-        // DependsOnInputs that are not in the same form.
-        clientIdParam.WithCustomInput(parameter => new InteractionInput
-        {
-            Name = parameter.Name,
-            InputType = InputType.Choice,
-            Label = FormatLabel(appName, displayNameForCreate),
-            Description = FormatDescriptionPending(
-                providerResourceName,
-                appName,
-                parameter.Name),
-            Required = true,
-            AllowCustomChoice = true,
-            Options = BuildOptions(displayNameForCreate, apps: []),
-            DynamicLoading = new InputLoadOptions
-            {
-                AlwaysLoadOnStart = true,
-                LoadCallback = async context =>
-                {
-                    var tenantId = await ResolveTenantIdAsync(
-                            context,
-                            tenantParameterName,
-                            tenantIdParameter)
-                        .ConfigureAwait(false);
-                    var apps = string.IsNullOrWhiteSpace(tenantId)
-                        ? []
-                        : await EntraAppRegistrationEnumerator.TryGetAppRegistrationOptionsAsync(
-                                tenantId!,
-                                cancellationToken: context.CancellationToken)
-                            .ConfigureAwait(false);
-
-                    context.Input.Options = BuildOptions(displayNameForCreate, apps);
-                }
-            }
-        });
+            new(CreateSentinel, createLabel)
+        };
+        options.AddRange(apps);
+        return options;
     }
 
     public static async Task EnsureReadyAsync(
@@ -138,36 +91,6 @@ internal static class EntraAppRegistrationParameterPrompt
 
         await AuthParameterPrompt.EnsureReadyAsync(services, [clientIdParameter], cancellationToken)
             .ConfigureAwait(false);
-    }
-
-    private static List<KeyValuePair<string, string>> BuildOptions(
-        string? displayNameForCreate,
-        IReadOnlyList<KeyValuePair<string, string>> apps)
-    {
-        var createLabel = string.IsNullOrWhiteSpace(displayNameForCreate)
-            ? "Create new application"
-            : $"Create new application ({displayNameForCreate})";
-
-        var options = new List<KeyValuePair<string, string>>(1 + apps.Count)
-        {
-            new(CreateSentinel, createLabel)
-        };
-        options.AddRange(apps);
-        return options;
-    }
-
-    private static async Task<string?> ResolveTenantIdAsync(
-        LoadInputContext context,
-        string tenantParameterName,
-        ParameterResource tenantIdParameter)
-    {
-        if (context.AllInputs.TryGetByName(tenantParameterName, out var tenantInput)
-            && !string.IsNullOrWhiteSpace(tenantInput.Value))
-        {
-            return tenantInput.Value;
-        }
-
-        return await TryGetTenantIdAsync(tenantIdParameter, context.CancellationToken).ConfigureAwait(false);
     }
 
     private static async Task<string?> TryGetTenantIdAsync(

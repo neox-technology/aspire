@@ -1,5 +1,3 @@
-#pragma warning disable ASPIREINTERACTION001
-
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
 
@@ -42,57 +40,21 @@ public static class EntraAuthProviderBuilderExtensions
                 applicationBuilder,
                 $"{name}-tenant-id",
                 defaultValue: null,
-                secret: false);
+                secret: false,
+                publishEmptyDefault: true);
 
-        ConfigureTenantChoiceInput(tenantParam, name);
         resource.TenantIdParameter = tenantParam.Resource;
 
         var providerBuilder = applicationBuilder.AddResource(resource)
             .ExcludeFromManifest()
             .WithParentRelationship(authOps)
-            .WithInitialState(AuthDashboardSnapshots.Waiting("AuthProvider"));
+            .WithInitialState(AuthDashboardSnapshots.Waiting("AuthProvider"))
+            .WithSelectTenantCommand();
 
         tenantParam.WithParentRelationship(providerBuilder);
 
         EntraAuthOpsExtensions.EnsurePrereqEntraStep(applicationBuilder, providerBuilder);
 
         return new EntraAuthProviderBuilder(applicationBuilder, providerBuilder);
-    }
-
-    private static void ConfigureTenantChoiceInput(
-        IResourceBuilder<ParameterResource> tenantParam,
-        string providerResourceName)
-    {
-        if (tenantParam.Resource.Annotations.OfType<InputGeneratorAnnotation>().Any())
-        {
-            return;
-        }
-
-        tenantParam.WithCustomInput(parameter => new InteractionInput
-        {
-            Name = parameter.Name,
-            InputType = InputType.Choice,
-            Label = EntraTenantParameterPrompt.FormatLabel(providerResourceName),
-            Description = EntraTenantParameterPrompt.FormatDescription(
-                hasTenants: true,
-                providerResourceName,
-                parameter.Name),
-            Required = true,
-            AllowCustomChoice = true,
-            Options = [],
-            DynamicLoading = new InputLoadOptions
-            {
-                LoadCallback = async context =>
-                {
-                    var tenants = await EntraTenantEnumerator.TryGetTenantOptionsAsync(
-                            cancellationToken: context.CancellationToken)
-                        .ConfigureAwait(false);
-                    if (tenants.Count > 0)
-                    {
-                        context.Input.Options = tenants;
-                    }
-                }
-            }
-        });
     }
 }

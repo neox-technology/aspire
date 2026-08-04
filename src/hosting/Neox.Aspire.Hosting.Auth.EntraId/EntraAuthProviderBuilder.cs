@@ -26,13 +26,8 @@ internal sealed class EntraAuthProviderBuilder(
             applicationBuilder,
             app.GetParameterName("client-id"),
             defaultValue: null,
-            secret: false);
-        EntraAppRegistrationParameterPrompt.ConfigureClientIdChoiceInput(
-            clientId,
-            name,
-            displayName,
-            provider.Name,
-            provider.TenantIdParameter);
+            secret: false,
+            publishEmptyDefault: true);
 
         var clientSecret = AuthOpsExtensions.GetOrAddParameter(
             applicationBuilder,
@@ -59,6 +54,7 @@ internal sealed class EntraAuthProviderBuilder(
             .WithParentRelationship(providerBuilder)
             .WithInitialState(AuthDashboardSnapshots.Waiting("EntraAuthAppRegistration"))
             .WithHealthCheck(healthCheckKey)
+            .WithSelectAppRegistrationCommand()
             .WithProvisionAuthCommand();
 
         clientId.WithParentRelationship(appBuilder);

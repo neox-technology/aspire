@@ -1,5 +1,6 @@
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
@@ -606,7 +607,12 @@ public class EntraAuthDashboardStatusTests
         var statusService = new EntraAuthDashboardStatusService();
         statusService.SetAppStatus(app.Resource.Name, AuthDashboardStatus.Waiting);
         services.AddSingleton(statusService);
-        // Tenant resolved via parameter value on the resource is not needed — Waiting short-circuits.
+        services.AddSingleton<IConfiguration>(new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Parameters:provider-entra-tenant-id"] = "11111111-1111-1111-1111-111111111111"
+            })
+            .Build());
         using var sp = services.BuildServiceProvider();
 
         var state = command.UpdateState(new UpdateCommandStateContext
