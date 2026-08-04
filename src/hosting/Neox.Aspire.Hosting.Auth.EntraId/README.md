@@ -51,7 +51,7 @@ In Aspire run mode, Entra AuthOps resources start as **Waiting**, then publish *
 - Provider — TenantId set; aggregates app registrations
 - `auth-ops` — aggregates Entra providers
 
-Each Entra provider exposes **Select tenant** (`select-tenant`, enabled while TenantId is unset). Each Entra app registration exposes **Select or create app registration** (`select-app-registration`, enabled when TenantId is set, ClientId unset/create-sentinel, and WaitFor Auth deps are Healthy) and **Provision app registration** (`provision-auth`) that runs the same plan + provision path as the pipeline, then refreshes status.
+Each Entra provider exposes **Select tenant** (`select-tenant`, enabled while TenantId is unset). Each Entra app registration exposes **Select or create app registration** (`select-app-registration`: FluentSelect of Create + Graph apps + Other; Other opens a Text GUID prompt; **Create immediately opens the Provision confirmation**) and **Provision app registration** (`provision-auth`) that runs the same plan + provision path as the pipeline, then refreshes status.
 
 ## Environment variables (Microsoft.Identity.Web)
 

@@ -164,6 +164,7 @@ internal static class EntraAuthAppRegistrationCommandExtensions
                 .ConfigureAwait(false);
 
             var providerName = app.Parent.Name;
+            // AllowCustomChoice=false → Aspire FluentSelect (reliable Create; defaults to first option).
             var input = new InteractionInput
             {
                 Name = app.ClientIdParameter.Name,
@@ -175,7 +176,7 @@ internal static class EntraAuthAppRegistrationCommandExtensions
                     app.Name,
                     app.ClientIdParameter.Name),
                 Required = true,
-                AllowCustomChoice = true,
+                AllowCustomChoice = false,
                 Options = EntraAppRegistrationParameterPrompt.BuildOptions(app.DisplayName, apps)
             };
 
@@ -192,10 +193,27 @@ internal static class EntraAuthAppRegistrationCommandExtensions
                 return CommandResults.Canceled();
             }
 
-            var clientId = result.Data.GetString(app.ClientIdParameter.Name)?.Trim();
-            if (string.IsNullOrWhiteSpace(clientId))
+            var clientId = EntraAppRegistrationParameterPrompt.NormalizeChoiceValue(
+                result.Data.GetString(app.ClientIdParameter.Name),
+                app.DisplayName);
+            if (clientId is null)
             {
-                return CommandResults.Canceled();
+                return CommandResults.Failure(
+                    $"No app registration selection was provided for '{app.Name}'.");
+            }
+
+            if (EntraAppRegistrationParameterPrompt.IsCustomSentinel(clientId))
+            {
+                try
+                {
+                    clientId = await EntraAppRegistrationParameterPrompt
+                        .PromptCustomClientIdAsync(services, context.CancellationToken)
+                        .ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    return CommandResults.Canceled();
+                }
             }
 
             var isCreate = string.Equals(
@@ -222,10 +240,13 @@ internal static class EntraAuthAppRegistrationCommandExtensions
                 app.Name,
                 isCreate);
 
-            return CommandResults.Success(
-                isCreate
-                    ? $"Create selected for '{app.Name}'. Run Provision app registration next."
-                    : $"ClientId selected for '{app.Name}'.");
+            if (isCreate)
+            {
+                // Desired UX: Create → open provision confirmation immediately.
+                return await ExecuteProvisionAsync(app, context).ConfigureAwait(false);
+            }
+
+            return CommandResults.Success($"ClientId selected for '{app.Name}'.");
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
