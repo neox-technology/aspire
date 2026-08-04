@@ -6,21 +6,19 @@ using Microsoft.Extensions.Logging;
 namespace Neox.Aspire.EntityFrameworkCore;
 
 /// <summary>
-/// One-shot background service that applies EF Core migrations for <typeparamref name="TDbContext"/>
-/// and then stops the host.
+/// One-shot background service that applies EF Core migrations for all registered
+/// <see cref="DbContext"/> types (in registration order), then stops the host once.
 /// </summary>
-/// <typeparam name="TDbContext">The <see cref="DbContext"/> type to migrate.</typeparam>
-public sealed class EfCoreMigrationWorker<TDbContext> : BackgroundService
-    where TDbContext : DbContext
+public sealed class EfCoreMigrationWorker : BackgroundService
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly IHostApplicationLifetime _hostApplicationLifetime;
-    private readonly ILogger<EfCoreMigrationWorker<TDbContext>> _logger;
+    private readonly ILogger<EfCoreMigrationWorker> _logger;
 
     public EfCoreMigrationWorker(
         IServiceProvider serviceProvider,
         IHostApplicationLifetime hostApplicationLifetime,
-        ILogger<EfCoreMigrationWorker<TDbContext>> logger)
+        ILogger<EfCoreMigrationWorker> logger)
     {
         _serviceProvider = serviceProvider;
         _hostApplicationLifetime = hostApplicationLifetime;
@@ -29,14 +27,20 @@ public sealed class EfCoreMigrationWorker<TDbContext> : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Applying database migrations for {DbContext}.", typeof(TDbContext).Name);
+        var registry = _serviceProvider.GetRequiredService<EfCoreMigrationRegistry>();
 
-        using var scope = _serviceProvider.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<TDbContext>();
+        foreach (var dbContextType in registry.DbContextTypes)
+        {
+            _logger.LogInformation("Applying database migrations for {DbContext}.", dbContextType.Name);
 
-        await dbContext.Database.MigrateAsync(stoppingToken).ConfigureAwait(false);
+            using var scope = _serviceProvider.CreateScope();
+            var dbContext = (DbContext)scope.ServiceProvider.GetRequiredService(dbContextType);
 
-        _logger.LogInformation("Database migrations applied for {DbContext}.", typeof(TDbContext).Name);
+            await dbContext.Database.MigrateAsync(stoppingToken).ConfigureAwait(false);
+
+            _logger.LogInformation("Database migrations applied for {DbContext}.", dbContextType.Name);
+        }
+
         _hostApplicationLifetime.StopApplication();
     }
 }
