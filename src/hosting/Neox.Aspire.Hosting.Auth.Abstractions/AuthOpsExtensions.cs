@@ -127,7 +127,8 @@ public static class AuthOpsExtensions
         IDistributedApplicationBuilder applicationBuilder,
         string parameterName,
         string? defaultValue,
-        bool secret)
+        bool secret,
+        bool publishEmptyDefault = false)
     {
         ArgumentNullException.ThrowIfNull(applicationBuilder);
         ArgumentException.ThrowIfNullOrWhiteSpace(parameterName);
@@ -137,6 +138,16 @@ public static class AuthOpsExtensions
         if (existing is not null)
         {
             return applicationBuilder.CreateResourceBuilder(existing);
+        }
+
+        // Empty ParameterDefault keeps the parameter out of Aspire's startup unresolved-parameters
+        // modal while AuthParameterResolution still treats whitespace as unset.
+        if (publishEmptyDefault)
+        {
+            return applicationBuilder.AddParameter(
+                parameterName,
+                new AuthDeferredParameterDefault(),
+                secret: secret);
         }
 
         if (!string.IsNullOrWhiteSpace(defaultValue))

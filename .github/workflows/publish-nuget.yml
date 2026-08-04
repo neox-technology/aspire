@@ -2,12 +2,13 @@ name: Publish NuGet
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'release/**']
   workflow_dispatch:
 
 permissions:
   contents: read
   id-token: write
+  packages: write
 
 jobs:
   publish:
@@ -21,7 +22,19 @@ jobs:
         id: version
         run: echo "official_build_id=$(date -u +%Y%m%d).${{ github.run_number }}" >> "$GITHUB_OUTPUT"
 
-      - name: Build and pack
+      - name: Build and pack (daily / release)
+        if: startsWith(github.ref, 'refs/heads/release/')
+        run: >
+          ./eng/common/build.sh
+          --ci --restore --build --pack
+          --configuration Release
+          /p:Sign=false
+          /p:OfficialBuildId=${{ steps.version.outputs.official_build_id }}
+          /p:StabilizePackageVersion=false
+          /p:PreReleaseVersionLabel=daily
+
+      - name: Build and pack (main)
+        if: github.ref == 'refs/heads/main'
         run: >
           ./eng/common/build.sh
           --ci --restore --build --pack
@@ -29,13 +42,38 @@ jobs:
           /p:Sign=false
           /p:OfficialBuildId=${{ steps.version.outputs.official_build_id }}
 
+      - name: Push packages to GitHub Packages
+        if: startsWith(github.ref, 'refs/heads/release/')
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          packages=(artifacts/packages/Release/Shipping/*.nupkg)
+          symbols=(artifacts/packages/Release/Shipping/*.snupkg)
+          if [ ${#packages[@]} -eq 0 ]; then
+            echo "No Shipping packages found under artifacts/packages/Release/Shipping/"
+            exit 1
+          fi
+          source="https://nuget.pkg.github.com/neox-technology/index.json"
+          dotnet nuget push "${packages[@]}" \
+            --source "$source" \
+            --api-key "${{ secrets.GITHUB_TOKEN }}" \
+            --skip-duplicate
+          if [ ${#symbols[@]} -gt 0 ]; then
+            dotnet nuget push "${symbols[@]}" \
+              --source "$source" \
+              --api-key "${{ secrets.GITHUB_TOKEN }}" \
+              --skip-duplicate
+          fi
+
       - name: NuGet login (OIDC → temp API key)
+        if: github.ref == 'refs/heads/main'
         uses: NuGet/login@v1
         id: login
         with:
           user: ${{ secrets.NUGET_USER }}
 
       - name: Push packages to nuget.org
+        if: github.ref == 'refs/heads/main'
         run: |
           set -euo pipefail
           shopt -s nullglob

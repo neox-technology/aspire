@@ -4,11 +4,11 @@
 |-------|-------|
 | Slug | `gitflow-ci` |
 | Status | defined |
-| Last code review | 2026-08-03 |
+| Last code review | 2026-08-04 |
 
 ## Summary
 
-Neox GitFlow automation on GitHub Actions for this repo: auto-PR, finish (tag + sync), feature cleanup, and start-release bump (including `no-op` and preview prereleases), plus CI on PRs to `develop`/`main`. Delivery remains NuGet publish to nuget.org from `main` only ([`nuget-org`](nuget-org.md)). Start-release updates Arcade [`eng/Versions.props`](../../eng/Versions.props) so shipping package versions align with the release identity. No Aspire deploy workflow.
+Neox GitFlow automation on GitHub Actions for this repo: auto-PR, finish (tag + sync), feature cleanup, and start-release bump (including `no-op` and preview prereleases), plus CI on PRs to `develop`/`main`. NuGet delivery ([`nuget-org`](nuget-org.md)): private **daily** packages to GitHub Packages on push to `release/**`, then public packages to nuget.org on merge/push to `main`. Start-release updates Arcade [`eng/Versions.props`](../../eng/Versions.props) so shipping package versions align with the release identity. No Aspire deploy workflow.
 
 ## User scenarios
 
@@ -20,6 +20,7 @@ Neox GitFlow automation on GitHub Actions for this repo: auto-PR, finish (tag + 
   - `no-op` with preview → same core; increment `-preview.N` (or start at `-preview.1` if the latest tag has no preview suffix); stabilize false.
   - `no-op` without preview → **promote**: strip `-preview.N`, keep core `X.Y.Z`; stabilize true.
 - Push of `release/**` or `hotfix/**` opens (or reuses) an auto-PR to `main`.
+- Push to `release/**` also publishes Shipping packages as `X.Y.Z-daily.{OfficialBuildId}` to private GitHub Packages (pre-ship validation; does not publish to nuget.org).
 - CI on a `release/**` or `hotfix/**` PR to `main` fails if the branch name is not semver, or if `eng/Versions.props` (`VersionPrefix` / `StabilizePackageVersion`) does not match the branch identity (guards manual hotfixes).
 - Squash-merge of release/hotfix into `main` tags `vX.Y.Z` (or `vX.Y.Z-preview.N`), creates a GitHub Release, opens a sync PR `main` → `develop`, and deletes the release/hotfix branch.
 - A PR targeting `develop` or `main` runs Arcade build/test/pack CI (`*-ci` versions) with no NuGet push.
@@ -55,8 +56,8 @@ _N/A — GitHub Actions / branching._
 - [x] CI on `release/**` / `hotfix/**` PRs to `main` validates branch semver and `Versions.props` against the branch name.
 - [x] Git automation uses `actions/create-github-app-token` + org App secrets (not a PAT).
 - [x] `.github/workflows/ci.yml` runs on `pull_request` to `develop` and `main` (build/test/pack, no push).
-- [x] `.github/workflows/publish-nuget.yml` publishes only on push to `main` (+ `workflow_dispatch`).
-- [x] README documents the GitFlow Actions trigger matrix (including no-op / preview) and Versions.props alignment.
+- [x] `.github/workflows/publish-nuget.yml` publishes daily GitHub Packages on push to `release/**`, and nuget.org on push to `main` (+ `workflow_dispatch` per branch).
+- [x] README documents the GitFlow Actions trigger matrix (including no-op / preview, daily GHP, nuget.org) and Versions.props alignment.
 - [x] No Aspire deploy workflow in this repo.
 
 ## Terminology
@@ -87,6 +88,6 @@ Start-release version matrix (latest `v*` tag = base):
 
 Unsupported tag suffixes other than optional `-preview.N` fail the start-release job.
 
-After merge to `main`, packages with `StabilizePackageVersion=true` pack as exact `X.Y.Z` via `DotNetFinalVersionKind=release` (matches tag). Preview releases keep Arcade’s date-based suffix ([`nuget-org`](nuget-org.md)).
+On `release/**`, publish packs `X.Y.Z-daily.{OfficialBuildId}` to GitHub Packages before the public ship. After merge to `main`, packages with `StabilizePackageVersion=true` pack as exact `X.Y.Z` via `DotNetFinalVersionKind=release` (matches tag). Preview releases keep Arcade’s date-based suffix ([`nuget-org`](nuget-org.md)).
 
 Reference shape: guideline-private `gitflow-setup` templates. Org App runbook: `neox-technology/neox-github-org` → `docs/RUNBOOK.md` (`neox-gitflow`).

@@ -8,7 +8,7 @@ Depends on [`Neox.Aspire.Hosting.Auth.Abstractions`](../Neox.Aspire.Hosting.Auth
 
 ```csharp
 var entra = builder.AddAuthProvider("auth-provider-entra")
-    .Entra(); // creates parameter auth-provider-entra-tenant-id (Choice of accessible tenants)
+    .Entra(); // creates parameter auth-provider-entra-tenant-id (empty deferred default; Select tenant command)
 
 var web = entra.AddAppRegistration("web", "MyApp-Local")
     .WithClientSecret() // opt-in: emit AzureAd__ClientSecret + UI create when app exists
@@ -20,6 +20,8 @@ builder.AddProject<Projects.Api>("api")
 ```
 
 Then run `aspire do` / `aspire deploy`. Pipeline steps: `prereq-auth-provider-entra-auth` → `prereq-providers-auth` → `prereq-{app}-auth` → `plan-{app}-auth` → `provision-{app}-auth` → `deploy-auth` on each `EntraAuthAppRegistrationResource`. In-model `WithApiPermission` makes the consumer Auth app **WaitFor** the exposer (well-known Graph permissions do not).
+
+In AppHost **run** mode, resolve tenant / ClientId via dashboard commands (**Select tenant** on the provider, **Select or create app registration** on the Auth app) before **Provision app registration**. Those parameters use an empty deferred default so they do not appear in Aspire’s startup unresolved-parameters modal (client secrets may still).
 
 ## Client secret (`WithClientSecret`)
 
@@ -49,7 +51,7 @@ In Aspire run mode, Entra AuthOps resources start as **Waiting**, then publish *
 - Provider — TenantId set; aggregates app registrations
 - `auth-ops` — aggregates Entra providers
 
-Each Entra app registration exposes a dashboard command **Provision app registration** (`provision-auth`) that runs the same plan + provision path as the pipeline, then refreshes status.
+Each Entra provider exposes **Select tenant** (`select-tenant`, enabled while TenantId is unset). Each Entra app registration exposes **Select or create app registration** (`select-app-registration`, enabled when TenantId is set, ClientId unset/create-sentinel, and WaitFor Auth deps are Healthy) and **Provision app registration** (`provision-auth`) that runs the same plan + provision path as the pipeline, then refreshes status.
 
 ## Environment variables (Microsoft.Identity.Web)
 
