@@ -8,6 +8,7 @@ public static class Services
 {
     public static IResourceBuilder<ProjectResource> Migration { get; private set; } = null!;
     public static IResourceBuilder<ProjectResource> Migration2 { get; private set; } = null!;
+    public static IResourceBuilder<ProjectResource> MigrationMulti { get; private set; } = null!;
 
     public static void Configure(IDistributedApplicationBuilder builder)
     {
@@ -24,5 +25,17 @@ public static class Services
             .WithReference(Databases.Application2)
             .WaitFor(Databases.Application2)
             .WithEnvironment("ConnectionName", ServiceNames.Databases.Application2);
+
+        // Same-process multi-DbContext: one worker migrates both databases then stops once.
+        // Uses dedicated DBs so it does not race the single-process migrators above.
+        MigrationMulti = builder
+            .AddProject<Projects.Neox_Aspire_EntityFrameworkCore_MigrationWorker_Tests_SqlServer_MigrationService>(
+                ServiceNames.Workers.MigrationMulti)
+            .WithReference(Databases.ApplicationMulti)
+            .WithReference(Databases.ApplicationMulti2)
+            .WaitFor(Databases.ApplicationMulti)
+            .WaitFor(Databases.ApplicationMulti2)
+            .WithEnvironment("ConnectionName", ServiceNames.Databases.ApplicationMulti)
+            .WithEnvironment("SecondaryConnectionName", ServiceNames.Databases.ApplicationMulti2);
     }
 }
