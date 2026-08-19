@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
+using Microsoft.Extensions.Hosting;
 using Neox.Aspire.Hosting.Keycloak;
 using Xunit;
 
@@ -209,7 +210,70 @@ public sealed class AddRealmTests
         using var document = ReadRealmJson(builder, "auth-redirect-idempotent", "neox");
         var client = document.RootElement.GetProperty("clients")[0];
         Assert.Equal(1, client.GetProperty("redirectUris").GetArrayLength());
-        Assert.Equal(1, client.GetProperty("webOrigins").GetArrayLength());
+        var webOrigins = client.GetProperty("webOrigins").EnumerateArray().Select(element => element.GetString()).ToArray();
+        Assert.Contains("https://localhost", webOrigins);
+        Assert.Equal(webOrigins.Length, webOrigins.Distinct(StringComparer.Ordinal).Count());
+    }
+
+    [Fact]
+    public void WithRedirectUrl_does_not_add_dev_web_origin_wildcard()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        builder.Environment.EnvironmentName = Environments.Development;
+        var keycloak = CreateKeycloak(builder, "auth-dev-no-wildcard");
+        var realm = keycloak.AddRealm(realm: "neox");
+        var secret = builder.AddParameter("api-secret", "secret", secret: true);
+        realm.AddJwtClient("api-client", "neox-api", secret)
+            .WithRedirectUrl(new Uri("http://localhost/swagger/oauth2-redirect.html"));
+
+        using var document = ReadRealmJson(builder, "auth-dev-no-wildcard", "neox");
+        var webOrigins = document.RootElement.GetProperty("clients")[0]
+            .GetProperty("webOrigins")
+            .EnumerateArray()
+            .Select(element => element.GetString())
+            .ToArray();
+        Assert.Contains("http://localhost", webOrigins);
+        Assert.DoesNotContain("*", webOrigins);
+    }
+
+    [Fact]
+    public void WithLocalRedirectUri_writes_loopback_redirects_in_development()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        builder.Environment.EnvironmentName = Environments.Development;
+        var keycloak = CreateKeycloak(builder, "auth-local-redirect");
+        var realm = keycloak.AddRealm(realm: "neox");
+        var secret = builder.AddParameter("api-secret", "secret", secret: true);
+        realm.AddJwtClient("api-client", "neox-api", secret)
+            .WithLocalRedirectUri("/swagger/oauth2-redirect.html");
+
+        using var document = ReadRealmJson(builder, "auth-local-redirect", "neox");
+        var client = document.RootElement.GetProperty("clients")[0];
+        var redirectUris = client.GetProperty("redirectUris").EnumerateArray().Select(element => element.GetString()).ToArray();
+        Assert.Contains("http://127.0.0.1/swagger/oauth2-redirect.html", redirectUris);
+        Assert.Contains("http://localhost/swagger/oauth2-redirect.html", redirectUris);
+        Assert.Contains("http://[::1]/swagger/oauth2-redirect.html", redirectUris);
+
+        var webOrigins = client.GetProperty("webOrigins").EnumerateArray().Select(element => element.GetString()).ToArray();
+        Assert.Contains("*", webOrigins);
+        Assert.True(client.GetProperty("standardFlowEnabled").GetBoolean());
+    }
+
+    [Fact]
+    public void WithLocalRedirectUri_is_noop_outside_development()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        builder.Environment.EnvironmentName = Environments.Production;
+        var keycloak = CreateKeycloak(builder, "auth-local-prod");
+        var realm = keycloak.AddRealm(realm: "neox");
+        var secret = builder.AddParameter("api-secret", "secret", secret: true);
+        realm.AddJwtClient("api-client", "neox-api", secret)
+            .WithLocalRedirectUri("/swagger/oauth2-redirect.html");
+
+        using var document = ReadRealmJson(builder, "auth-local-prod", "neox");
+        var client = document.RootElement.GetProperty("clients")[0];
+        Assert.False(client.TryGetProperty("redirectUris", out _));
+        Assert.False(client.GetProperty("standardFlowEnabled").GetBoolean());
     }
 
     private static JsonDocument ReadRealmJson(

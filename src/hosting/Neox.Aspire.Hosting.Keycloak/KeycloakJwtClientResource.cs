@@ -17,7 +17,12 @@ public sealed class KeycloakJwtClientResource(
     public KeycloakResource Keycloak => Parent.Parent;
 
     /// <summary>
-    /// Keycloak <c>redirectUris</c> accumulated via <c>WithRedirectUrl</c>.
+    /// Keycloak <c>redirectUris</c> accumulated via <c>WithRedirectUrl</c> and <c>WithLocalRedirectUri</c>.
     /// </summary>
     internal List<Uri> RedirectUrls { get; } = [];
+
+    /// <summary>
+    /// When true, realm JSON includes <c>webOrigins: *</c> for Aspire ephemeral ports in Development.
+    /// </summary>
+    internal bool UseDevWebOriginWildcard { get; set; }
 }

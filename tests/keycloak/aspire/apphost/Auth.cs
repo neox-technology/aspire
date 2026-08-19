@@ -27,6 +27,6 @@ public static class Auth {
             ServiceNames.Auth.ApiClient,
             ServiceNames.Auth.ApiClientId,
             apiClientSecret)
-            .WithRedirectUrl(new Uri("https://localhost/swagger/oauth2-redirect.html"));
+            .WithLocalRedirectUri("/swagger/oauth2-redirect.html");
     }
 }

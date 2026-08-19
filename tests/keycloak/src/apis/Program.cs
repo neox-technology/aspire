@@ -47,6 +47,7 @@ builder.Services.AddAuthentication()
         realm: builder.Configuration["Keycloak:Realm"]!,
         options =>
         {
+            options.Authority = builder.Configuration["Keycloak:Authority"];
             options.Audience = builder.Configuration["Keycloak:Audience"];
 
             if (builder.Environment.IsDevelopment())
@@ -68,7 +69,6 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 

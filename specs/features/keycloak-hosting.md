@@ -10,7 +10,7 @@
 
 Shipping hosting package `Neox.Aspire.Hosting.Keycloak` extends upstream [`Aspire.Hosting.Keycloak`](https://aspire.dev/fr/integrations/security/keycloak/) with **`AddRealm`** on the Keycloak container resource: optional `RealmRepresentation` callback, JSON file generation under `.aspire/keycloak-realms/{keycloakName}/`, and a single upstream `WithRealmImport` mount per container. Post-`AddRealm` builders **`WithOrganizations`** and **`WithOrganization(name, domain)`** mutate the realm JSON idempotently (organizations feature flag + org/domain entries).
 
-`KeycloakRealmResource` is a child resource of `KeycloakResource` (realm name + import directory). **`AddJwtClient`** on a realm registers a confidential JWT client in realm JSON (including an **`oidc-audience-mapper`** for JWT validation) and creates a child **`KeycloakJwtClientResource`**. **`WithRedirectUrl`** on a JWT client accumulates redirect URIs and web origins for OAuth2 authorization code flow (Swagger). **`WithKeycloakJwtBearer`** projects `Keycloak__*` environment variables (AuthServerUrl, Realm, Authority, ClientId, Audience, ClientSecret, ServiceName) from the JWT client and Keycloak HTTP endpoint, and `WaitFor`s Keycloak and the realm. **`WithKeycloakSpa`** remains a stub. The sample harness under `tests/keycloak/` uses upstream `AddKeycloak` for the server, Neox `AddRealm` / `AddJwtClient` / `WithRedirectUrl` for realm import, and `Aspire.Keycloak.Authentication` in the sample API.
+`KeycloakRealmResource` is a child resource of `KeycloakResource` (realm name + import directory). **`AddJwtClient`** on a realm registers a confidential JWT client in realm JSON (including an **`oidc-audience-mapper`** for JWT validation) and creates a child **`KeycloakJwtClientResource`**. **`WithRedirectUrl`** on a JWT client accumulates exact redirect URIs and matching web origins. **`WithLocalRedirectUri`** (Development only) registers HTTP loopback redirect URIs without port and `webOrigins: *` for Aspire ephemeral ports (Swagger OAuth). **`WithKeycloakJwtBearer`** projects `Keycloak__*` environment variables from the Keycloak HTTPS endpoint (fallback HTTP) and `WaitFor`s Keycloak and the realm. **`WithKeycloakSpa`** remains a stub. The sample harness under `tests/keycloak/` uses upstream `AddKeycloak` for the server, Neox `AddRealm` / `AddJwtClient` / `WithLocalRedirectUri` for realm import, and `Aspire.Keycloak.Authentication` in the sample API with an explicit `Keycloak:Authority` override.
 
 ## User scenarios
 
@@ -19,8 +19,8 @@ Shipping hosting package `Neox.Aspire.Hosting.Keycloak` extends upstream [`Aspir
 3. **Multiple realms on one container** — repeated `AddRealm` calls add multiple JSON files; `WithRealmImport` is applied once via internal annotation.
 4. **Contributor validates behavior locally** — xUnit tests assert JSON output, child resource wiring, organization builders, JWT client builders, and env projection; the harness AppHost runs Keycloak with a sample realm and JWT-protected API.
 5. **AppHost author declares organizations** — `AddRealm(...).WithOrganizations()` enables organizations; `WithOrganization(name, domain)` adds an org and domain idempotently via read-modify-write of `{realm}-realm.json`.
-6. **AppHost author wires API JWT auth** — `AddRealm(...).AddJwtClient(name, clientId, clientSecret).WithRedirectUrl(uri)` then `AddProject(...).WithReference(keycloak).WithKeycloakJwtBearer(jwtClient)`; API consumes `Keycloak__*` via `Aspire.Keycloak.Authentication`.
-7. **AppHost author registers Swagger OAuth redirect** — `WithRedirectUrl(Uri)` on a JWT client writes `redirectUris` / `webOrigins` and enables standard flow in realm JSON.
+6. **AppHost author wires API JWT auth** — `AddRealm(...).AddJwtClient(...).WithLocalRedirectUri(path)` (dev) or `WithRedirectUrl(uri)` (fixed URLs) then `AddProject(...).WithReference(keycloak).WithKeycloakJwtBearer(jwtClient)`; API sets `options.Authority = Keycloak:Authority` when calling `AddKeycloakJwtBearer`.
+7. **AppHost author registers Swagger OAuth redirect** — `WithLocalRedirectUri` in Development or `WithRedirectUrl(Uri)` for exact redirect URIs; both enable standard flow in realm JSON.
 
 ## Business rules
 
@@ -29,13 +29,14 @@ Shipping hosting package `Neox.Aspire.Hosting.Keycloak` extends upstream [`Aspir
 3. **Import directory** — `.aspire/keycloak-realms/{keycloakName}/` resolved relative to AppHost directory; gitignored locally.
 4. **Realm parameter wins** — callback may set `Realm`; the `realm` parameter is forced after the callback.
 5. **Single import mount** — `KeycloakRealmImportAnnotation` ensures `WithRealmImport` runs once per `KeycloakResource`.
-6. **JWT env projection** — `WithKeycloakJwtBearer` resolves AuthServerUrl from the Keycloak container HTTP endpoint; Authority is `{AuthServerUrl}/realms/{Realm}`; Audience defaults to ClientId when not specified on `AddJwtClient`.
-7. **JWT client auth defaults** — `AddJwtClient` / `WithRedirectUrl` ensure `protocol: openid-connect` and an `oidc-audience-mapper` (`included.client.audience` = audience) so access tokens validate against `Keycloak__Audience`.
-8. **Redirect URLs** — `WithRedirectUrl` accumulates redirect URIs idempotently, derives matching `webOrigins`, and sets `standardFlowEnabled` when at least one redirect URL is present.
-9. **SPA stub** — `WithKeycloakSpa` performs null-checks only (no env vars yet).
-10. **Harness isolation** — sample AppHost projects under `tests/keycloak/` are harness-only and not product runtimes.
-11. **Upstream vs Neox** — container lifecycle and `WithRealmImport` delegation use upstream `Aspire.Hosting.Keycloak`; Neox owns realm JSON generation and the child resource model.
-12. **Post-AddRealm mutation** — `WithOrganizations` / `WithOrganization` / `AddJwtClient` / `WithRedirectUrl` re-read, mutate, and rewrite `{realm}-realm.json`; `ConcurrentBagExtensions.GetOrAdd` prevents duplicate org/domain/client/mapper entries.
+6. **JWT env projection** — `WithKeycloakJwtBearer` resolves `AuthServerUrl` from the Keycloak container **HTTPS** endpoint (fallback HTTP); `Authority` is `{AuthServerUrl}/realms/{Realm}`; Audience defaults to ClientId when not specified on `AddJwtClient`.
+7. **JWT client auth defaults** — `AddJwtClient` / redirect builders ensure `protocol: openid-connect` and an `oidc-audience-mapper` (`included.client.audience` = audience) so access tokens validate against `Keycloak__Audience`.
+8. **Redirect URLs** — `WithRedirectUrl` accumulates redirect URIs idempotently and derives matching `webOrigins` only (no dev wildcard). `WithLocalRedirectUri` (Development only) adds HTTP loopback URIs without port and `webOrigins: *`. Both set `standardFlowEnabled` when at least one redirect URL is present.
+9. **Consumer Authority contract** — `Aspire.Keycloak.Authentication.AddKeycloakJwtBearer` defaults to `https+http://{serviceName}/realms/{realm}`; consumers must set `options.Authority` from `Keycloak:Authority` projected by `WithKeycloakJwtBearer` so JWT `iss` matches Keycloak.
+10. **SPA stub** — `WithKeycloakSpa` performs null-checks only (no env vars yet).
+11. **Harness isolation** — sample AppHost projects under `tests/keycloak/` are harness-only and not product runtimes.
+12. **Upstream vs Neox** — container lifecycle and `WithRealmImport` delegation use upstream `Aspire.Hosting.Keycloak`; Neox owns realm JSON generation and the child resource model.
+13. **Post-AddRealm mutation** — organization / JWT client / redirect builders re-read, mutate, and rewrite `{realm}-realm.json`; `ConcurrentBagExtensions.GetOrAdd` prevents duplicate entries.
 
 ## Dependencies
 
@@ -46,7 +47,7 @@ Shipping hosting package `Neox.Aspire.Hosting.Keycloak` extends upstream [`Aspir
 
 ## Out of scope
 
-- Token validation policy implementation details in consumers (beyond sample harness)
+- Dedicated Neox consumer authentication package wrapping `AddKeycloakJwtBearer`
 - `WithKeycloakSpa` env projection
 - Realm import in production / `aspire publish` (upstream limitation)
 - Advanced client flows (service accounts, UMA, federation)
@@ -55,12 +56,13 @@ Shipping hosting package `Neox.Aspire.Hosting.Keycloak` extends upstream [`Aspir
 ## Acceptance criteria
 
 - [x] Package `Neox.Aspire.Hosting.Keycloak` exists under `src/hosting/Neox.Aspire.Hosting.Keycloak/`.
-- [x] Public API exposes `AddRealm` on `IResourceBuilder<KeycloakResource>`, `WithOrganizations` / `WithOrganization` / `AddJwtClient` / `WithRedirectUrl` on JWT client resources, `WithKeycloakJwtBearer` on project/container resources, plus stub `WithKeycloakSpa`.
+- [x] Public API exposes `AddRealm`, `WithOrganizations` / `WithOrganization`, `AddJwtClient`, `WithRedirectUrl`, `WithLocalRedirectUri`, `WithKeycloakJwtBearer`, plus stub `WithKeycloakSpa`.
 - [x] `AddRealm` writes `{realm}-realm.json`, registers child `KeycloakRealmResource`, and calls upstream `WithRealmImport` once per container.
 - [x] `AddJwtClient` writes client entry to realm JSON and registers child `KeycloakJwtClientResource`.
-- [x] `WithKeycloakJwtBearer` projects `Keycloak__*` env vars and `WaitFor`s Keycloak and realm.
-- [x] Tests exist under `tests/keycloak/` with xUnit assertions for JSON, child resources, organization builders, JWT client, and env projection.
-- [x] Sample AppHost/API/SPA projects are registered in `Neox.Aspire.slnx`; sample API uses `Aspire.Keycloak.Authentication`.
+- [x] `WithKeycloakJwtBearer` projects `Keycloak__*` env vars (HTTPS AuthServerUrl when available) and `WaitFor`s Keycloak and realm.
+- [x] `WithLocalRedirectUri` writes loopback redirect URIs and `webOrigins: *` in Development only.
+- [x] Tests exist under `tests/keycloak/` with xUnit assertions for JSON, child resources, organization builders, JWT client, redirect builders, and env projection.
+- [x] Sample AppHost/API/SPA projects are registered in `Neox.Aspire.slnx`; sample API uses `Aspire.Keycloak.Authentication` with `Keycloak:Authority` override.
 - [x] Upstream Aspire Keycloak documentation is indexed in this spec (Dependencies + Summary).
 
 ## Terminology

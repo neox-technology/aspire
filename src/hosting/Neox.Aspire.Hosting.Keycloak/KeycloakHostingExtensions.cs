@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Text.Json;
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
+using Microsoft.Extensions.Hosting;
 using Neox.Keycloak.Provisioning.Realm;
 
 namespace Neox.Aspire.Hosting.Keycloak;
@@ -9,6 +10,7 @@ namespace Neox.Aspire.Hosting.Keycloak;
 public static class KeycloakHostingExtensions
 {
     private const string RealmImportRelativeRoot = ".aspire/keycloak-realms";
+    private static readonly string[] LocalLoopbackHosts = ["127.0.0.1", "localhost", "[::1]"];
 
     public static IResourceBuilder<KeycloakRealmResource> AddRealm(
         this IResourceBuilder<KeycloakResource> builder,
@@ -142,6 +144,41 @@ public static class KeycloakHostingExtensions
         return builder;
     }
 
+    /// <summary>
+    /// Registers loopback redirect URIs for local development (any ephemeral port on HTTP).
+    /// No-op outside the Development environment.
+    /// </summary>
+    /// <param name="builder">The JWT client resource builder.</param>
+    /// <param name="path">
+    /// Redirect path (for example <c>/swagger/oauth2-redirect.html</c>).
+    /// </param>
+    public static IResourceBuilder<KeycloakJwtClientResource> WithLocalRedirectUri(
+        this IResourceBuilder<KeycloakJwtClientResource> builder,
+        string path)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        if (!builder.ApplicationBuilder.Environment.IsDevelopment())
+        {
+            return builder;
+        }
+
+        builder.Resource.UseDevWebOriginWildcard = true;
+
+        foreach (var redirectUri in CreateLocalLoopbackRedirectUris(path))
+        {
+            if (!builder.Resource.RedirectUrls.Any(existing =>
+                    string.Equals(existing.AbsoluteUri, redirectUri.AbsoluteUri, StringComparison.Ordinal)))
+            {
+                builder.Resource.RedirectUrls.Add(redirectUri);
+            }
+        }
+
+        SyncJwtClientRealmJson(builder.Resource);
+        return builder;
+    }
+
     public static IResourceBuilder<TResource> WithKeycloakJwtBearer<TResource>(
         this IResourceBuilder<TResource> builder,
         IResourceBuilder<KeycloakJwtClientResource> jwtClient,
@@ -157,7 +194,7 @@ public static class KeycloakHostingExtensions
         var keycloak = client.Keycloak;
         var keycloakBuilder = builder.ApplicationBuilder.CreateResourceBuilder(keycloak);
         var realmBuilder = builder.ApplicationBuilder.CreateResourceBuilder(realm);
-        var authServerUrl = keycloakBuilder.GetEndpoint("http");
+        var authServerUrl = ResolveKeycloakAuthServerUrl(keycloakBuilder);
 
         builder.WithEnvironment($"{sectionName}AuthServerUrl", authServerUrl);
         builder.WithEnvironment($"{sectionName}Realm", realm.Realm);
@@ -213,6 +250,19 @@ public static class KeycloakHostingExtensions
         representation.Organizations ??= [];
     }
 
+    private static EndpointReference ResolveKeycloakAuthServerUrl(IResourceBuilder<KeycloakResource> keycloakBuilder)
+    {
+        ArgumentNullException.ThrowIfNull(keycloakBuilder);
+
+        var hasHttpsEndpoint = keycloakBuilder.Resource.Annotations
+            .OfType<EndpointAnnotation>()
+            .Any(endpoint => string.Equals(endpoint.Name, "https", StringComparison.OrdinalIgnoreCase));
+
+        return hasHttpsEndpoint
+            ? keycloakBuilder.GetEndpoint("https")
+            : keycloakBuilder.GetEndpoint("http");
+    }
+
     private static void SyncJwtClientRealmJson(KeycloakJwtClientResource client)
     {
         ArgumentNullException.ThrowIfNull(client);
@@ -241,8 +291,28 @@ public static class KeycloakHostingExtensions
                 clientRep.WebOrigins.GetOrAdd(o => o == origin, origin);
             }
 
+            if (client.UseDevWebOriginWildcard)
+            {
+                // Keycloak only accepts "*" as a CORS wildcard (not "+") for ephemeral loopback ports.
+                clientRep.WebOrigins.GetOrAdd(o => o == "*", "*");
+            }
+
             clientRep.StandardFlowEnabled = true;
         });
+    }
+
+    private static IEnumerable<Uri> CreateLocalLoopbackRedirectUris(string path)
+    {
+        var normalizedPath = path.Trim();
+        if (!normalizedPath.StartsWith('/'))
+        {
+            normalizedPath = $"/{normalizedPath}";
+        }
+
+        foreach (var host in LocalLoopbackHosts)
+        {
+            yield return new Uri($"http://{host}{normalizedPath}", UriKind.Absolute);
+        }
     }
 
     private static void ApplyJwtClientAuthDefaults(
