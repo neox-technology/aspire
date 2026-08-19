@@ -24,7 +24,7 @@ This package is not an Aspire hosting library. [`keycloak-hosting`](keycloak-hos
 1. **One Shipping realm CDK package** — packable id `Neox.Keycloak.Provisioning.Realm` (`net10.0`, `RootNamespace=Neox.Keycloak.Provisioning.Realm`). Generator `Neox.Keycloak.Provisioning.Realm.Generators.Internal` is `IsPackable=false`, `netstandard2.0`, referenced as an analyzer.
 2. **Official OpenAPI is the source of truth** — snapshot `generated/openapi.json` (+ `index.json` for the pin) from Keycloak docs-api Admin REST OpenAPI for version **26.2.5**. Generated types cover the **transitive closure** of `RealmRepresentation` in `components.schemas` (full realm schema, not the entire Admin API surface).
 3. **C# naming** — preserve OpenAPI schema names (`RealmRepresentation`, `ClientRepresentation`) for JSON 1:1 compatibility with Keycloak import/export.
-4. **Thread-safe collections** — OpenAPI `array` → `ConcurrentBag<T>?`; maps with `additionalProperties` → `ConcurrentDictionary<string, T>?` (supports future AppHost builders via `GetOrAdd()` on maps).
+4. **Thread-safe collections** — OpenAPI `array` → `ConcurrentBag<T>?`; maps with `additionalProperties` → `ConcurrentDictionary<string, T>?`. AppHost builders use `ConcurrentBagExtensions.GetOrAdd(predicate, value)` on bags and `ConcurrentDictionary.GetOrAdd` on maps.
 5. **Polymorphism** — OpenAPI `oneOf` / `anyOf` → interface `I{Name}` + concrete implementations per `$ref` branch + generated `JsonConverter<I{Name}>` registered in `KeycloakRealmJsonOptions`.
 6. **Offline builds** — AdditionalFiles catalogue; no network during `dotnet build`. Refresh tool may download from keycloak.org when a maintainer runs it.
 7. **Tests** — xUnit under `tests/keycloak-provisioning/`; no live Keycloak.
@@ -51,6 +51,7 @@ This package is not an Aspire hosting library. [`keycloak-hosting`](keycloak-hos
 - [x] `{paths.keycloakProvisioningRealm}` / `{aspire.packages.keycloakProvisioningRealm}` in `.cursor/rules/neox-rules.json`.
 - [x] Checked-in `openapi.json` / `index.json` pin Keycloak **26.2.5**.
 - [x] Public types include `RealmRepresentation`, `ClientRepresentation` with `ConcurrentBag` / `ConcurrentDictionary` collections.
+- [x] `ConcurrentBagExtensions.GetOrAdd` provides idempotent list mutation for AppHost builders.
 - [x] `oneOf` unions emit interface + `JsonConverter` with round-trip tests.
 - [x] Refresh tool `tools/keycloak-realm-openapi-catalog` can rewrite the snapshot.
 - [x] xUnit tests under `tests/keycloak-provisioning/` (no live Keycloak).

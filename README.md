@@ -62,7 +62,7 @@ See [`specs/README.md`](specs/README.md). Terminology: [`domain-glossary`](specs
 | GitHub Actions | Absent from this tree ([`gitflow-ci`](specs/features/gitflow-ci.md), [`nuget-org`](specs/features/nuget-org.md)) |
 | NuGet packages | Shipping libraries in `src/`; local Arcade pack |
 | Azure Entra ID hosting | Implemented ([`azure-entra-id`](specs/features/azure-entra-id.md)) — `AddAzureAppRegistration` + `AddScope` + `AddAppRole` + `AddWebApplication` + `AddSpaApplication` + `WithPermission` + `AddCertificate` / `WithKeyCredential` + `EntraIdInstance` + `WithMicrosoftIdentityWebApplication` + `WithEntraIdSpaApplication` |
-| Keycloak hosting | Implemented ([`keycloak-hosting`](specs/features/keycloak-hosting.md)) — `AddRealm` on upstream `AddKeycloak` + stub `WithKeycloakWebApi` / `WithKeycloakSpa`; harness runs Keycloak with realm import |
+| Keycloak hosting | Implemented ([`keycloak-hosting`](specs/features/keycloak-hosting.md)) — `AddRealm` + `WithOrganizations` / `WithOrganization` on upstream `AddKeycloak`; stub `WithKeycloakWebApi` / `WithKeycloakSpa`; harness runs Keycloak with realm import |
 | Azure.Provisioning Graph | Implemented ([`azure-provisioning-graph`](specs/features/azure-provisioning-graph.md)) — source-generated Graph Bicep constructs |
 | Keycloak realm provisioning | Implemented ([`keycloak-provisioning-realm`](specs/features/keycloak-provisioning-realm.md)) — source-generated realm POCOs from Keycloak OpenAPI 26.2.5 |
 

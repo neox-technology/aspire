@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
@@ -44,6 +45,40 @@ public static class KeycloakHostingExtensions
             .ExcludeFromManifest();
     }
 
+    public static IResourceBuilder<KeycloakRealmResource> WithOrganizations(
+        this IResourceBuilder<KeycloakRealmResource> builder)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        MutateRealmJson(builder.Resource, EnableOrganizations);
+        return builder;
+    }
+
+    public static IResourceBuilder<KeycloakRealmResource> WithOrganization(
+        this IResourceBuilder<KeycloakRealmResource> builder,
+        string name,
+        string domain)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentException.ThrowIfNullOrWhiteSpace(domain);
+
+        MutateRealmJson(builder.Resource, representation =>
+        {
+            EnableOrganizations(representation);
+
+            var organization = representation.Organizations!.GetOrAdd(
+                o => o.Name == name,
+                new OrganizationRepresentation { Name = name, Enabled = true });
+
+            organization.Domains ??= [];
+            organization.Domains.GetOrAdd(
+                d => d.Name == domain,
+                new OrganizationDomainRepresentation { Name = domain });
+        });
+
+        return builder;
+    }
+
     public static IResourceBuilder<TResource> WithKeycloakWebApi<TResource>(
         this IResourceBuilder<TResource> builder,
         IResourceBuilder<KeycloakRealmResource> realm,
@@ -79,5 +114,31 @@ public static class KeycloakHostingExtensions
 
         builder.Resource.Annotations.Add(new KeycloakRealmImportAnnotation(importDirectory));
         builder.WithRealmImport(importDirectory);
+    }
+
+    private static void EnableOrganizations(RealmRepresentation representation)
+    {
+        representation.OrganizationsEnabled = true;
+        representation.Organizations ??= [];
+    }
+
+    private static void MutateRealmJson(
+        KeycloakRealmResource resource,
+        Action<RealmRepresentation> mutate)
+    {
+        ArgumentNullException.ThrowIfNull(resource);
+        ArgumentNullException.ThrowIfNull(mutate);
+
+        var realmFilePath = Path.Combine(resource.ImportDirectory, $"{resource.Realm}-realm.json");
+        var json = File.ReadAllText(realmFilePath);
+        var representation = JsonSerializer.Deserialize<RealmRepresentation>(json, KeycloakRealmJsonOptions.Default)
+            ?? throw new InvalidOperationException($"Failed to deserialize realm JSON at '{realmFilePath}'.");
+
+        mutate(representation);
+        representation.Realm = resource.Realm;
+
+        File.WriteAllText(
+            realmFilePath,
+            JsonSerializer.Serialize(representation, KeycloakRealmJsonOptions.Default));
     }
 }

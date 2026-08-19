@@ -8,7 +8,7 @@
 
 ## Summary
 
-Shipping hosting package `Neox.Aspire.Hosting.Keycloak` extends upstream [`Aspire.Hosting.Keycloak`](https://aspire.dev/fr/integrations/security/keycloak/) with **`AddRealm`** on the Keycloak container resource: optional `RealmRepresentation` callback, JSON file generation under `.aspire/keycloak-realms/{keycloakName}/`, and a single upstream `WithRealmImport` mount per container.
+Shipping hosting package `Neox.Aspire.Hosting.Keycloak` extends upstream [`Aspire.Hosting.Keycloak`](https://aspire.dev/fr/integrations/security/keycloak/) with **`AddRealm`** on the Keycloak container resource: optional `RealmRepresentation` callback, JSON file generation under `.aspire/keycloak-realms/{keycloakName}/`, and a single upstream `WithRealmImport` mount per container. Post-`AddRealm` builders **`WithOrganizations`** and **`WithOrganization(name, domain)`** mutate the realm JSON idempotently (organizations feature flag + org/domain entries).
 
 `KeycloakRealmResource` is a child resource of `KeycloakResource` (realm name + import directory). `WithKeycloakWebApi` and `WithKeycloakSpa` retain their signatures but are **stubs** until env projection is implemented. The sample harness under `tests/keycloak/` uses upstream `AddKeycloak` for the server and Neox `AddRealm` for realm import.
 
@@ -17,7 +17,8 @@ Shipping hosting package `Neox.Aspire.Hosting.Keycloak` extends upstream [`Aspir
 1. **AppHost author declares a realm on Keycloak** — `AddKeycloak(...).AddRealm(configure, realm)` writes `{realm}-realm.json` and registers a child `KeycloakRealmResource`.
 2. **AppHost author configures realm JSON** — optional callback mutates `RealmRepresentation` from `Neox.Keycloak.Provisioning.Realm` before serialization.
 3. **Multiple realms on one container** — repeated `AddRealm` calls add multiple JSON files; `WithRealmImport` is applied once via internal annotation.
-4. **Contributor validates behavior locally** — xUnit tests assert JSON output, child resource wiring, and stub helpers; the harness AppHost runs Keycloak with a sample `neox` realm.
+4. **Contributor validates behavior locally** — xUnit tests assert JSON output, child resource wiring, organization builders, and stub helpers; the harness AppHost runs Keycloak with a sample `neox` realm.
+5. **AppHost author declares organizations** — `AddRealm(...).WithOrganizations()` enables organizations; `WithOrganization(name, domain)` adds an org and domain idempotently via read-modify-write of `{realm}-realm.json`.
 
 ## Business rules
 
@@ -29,6 +30,7 @@ Shipping hosting package `Neox.Aspire.Hosting.Keycloak` extends upstream [`Aspir
 6. **Env stubs** — `WithKeycloakWebApi` / `WithKeycloakSpa` perform null-checks only (no env vars yet).
 7. **Harness isolation** — sample AppHost projects under `tests/keycloak/` are harness-only and not product runtimes.
 8. **Upstream vs Neox** — container lifecycle and `WithRealmImport` delegation use upstream `Aspire.Hosting.Keycloak`; Neox owns realm JSON generation and the child resource model.
+9. **Post-AddRealm mutation** — `WithOrganizations` / `WithOrganization` re-read, mutate, and rewrite `{realm}-realm.json`; `ConcurrentBagExtensions.GetOrAdd` prevents duplicate org/domain entries.
 
 ## Dependencies
 
@@ -50,9 +52,9 @@ Shipping hosting package `Neox.Aspire.Hosting.Keycloak` extends upstream [`Aspir
 ## Acceptance criteria
 
 - [x] Package `Neox.Aspire.Hosting.Keycloak` exists under `src/hosting/Neox.Aspire.Hosting.Keycloak/`.
-- [x] Public API exposes `AddRealm` on `IResourceBuilder<KeycloakResource>`, plus stub `WithKeycloakWebApi` and `WithKeycloakSpa`.
+- [x] Public API exposes `AddRealm` on `IResourceBuilder<KeycloakResource>`, `WithOrganizations` / `WithOrganization` on `IResourceBuilder<KeycloakRealmResource>`, plus stub `WithKeycloakWebApi` and `WithKeycloakSpa`.
 - [x] `AddRealm` writes `{realm}-realm.json`, registers child `KeycloakRealmResource`, and calls upstream `WithRealmImport` once per container.
-- [x] Tests exist under `tests/keycloak/` with xUnit assertions for JSON, child resource, callback, default realm, and WebApi stub.
+- [x] Tests exist under `tests/keycloak/` with xUnit assertions for JSON, child resource, callback, default realm, organization builders, and WebApi stub.
 - [x] Sample AppHost/API/SPA projects are registered in `Neox.Aspire.slnx`.
 - [x] Upstream Aspire Keycloak documentation is indexed in this spec (Dependencies + Summary).
 

@@ -34,8 +34,8 @@ var realm = new RealmRepresentation
     },
 };
 
-// Builders AppHost futurs : maps via Attributes.GetOrAdd("key", _ => value)
-// Listes : mutation thread-safe via ConcurrentBag.Add(...)
+// Builders AppHost : maps via Attributes.GetOrAdd("key", _ => value)
+// Listes : realm.Clients.GetOrAdd(c => c.ClientId == "spa", new() { ClientId = "spa", ... })
 var json = JsonSerializer.Serialize(realm, KeycloakRealmJsonOptions.Default);
 await File.WriteAllTextAsync("neox-realm.json", json);
 ```

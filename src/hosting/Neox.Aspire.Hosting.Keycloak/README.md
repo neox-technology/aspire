@@ -16,10 +16,13 @@ builder.AddKeycloak("auth", adminPassword: password)
         {
             new() { ClientId = "neox-spa", PublicClient = true, Enabled = true }
         };
-    }, realm: "neox");
+    }, realm: "neox")
+    .WithOrganization("Acme", "acme.com");
 ```
 
 `AddRealm` writes `.aspire/keycloak-realms/{keycloakName}/{realm}-realm.json` under the AppHost directory and wires upstream `WithRealmImport` once per Keycloak container.
+
+`WithOrganizations` enables the organizations feature on the realm JSON. `WithOrganization(name, domain)` adds an organization and domain idempotently (can be chained after `AddRealm`).
 
 `WithKeycloakWebApi` and `WithKeycloakSpa` are reserved for future env projection; they are currently no-ops.
 
