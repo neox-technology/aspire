@@ -276,6 +276,126 @@ public sealed class AddRealmTests
         Assert.False(client.GetProperty("standardFlowEnabled").GetBoolean());
     }
 
+    [Fact]
+    public void AddOidcClient_registers_child_resource()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var keycloak = CreateKeycloak(builder, "auth-oidc");
+        var realm = keycloak.AddRealm(realm: "neox");
+        var oidcClient = realm.AddOidcClient("spa-client", "neox-spa");
+
+        Assert.Equal("spa-client", oidcClient.Resource.Name);
+        Assert.Same(realm.Resource, oidcClient.Resource.Parent);
+        Assert.Equal("neox-spa", oidcClient.Resource.ClientId);
+        Assert.Same(keycloak.Resource, oidcClient.Resource.Keycloak);
+    }
+
+    [Fact]
+    public void AddOidcClient_writes_public_client_to_realm_json()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var keycloak = CreateKeycloak(builder, "auth-oidc-json");
+        var realm = keycloak.AddRealm(realm: "neox");
+        realm.AddOidcClient("spa-client", "neox-spa");
+
+        using var document = ReadRealmJson(builder, "auth-oidc-json", "neox");
+        var client = document.RootElement.GetProperty("clients")[0];
+        Assert.Equal("neox-spa", client.GetProperty("clientId").GetString());
+        Assert.True(client.GetProperty("publicClient").GetBoolean());
+        Assert.Equal("openid-connect", client.GetProperty("protocol").GetString());
+        Assert.False(client.TryGetProperty("secret", out _));
+    }
+
+    [Fact]
+    public void WithRedirectUrl_on_oidc_client_writes_redirect_uri()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var keycloak = CreateKeycloak(builder, "auth-oidc-redirect");
+        var realm = keycloak.AddRealm(realm: "neox");
+        var redirectUri = new Uri("http://localhost/");
+        realm.AddOidcClient("spa-client", "neox-spa")
+            .WithRedirectUrl(redirectUri);
+
+        using var document = ReadRealmJson(builder, "auth-oidc-redirect", "neox");
+        var client = document.RootElement.GetProperty("clients")[0];
+        Assert.True(client.GetProperty("standardFlowEnabled").GetBoolean());
+        Assert.Contains(
+            redirectUri.AbsoluteUri,
+            client.GetProperty("redirectUris").EnumerateArray().Select(element => element.GetString()));
+        Assert.Contains(
+            "http://localhost",
+            client.GetProperty("webOrigins").EnumerateArray().Select(element => element.GetString()));
+    }
+
+    [Fact]
+    public void WithLocalRedirectUri_on_oidc_client_writes_loopback_in_development()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        builder.Environment.EnvironmentName = Environments.Development;
+        var keycloak = CreateKeycloak(builder, "auth-oidc-local");
+        var realm = keycloak.AddRealm(realm: "neox");
+        realm.AddOidcClient("spa-client", "neox-spa")
+            .WithLocalRedirectUri("/");
+
+        using var document = ReadRealmJson(builder, "auth-oidc-local", "neox");
+        var client = document.RootElement.GetProperty("clients")[0];
+        var redirectUris = client.GetProperty("redirectUris").EnumerateArray().Select(element => element.GetString()).ToArray();
+        Assert.Contains("http://127.0.0.1/", redirectUris);
+        Assert.Contains("http://localhost/", redirectUris);
+
+        var webOrigins = client.GetProperty("webOrigins").EnumerateArray().Select(element => element.GetString()).ToArray();
+        Assert.Contains("*", webOrigins);
+        Assert.True(client.GetProperty("standardFlowEnabled").GetBoolean());
+    }
+
+    [Fact]
+    public void WithLocalRedirectUri_on_oidc_client_is_noop_outside_development()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        builder.Environment.EnvironmentName = Environments.Production;
+        var keycloak = CreateKeycloak(builder, "auth-oidc-prod");
+        var realm = keycloak.AddRealm(realm: "neox");
+        realm.AddOidcClient("spa-client", "neox-spa")
+            .WithLocalRedirectUri("/");
+
+        using var document = ReadRealmJson(builder, "auth-oidc-prod", "neox");
+        var client = document.RootElement.GetProperty("clients")[0];
+        Assert.False(client.TryGetProperty("redirectUris", out _));
+        Assert.False(client.GetProperty("standardFlowEnabled").GetBoolean());
+    }
+
+    [Fact]
+    public async Task WithKeycloakSpa_sets_environment()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var keycloak = CreateKeycloak(builder, "auth-spa");
+        var realm = keycloak.AddRealm(realm: "neox");
+        var oidcClient = realm.AddOidcClient("spa-client", "neox-spa");
+        var spa = builder.AddContainer("spa", "nginx").WithKeycloakSpa(oidcClient);
+
+        var env = await ResolveEnvironmentAsync(builder, spa.Resource);
+        Assert.Equal("neox", env["KEYCLOAK_REALM"]);
+        Assert.Equal("neox-spa", env["KEYCLOAK_CLIENT_ID"]);
+        Assert.True(env.ContainsKey("KEYCLOAK_URL"));
+    }
+
+    [Fact]
+    public void WithKeycloakSpa_waits_for_keycloak_and_realm()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var keycloak = CreateKeycloak(builder, "auth-spa-wait");
+        var realm = keycloak.AddRealm(realm: "neox");
+        var oidcClient = realm.AddOidcClient("spa-client", "neox-spa");
+        var spa = builder.AddContainer("spa", "nginx").WithKeycloakSpa(oidcClient);
+
+        Assert.Contains(
+            spa.Resource.Annotations.OfType<WaitAnnotation>(),
+            wait => ReferenceEquals(wait.Resource, keycloak.Resource));
+        Assert.Contains(
+            spa.Resource.Annotations.OfType<WaitAnnotation>(),
+            wait => ReferenceEquals(wait.Resource, realm.Resource));
+    }
+
     private static JsonDocument ReadRealmJson(
         IDistributedApplicationBuilder builder,
         string keycloakName,

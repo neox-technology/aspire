@@ -8,7 +8,7 @@ public sealed class KeycloakJwtClientResource(
     string clientId,
     ParameterResource clientSecret,
     string audience)
-    : Resource(name), IResourceWithParent<KeycloakRealmResource>
+    : Resource(name), IResourceWithParent<KeycloakRealmResource>, IKeycloakRedirectClient
 {
     public KeycloakRealmResource Parent { get; } = parent;
     public string ClientId { get; } = clientId;
@@ -25,4 +25,12 @@ public sealed class KeycloakJwtClientResource(
     /// When true, realm JSON includes <c>webOrigins: *</c> for Aspire ephemeral ports in Development.
     /// </summary>
     internal bool UseDevWebOriginWildcard { get; set; }
+
+    IList<Uri> IKeycloakRedirectClient.RedirectUrls => RedirectUrls;
+
+    bool IKeycloakRedirectClient.UseDevWebOriginWildcard
+    {
+        get => UseDevWebOriginWildcard;
+        set => UseDevWebOriginWildcard = value;
+    }
 }

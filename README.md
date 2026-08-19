@@ -41,7 +41,7 @@ dotnet add package Neox.Aspire.Hosting.Keycloak
 | [Azure.Provisioning.Graph](src/provisioning/Neox.Azure.Provisioning.Graph/README.md) | `GraphApplication` / `GraphServicePrincipal` (`Azure.Provisioning` constructs from msgraph-bicep-types) |
 | [Keycloak.Provisioning.Realm](src/provisioning/Neox.Keycloak.Provisioning.Realm/README.md) | `RealmRepresentation` / `ClientRepresentation` (Keycloak realm import JSON POCOs from Admin REST OpenAPI) |
 | [Azure.EntraId](src/hosting/Neox.Aspire.Hosting.Azure.EntraId/README.md) | `AddAzureAppRegistration` + `WithSupportedAccountType` / `AddScope` / `AddAppRole` / `AddWebApplication` / `AddSpaApplication` / `WithPermission` / `AddCertificate` / `WithKeyCredential` / `EntraIdInstance` / `WithMicrosoftIdentityWebApplication` / `WithEntraIdSpaApplication` (`AzureProvisioningResource` + Graph CDK) |
-| [Keycloak](src/hosting/Neox.Aspire.Hosting.Keycloak/README.md) | `AddRealm` + `AddJwtClient` + `WithLocalRedirectUri` / `WithRedirectUrl` + `WithKeycloakJwtBearer` on upstream `AddKeycloak`; stub `WithKeycloakSpa` |
+| [Keycloak](src/hosting/Neox.Aspire.Hosting.Keycloak/README.md) | `AddRealm` + `AddJwtClient` / `AddOidcClient` + `WithLocalRedirectUri` / `WithRedirectUrl` + `WithKeycloakJwtBearer` / `WithKeycloakSpa` on upstream `AddKeycloak` |
 
 > [!NOTE]
 > .NET SDK **10.0.110** is pinned in [`global.json`](global.json). Arcade installs a local copy via `eng/common` when needed.
@@ -62,7 +62,7 @@ See [`specs/README.md`](specs/README.md). Terminology: [`domain-glossary`](specs
 | GitHub Actions | Absent from this tree ([`gitflow-ci`](specs/features/gitflow-ci.md), [`nuget-org`](specs/features/nuget-org.md)) |
 | NuGet packages | Shipping libraries in `src/`; local Arcade pack |
 | Azure Entra ID hosting | Implemented ([`azure-entra-id`](specs/features/azure-entra-id.md)) — `AddAzureAppRegistration` + `AddScope` + `AddAppRole` + `AddWebApplication` + `AddSpaApplication` + `WithPermission` + `AddCertificate` / `WithKeyCredential` + `EntraIdInstance` + `WithMicrosoftIdentityWebApplication` + `WithEntraIdSpaApplication` |
-| Keycloak hosting | Implemented ([`keycloak-hosting`](specs/features/keycloak-hosting.md)) — `AddRealm` + `WithOrganizations` / `WithOrganization` / `AddJwtClient` + `WithLocalRedirectUri` / `WithRedirectUrl` + `WithKeycloakJwtBearer` on upstream `AddKeycloak`; stub `WithKeycloakSpa`; harness runs Keycloak with realm import and JWT API |
+| Keycloak hosting | Implemented ([`keycloak-hosting`](specs/features/keycloak-hosting.md)) — `AddRealm` + `WithOrganizations` / `WithOrganization` / `AddJwtClient` / `AddOidcClient` + `WithLocalRedirectUri` / `WithRedirectUrl` + `WithKeycloakJwtBearer` / `WithKeycloakSpa` on upstream `AddKeycloak`; harness runs Keycloak with realm import, JWT API, and SPA stub |
 | Azure.Provisioning Graph | Implemented ([`azure-provisioning-graph`](specs/features/azure-provisioning-graph.md)) — source-generated Graph Bicep constructs |
 | Keycloak realm provisioning | Implemented ([`keycloak-provisioning-realm`](specs/features/keycloak-provisioning-realm.md)) — source-generated realm POCOs from Keycloak OpenAPI 26.2.5 |
 

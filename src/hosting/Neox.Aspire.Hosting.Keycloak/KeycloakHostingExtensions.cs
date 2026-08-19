@@ -127,6 +127,40 @@ public static class KeycloakHostingExtensions
             .ExcludeFromManifest();
     }
 
+    public static IResourceBuilder<KeycloakOidcClientResource> AddOidcClient(
+        this IResourceBuilder<KeycloakRealmResource> builder,
+        string name,
+        string clientId)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentException.ThrowIfNullOrWhiteSpace(clientId);
+
+        var oidcClient = new KeycloakOidcClientResource(name, builder.Resource, clientId);
+
+        MutateRealmJson(builder.Resource, representation =>
+        {
+            representation.Clients ??= [];
+            var client = representation.Clients.GetOrAdd(
+                c => c.ClientId == clientId,
+                new ClientRepresentation
+                {
+                    ClientId = clientId,
+                    Enabled = true,
+                    PublicClient = true,
+                    BearerOnly = false,
+                    StandardFlowEnabled = false,
+                    DirectAccessGrantsEnabled = false,
+                    ImplicitFlowEnabled = false,
+                    ServiceAccountsEnabled = false,
+                });
+            ApplyOidcClientDefaults(client);
+        });
+
+        return builder.ApplicationBuilder.AddResource(oidcClient)
+            .ExcludeFromManifest();
+    }
+
     public static IResourceBuilder<KeycloakJwtClientResource> WithRedirectUrl(
         this IResourceBuilder<KeycloakJwtClientResource> builder,
         Uri url)
@@ -140,7 +174,7 @@ public static class KeycloakHostingExtensions
             builder.Resource.RedirectUrls.Add(url);
         }
 
-        SyncJwtClientRealmJson(builder.Resource);
+        SyncClientRedirectRealmJson(builder.Resource, client => ApplyJwtClientAuthDefaults(client, builder.Resource));
         return builder;
     }
 
@@ -157,25 +191,34 @@ public static class KeycloakHostingExtensions
         string path)
     {
         ArgumentNullException.ThrowIfNull(builder);
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        AddLocalRedirectUris(builder.Resource, builder.ApplicationBuilder, path);
+        SyncClientRedirectRealmJson(builder.Resource, client => ApplyJwtClientAuthDefaults(client, builder.Resource));
+        return builder;
+    }
 
-        if (!builder.ApplicationBuilder.Environment.IsDevelopment())
-        {
-            return builder;
-        }
+    public static IResourceBuilder<KeycloakOidcClientResource> WithRedirectUrl(
+        this IResourceBuilder<KeycloakOidcClientResource> builder,
+        Uri url)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(url);
 
-        builder.Resource.UseDevWebOriginWildcard = true;
+        AddRedirectUrl(builder.Resource, url);
+        SyncClientRedirectRealmJson(builder.Resource, ApplyOidcClientDefaults);
+        return builder;
+    }
 
-        foreach (var redirectUri in CreateLocalLoopbackRedirectUris(path))
-        {
-            if (!builder.Resource.RedirectUrls.Any(existing =>
-                    string.Equals(existing.AbsoluteUri, redirectUri.AbsoluteUri, StringComparison.Ordinal)))
-            {
-                builder.Resource.RedirectUrls.Add(redirectUri);
-            }
-        }
-
-        SyncJwtClientRealmJson(builder.Resource);
+    /// <summary>
+    /// Registers loopback redirect URIs for local development (any ephemeral port on HTTP).
+    /// No-op outside the Development environment.
+    /// </summary>
+    public static IResourceBuilder<KeycloakOidcClientResource> WithLocalRedirectUri(
+        this IResourceBuilder<KeycloakOidcClientResource> builder,
+        string path)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        AddLocalRedirectUris(builder.Resource, builder.ApplicationBuilder, path);
+        SyncClientRedirectRealmJson(builder.Resource, ApplyOidcClientDefaults);
         return builder;
     }
 
@@ -221,13 +264,35 @@ public static class KeycloakHostingExtensions
 
     public static IResourceBuilder<TResource> WithKeycloakSpa<TResource>(
         this IResourceBuilder<TResource> builder,
-        IResourceBuilder<KeycloakRealmResource> realm,
+        IResourceBuilder<KeycloakOidcClientResource> oidcClient,
         string sectionName = "KEYCLOAK_")
         where TResource : IResourceWithEnvironment, IResourceWithWaitSupport
     {
         ArgumentNullException.ThrowIfNull(builder);
-        ArgumentNullException.ThrowIfNull(realm);
+        ArgumentNullException.ThrowIfNull(oidcClient);
         ArgumentException.ThrowIfNullOrWhiteSpace(sectionName);
+
+        var client = oidcClient.Resource;
+        var realm = client.Parent;
+        var keycloak = client.Keycloak;
+        var keycloakBuilder = builder.ApplicationBuilder.CreateResourceBuilder(keycloak);
+        var realmBuilder = builder.ApplicationBuilder.CreateResourceBuilder(realm);
+        var authServerUrl = ResolveKeycloakAuthServerUrl(keycloakBuilder);
+
+        builder.WithEnvironment($"{sectionName}URL", authServerUrl);
+        builder.WithEnvironment($"{sectionName}REALM", realm.Realm);
+        builder.WithEnvironment($"{sectionName}CLIENT_ID", client.ClientId);
+
+        if (!builder.Resource.Annotations.OfType<WaitAnnotation>().Any(wait => ReferenceEquals(wait.Resource, keycloak)))
+        {
+            builder.WaitFor(keycloakBuilder);
+        }
+
+        if (!builder.Resource.Annotations.OfType<WaitAnnotation>().Any(wait => ReferenceEquals(wait.Resource, realm)))
+        {
+            builder.WaitFor(realmBuilder);
+        }
+
         return builder;
     }
 
@@ -263,9 +328,12 @@ public static class KeycloakHostingExtensions
             : keycloakBuilder.GetEndpoint("http");
     }
 
-    private static void SyncJwtClientRealmJson(KeycloakJwtClientResource client)
+    private static void SyncClientRedirectRealmJson(
+        IKeycloakRedirectClient client,
+        Action<ClientRepresentation> applyDefaults)
     {
         ArgumentNullException.ThrowIfNull(client);
+        ArgumentNullException.ThrowIfNull(applyDefaults);
 
         MutateRealmJson(client.Parent, representation =>
         {
@@ -273,7 +341,7 @@ public static class KeycloakHostingExtensions
                 ?? throw new InvalidOperationException(
                     $"Client '{client.ClientId}' was not found in realm '{client.Parent.Realm}'.");
 
-            ApplyJwtClientAuthDefaults(clientRep, client);
+            applyDefaults(clientRep);
 
             if (client.RedirectUrls.Count == 0)
             {
@@ -299,6 +367,48 @@ public static class KeycloakHostingExtensions
 
             clientRep.StandardFlowEnabled = true;
         });
+    }
+
+    private static void AddRedirectUrl(IKeycloakRedirectClient client, Uri url)
+    {
+        ArgumentNullException.ThrowIfNull(client);
+        ArgumentNullException.ThrowIfNull(url);
+
+        if (!client.RedirectUrls.Any(existing =>
+                string.Equals(existing.AbsoluteUri, url.AbsoluteUri, StringComparison.Ordinal)))
+        {
+            client.RedirectUrls.Add(url);
+        }
+    }
+
+    private static void AddLocalRedirectUris(
+        IKeycloakRedirectClient client,
+        IDistributedApplicationBuilder applicationBuilder,
+        string path)
+    {
+        ArgumentNullException.ThrowIfNull(client);
+        ArgumentNullException.ThrowIfNull(applicationBuilder);
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        if (!applicationBuilder.Environment.IsDevelopment())
+        {
+            return;
+        }
+
+        client.UseDevWebOriginWildcard = true;
+
+        foreach (var redirectUri in CreateLocalLoopbackRedirectUris(path))
+        {
+            AddRedirectUrl(client, redirectUri);
+        }
+    }
+
+    private static void ApplyOidcClientDefaults(ClientRepresentation client)
+    {
+        ArgumentNullException.ThrowIfNull(client);
+
+        client.Protocol = "openid-connect";
+        client.PublicClient = true;
     }
 
     private static IEnumerable<Uri> CreateLocalLoopbackRedirectUris(string path)

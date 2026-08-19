@@ -10,21 +10,25 @@ var apiClientSecret = builder.AddParameter("keycloak-api-client-secret", "secret
 
 var keycloak = builder.AddKeycloak("auth", adminPassword: password);
 
-var apiClient = keycloak
-    .AddRealm(r =>
-    {
-        r.Clients = new ConcurrentBag<ClientRepresentation>
-        {
-            new() { ClientId = "neox-spa", PublicClient = true, Enabled = true }
-        };
-    }, realm: "neox")
-    .WithOrganization("Acme", "acme.com")
+var realm = keycloak
+    .AddRealm(realm: "neox")
+    .WithOrganization("Acme", "acme.com");
+
+var apiClient = realm
     .AddJwtClient("api-client", "neox-api", apiClientSecret)
     .WithLocalRedirectUri("/swagger/oauth2-redirect.html");
+
+var spaClient = realm
+    .AddOidcClient("spa-client", "neox-spa")
+    .WithLocalRedirectUri("/");
 
 builder.AddProject<Projects.Api>("api")
     .WithReference(keycloak)
     .WithKeycloakJwtBearer(apiClient);
+
+builder.AddViteApp("spa", "../spa")
+    .WithReference(keycloak)
+    .WithKeycloakSpa(spaClient);
 ```
 
 In the API project, override `Authority` when using `Aspire.Keycloak.Authentication.AddKeycloakJwtBearer` (upstream defaults to `https+http://{serviceName}/realms/{realm}`):
@@ -47,13 +51,15 @@ builder.Services.AddAuthentication()
 
 `AddJwtClient` registers a confidential JWT client on the realm (realm JSON + child `KeycloakJwtClientResource`) with an `oidc-audience-mapper` so access tokens include the configured audience.
 
-`WithRedirectUrl(Uri)` accumulates exact OAuth2 redirect URIs and matching `webOrigins` (production or fixed-port dev URLs).
+`AddOidcClient` registers a public OIDC client on the realm (realm JSON + child `KeycloakOidcClientResource`) for browser/SPA auth code + PKCE flows. No client secret or audience mapper.
 
-`WithLocalRedirectUri(path)` (Development only) registers HTTP loopback redirect URIs without port (`127.0.0.1`, `localhost`, `[::1]`) so Keycloak accepts Aspire ephemeral ports, and adds `webOrigins: *` for Swagger CORS.
+`WithRedirectUrl(Uri)` on JWT or OIDC clients accumulates exact OAuth2 redirect URIs and matching `webOrigins` (production or fixed-port dev URLs).
+
+`WithLocalRedirectUri(path)` (Development only) registers HTTP loopback redirect URIs without port (`127.0.0.1`, `localhost`, `[::1]`) so Keycloak accepts Aspire ephemeral ports, and adds `webOrigins: *` for browser CORS.
 
 `WithKeycloakJwtBearer` projects `Keycloak__AuthServerUrl`, `Keycloak__Authority`, and related env vars from the Keycloak **HTTPS** endpoint (fallback HTTP), and `WaitFor`s Keycloak and the realm.
 
-`WithKeycloakSpa` is reserved for future SPA env projection; it is currently a no-op.
+`WithKeycloakSpa` projects `KEYCLOAK_URL`, `KEYCLOAK_REALM`, and `KEYCLOAK_CLIENT_ID` from the OIDC client and Keycloak endpoint, and `WaitFor`s Keycloak and the realm.
 
 ## See also
 

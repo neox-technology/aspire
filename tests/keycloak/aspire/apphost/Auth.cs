@@ -9,6 +9,7 @@ public static class Auth {
     public static IResourceBuilder<KeycloakResource> Keycloak { get; private set; } = null!;
     public static IResourceBuilder<KeycloakRealmResource> Realm { get; private set; } = null!;
     public static IResourceBuilder<KeycloakJwtClientResource> ApiClient { get; private set; } = null!;
+    public static IResourceBuilder<KeycloakOidcClientResource> SpaClient { get; private set; } = null!;
 
     public static void Configure(IDistributedApplicationBuilder builder) {
         var username = builder.AddParameter("keycloak-admin-username", "admin");
@@ -28,5 +29,10 @@ public static class Auth {
             ServiceNames.Auth.ApiClientId,
             apiClientSecret)
             .WithLocalRedirectUri("/swagger/oauth2-redirect.html");
+
+        SpaClient = Realm.AddOidcClient(
+            ServiceNames.Auth.SpaClient,
+            ServiceNames.Auth.SpaClientId)
+            .WithLocalRedirectUri("/");
     }
 }

@@ -1,5 +1,5 @@
 {
   "appHost": {
-    "path": "apphost.csproj"
+    "path": "Neox.Aspire.Hosting.Keycloak.Tests.AppHost.csproj"
   }
 }
