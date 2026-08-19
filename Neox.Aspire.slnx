@@ -10,6 +10,7 @@
     <Project Path="src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains/Neox.Aspire.Hosting.Azure.CustomDomains.csproj" />
     <Project Path="src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains.Generators.Internal/Neox.Aspire.Hosting.Azure.CustomDomains.Generators.Internal.csproj" />
     <Project Path="src/hosting/Neox.Aspire.Hosting.Azure.EntraId/Neox.Aspire.Hosting.Azure.EntraId.csproj" />
+    <Project Path="src/hosting/Neox.Aspire.Hosting.Keycloak/Neox.Aspire.Hosting.Keycloak.csproj" />
   </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/azure-custom-domains/">
@@ -36,6 +37,26 @@
   </Folder>
   <Folder Name="/tests/azure-entraid/src/spa/">
     <Project Path="tests/azure-entraid/src/spa/Neox.Aspire.Hosting.Azure.EntraId.Tests.Spa.esproj">
+      <Build />
+      <Deploy />
+    </Project>
+  </Folder>
+  <Folder Name="/tests/keycloak/">
+    <Project Path="tests/keycloak/Neox.Aspire.Hosting.Keycloak.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/keycloak/aspire/" />
+  <Folder Name="/tests/keycloak/aspire/apphost/">
+    <Project Path="tests/keycloak/aspire/apphost/Neox.Aspire.Hosting.Keycloak.Tests.AppHost.csproj" />
+  </Folder>
+  <Folder Name="/tests/keycloak/aspire/service-defaults/">
+    <Project Path="tests/keycloak/aspire/service-defaults/Neox.Aspire.Hosting.Keycloak.Tests.ServiceDefaults.csproj" />
+  </Folder>
+  <Folder Name="/tests/keycloak/src/" />
+  <Folder Name="/tests/keycloak/src/apis/">
+    <Project Path="tests/keycloak/src/apis/Neox.Aspire.Hosting.Keycloak.Tests.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/keycloak/src/spa/">
+    <Project Path="tests/keycloak/src/spa/Neox.Aspire.Hosting.Keycloak.Tests.Spa.esproj">
       <Build />
       <Deploy />
     </Project>

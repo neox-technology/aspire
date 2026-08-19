@@ -1,0 +1,3 @@
+<Project>
+  <!-- Keep Arcade Directory.Build.props from stamping a TFM onto JavaScript.Sdk (NU1012). -->
+</Project>
