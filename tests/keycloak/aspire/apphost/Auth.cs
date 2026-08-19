@@ -1,22 +1,15 @@
-using Neox.Aspire.Hosting.Keycloak;
+using Aspire.Hosting;
+using Aspire.Hosting.ApplicationModel;
 using Neox.Aspire.Hosting.Keycloak.Tests.ServiceDefaults;
 
 namespace Neox.Aspire.Hosting.Keycloak.Tests.AppHost;
 
 public static class Auth
 {
-    public static IResourceBuilder<KeycloakRealmResource> Realm { get; private set; } = null!;
+    public static IResourceBuilder<KeycloakResource> Keycloak { get; private set; } = null!;
 
     public static void Configure(IDistributedApplicationBuilder builder)
     {
-        var keycloakUrl = builder.Configuration["Keycloak:Url"] ?? "http://localhost:8080";
-        var clientSecret = builder.Configuration["Keycloak:ClientSecret"] ?? "change-me";
-
-        Realm = builder.AddKeycloakRealm(
-            ServiceNames.Auth.Realm,
-            "neox",
-            keycloakUrl,
-            ServiceNames.Auth.ClientId,
-            clientSecret);
+        Keycloak = builder.AddKeycloak(ServiceNames.Auth.Keycloak, 8080);
     }
 }

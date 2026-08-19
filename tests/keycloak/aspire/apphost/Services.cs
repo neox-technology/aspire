@@ -1,6 +1,5 @@
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
-using Neox.Aspire.Hosting.Keycloak;
 using Neox.Aspire.Hosting.Keycloak.Tests.ServiceDefaults;
 
 namespace Neox.Aspire.Hosting.Keycloak.Tests.AppHost;
@@ -14,6 +13,7 @@ public static class Services
         Api = builder
             .AddProject<Projects.Neox_Aspire_Hosting_Keycloak_Tests_Api>(ServiceNames.Services.Api)
             .WithExternalHttpEndpoints()
-            .WithKeycloakWebApi(Auth.Realm);
+            .WithReference(Auth.Keycloak)
+            .WaitFor(Auth.Keycloak);
     }
 }

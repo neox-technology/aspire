@@ -6,6 +6,7 @@ public static class ServiceNames
 
     public static class Auth
     {
+        public const string Keycloak = $"{AuthPrefix}-keycloak";
         public const string Realm = $"{AuthPrefix}-realm";
         public const string ClientId = "neox-spa";
         private const string AuthPrefix = $"{Prefix}-auth";

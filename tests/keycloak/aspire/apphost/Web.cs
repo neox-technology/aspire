@@ -1,6 +1,5 @@
 using Aspire.Hosting;
 using Aspire.Hosting.JavaScript;
-using Neox.Aspire.Hosting.Keycloak;
 using Neox.Aspire.Hosting.Keycloak.Tests.ServiceDefaults;
 
 namespace Neox.Aspire.Hosting.Keycloak.Tests.AppHost;
@@ -15,6 +14,6 @@ public static class Web
             .AddViteApp(ServiceNames.Web.Spa, "../../src/spa")
             .WithExternalHttpEndpoints()
             .WithReference(Services.Api)
-            .WithKeycloakSpa(Auth.Realm);
+            .WaitFor(Auth.Keycloak);
     }
 }
