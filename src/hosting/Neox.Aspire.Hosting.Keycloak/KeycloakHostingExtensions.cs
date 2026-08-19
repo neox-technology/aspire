@@ -222,6 +222,37 @@ public static class KeycloakHostingExtensions
         return builder;
     }
 
+    /// <summary>
+    /// Adds an <c>access_as_user</c> client scope with an audience mapper and assigns it as a default scope on the SPA client.
+    /// </summary>
+    public static IResourceBuilder<KeycloakOidcClientResource> WithApiAudience(
+        this IResourceBuilder<KeycloakOidcClientResource> builder,
+        string audience)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentException.ThrowIfNullOrWhiteSpace(audience);
+
+        var clientId = builder.Resource.ClientId;
+        MutateRealmJson(builder.Resource.Parent, representation =>
+        {
+            EnsureAccessAsUserScope(representation, audience);
+
+            var client = representation.Clients?.FirstOrDefault(c => c.ClientId == clientId);
+            if (client is null)
+            {
+                return;
+            }
+
+            client.DefaultClientScopes ??= [];
+            foreach (var scope in new[] { "access_as_user", "profile", "openid" })
+            {
+                client.DefaultClientScopes.GetOrAdd(existing => existing == scope, scope);
+            }
+        });
+
+        return builder;
+    }
+
     public static IResourceBuilder<TResource> WithKeycloakJwtBearer<TResource>(
         this IResourceBuilder<TResource> builder,
         IResourceBuilder<KeycloakJwtClientResource> jwtClient,
@@ -409,6 +440,61 @@ public static class KeycloakHostingExtensions
 
         client.Protocol = "openid-connect";
         client.PublicClient = true;
+    }
+
+    private static void EnsureAccessAsUserScope(RealmRepresentation representation, string audience)
+    {
+        ArgumentNullException.ThrowIfNull(representation);
+        ArgumentException.ThrowIfNullOrWhiteSpace(audience);
+
+        representation.ClientScopes ??= [];
+        var scope = representation.ClientScopes.GetOrAdd(
+            existing => existing.Name == "access_as_user",
+            new ClientScopeRepresentation
+            {
+                Name = "access_as_user",
+                Description = "Allow API access as the signed-in user.",
+                Protocol = "openid-connect",
+            });
+
+        scope.Attributes = new ConcurrentDictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["include.in.token.scope"] = "true",
+            ["display.on.consent.screen"] = "true",
+        };
+
+        scope.ProtocolMappers ??= [];
+        scope.ProtocolMappers.GetOrAdd(
+            mapper => mapper.Name == "audience",
+            new ProtocolMapperRepresentation
+            {
+                Name = "audience",
+                Protocol = "openid-connect",
+                ProtocolMapper = "oidc-audience-mapper",
+                Config = new ConcurrentDictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["included.client.audience"] = audience,
+                    ["access.token.claim"] = "true",
+                    ["id.token.claim"] = "false",
+                },
+            });
+        scope.ProtocolMappers.GetOrAdd(
+            mapper => mapper.Name == "preferred_username",
+            new ProtocolMapperRepresentation
+            {
+                Name = "preferred_username",
+                Protocol = "openid-connect",
+                ProtocolMapper = "oidc-usermodel-property-mapper",
+                Config = new ConcurrentDictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["user.attribute"] = "username",
+                    ["claim.name"] = "preferred_username",
+                    ["jsonType.label"] = "String",
+                    ["access.token.claim"] = "true",
+                    ["id.token.claim"] = "true",
+                    ["userinfo.token.claim"] = "true",
+                },
+            });
     }
 
     private static IEnumerable<Uri> CreateLocalLoopbackRedirectUris(string path)

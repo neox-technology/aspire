@@ -93,7 +93,11 @@ app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 app.MapGet("/me", [Authorize] (HttpContext context) =>
 {
-    var name = context.User.Identity?.Name ?? context.User.FindFirst("preferred_username")?.Value;
+    var name = context.User.Identity?.Name
+        ?? context.User.FindFirst("preferred_username")?.Value
+        ?? context.User.FindFirst("name")?.Value
+        ?? context.User.FindFirst("unique_name")?.Value
+        ?? context.User.FindFirst("sub")?.Value;
     return Results.Ok(new { name });
 });
 

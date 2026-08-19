@@ -307,6 +307,35 @@ public sealed class AddRealmTests
     }
 
     [Fact]
+    public void WithApiAudience_writes_access_as_user_scope_and_default_client_scopes()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var keycloak = CreateKeycloak(builder, "auth-oidc-audience");
+        var realm = keycloak.AddRealm(realm: "neox");
+        realm.AddOidcClient("spa-client", "neox-spa")
+            .WithApiAudience("neox-api");
+
+        using var document = ReadRealmJson(builder, "auth-oidc-audience", "neox");
+        var scope = document.RootElement.GetProperty("clientScopes")[0];
+        Assert.Equal("access_as_user", scope.GetProperty("name").GetString());
+        var mappers = scope.GetProperty("protocolMappers").EnumerateArray().ToArray();
+        Assert.Contains(
+            mappers,
+            mapper => mapper.GetProperty("name").GetString() == "audience"
+                && mapper.GetProperty("config").GetProperty("included.client.audience").GetString() == "neox-api");
+        Assert.Contains(
+            mappers,
+            mapper => mapper.GetProperty("name").GetString() == "preferred_username");
+
+        var client = document.RootElement.GetProperty("clients")[0];
+        var defaultScopes = client.GetProperty("defaultClientScopes")
+            .EnumerateArray()
+            .Select(element => element.GetString())
+            .ToArray();
+        Assert.Contains("access_as_user", defaultScopes);
+    }
+
+    [Fact]
     public void WithRedirectUrl_on_oidc_client_writes_redirect_uri()
     {
         var builder = DistributedApplication.CreateBuilder();

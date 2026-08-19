@@ -20,7 +20,7 @@ export function createKeycloakInitOptions() {
 
 export function createApiConfig(env = import.meta.env) {
   return {
-    baseUrl: env.VITE_API_BASE_URL ?? '',
+    baseUrl: env.API_BASE_URL ?? '',
   }
 }
 

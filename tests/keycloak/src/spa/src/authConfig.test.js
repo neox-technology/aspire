@@ -15,10 +15,10 @@ describe('KEYCLOAK_ env mapping', () => {
   })
 })
 
-describe('VITE_API_BASE_URL env mapping', () => {
-  it('maps VITE_API_BASE_URL', () => {
+describe('API_BASE_URL env mapping', () => {
+  it('maps API_BASE_URL', () => {
     const config = createApiConfig({
-      VITE_API_BASE_URL: 'http://localhost:5000',
+      API_BASE_URL: 'http://localhost:5000',
     })
 
     expect(config.baseUrl).toBe('http://localhost:5000')

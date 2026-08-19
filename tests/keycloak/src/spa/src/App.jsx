@@ -29,6 +29,10 @@ export default function App() {
     const client = createKeycloakClient(keycloakConfig)
 
     client.onAuthSuccess = () => setAuthenticated(true)
+    client.onAuthError = (error) => {
+      const message = error?.error ?? error?.error_description ?? 'Keycloak auth error'
+      setInitError(String(message))
+    }
     client.onAuthLogout = () => {
       setAuthenticated(false)
       setUserName(null)

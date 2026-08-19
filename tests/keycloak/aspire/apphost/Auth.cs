@@ -33,6 +33,7 @@ public static class Auth {
         SpaClient = Realm.AddOidcClient(
             ServiceNames.Auth.SpaClient,
             ServiceNames.Auth.SpaClientId)
-            .WithLocalRedirectUri("/");
+            .WithLocalRedirectUri("/")
+            .WithApiAudience(ServiceNames.Auth.ApiClientId);
     }
 }
