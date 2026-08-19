@@ -66,15 +66,86 @@ public sealed class AddRealmTests
     }
 
     [Fact]
-    public async Task WithKeycloakWebApi_is_stub()
+    public void AddJwtClient_registers_child_resource()
     {
         var builder = DistributedApplication.CreateBuilder();
         var keycloak = CreateKeycloak(builder, "auth");
         var realm = keycloak.AddRealm(realm: "neox");
-        var api = builder.AddContainer("api", "nginx").WithKeycloakWebApi(realm);
+        var secret = builder.AddParameter("api-secret", "secret", secret: true);
+        var jwtClient = realm.AddJwtClient("api-client", "neox-api", secret);
+
+        Assert.Equal("api-client", jwtClient.Resource.Name);
+        Assert.Same(realm.Resource, jwtClient.Resource.Parent);
+        Assert.Equal("neox-api", jwtClient.Resource.ClientId);
+        Assert.Equal("neox-api", jwtClient.Resource.Audience);
+        Assert.Same(keycloak.Resource, jwtClient.Resource.Keycloak);
+    }
+
+    [Fact]
+    public void AddJwtClient_writes_client_to_realm_json()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var keycloak = CreateKeycloak(builder, "auth-jwt");
+        var realm = keycloak.AddRealm(realm: "neox");
+        var secret = builder.AddParameter("api-secret", "secret", secret: true);
+        realm.AddJwtClient("api-client", "neox-api", secret);
+
+        using var document = ReadRealmJson(builder, "auth-jwt", "neox");
+        var clients = document.RootElement.GetProperty("clients");
+        Assert.Equal(1, clients.GetArrayLength());
+        Assert.Equal("neox-api", clients[0].GetProperty("clientId").GetString());
+        Assert.Equal("client-secret", clients[0].GetProperty("clientAuthenticatorType").GetString());
+        Assert.Equal("secret", clients[0].GetProperty("secret").GetString());
+    }
+
+    [Fact]
+    public async Task WithKeycloakJwtBearer_sets_environment()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var keycloak = CreateKeycloak(builder, "auth");
+        var realm = keycloak.AddRealm(realm: "neox");
+        var secret = builder.AddParameter("api-secret", "secret", secret: true);
+        var jwtClient = realm.AddJwtClient("api-client", "neox-api", secret);
+        var api = builder.AddContainer("api", "nginx").WithKeycloakJwtBearer(jwtClient);
 
         var env = await ResolveEnvironmentAsync(builder, api.Resource);
-        Assert.DoesNotContain(env.Keys, key => key.StartsWith("Keycloak__", StringComparison.Ordinal));
+        Assert.Equal("neox", env["Keycloak__Realm"]);
+        Assert.Equal("neox-api", env["Keycloak__ClientId"]);
+        Assert.Equal("neox-api", env["Keycloak__Audience"]);
+        Assert.Equal("auth", env["Keycloak__ServiceName"]);
+        Assert.True(env.ContainsKey("Keycloak__AuthServerUrl"));
+        Assert.Contains("/realms/neox", env["Keycloak__Authority"], StringComparison.Ordinal);
+        Assert.Contains("{api-secret.value}", env["Keycloak__ClientSecret"], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void WithKeycloakJwtBearer_waits_for_keycloak()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var keycloak = CreateKeycloak(builder, "auth");
+        var realm = keycloak.AddRealm(realm: "neox");
+        var secret = builder.AddParameter("api-secret", "secret", secret: true);
+        var jwtClient = realm.AddJwtClient("api-client", "neox-api", secret);
+        var api = builder.AddContainer("api", "nginx").WithKeycloakJwtBearer(jwtClient);
+
+        Assert.Contains(
+            api.Resource.Annotations.OfType<WaitAnnotation>(),
+            wait => ReferenceEquals(wait.Resource, keycloak.Resource));
+        Assert.Contains(
+            api.Resource.Annotations.OfType<WaitAnnotation>(),
+            wait => ReferenceEquals(wait.Resource, realm.Resource));
+    }
+
+    private static JsonDocument ReadRealmJson(
+        IDistributedApplicationBuilder builder,
+        string keycloakName,
+        string realm)
+    {
+        var importDirectory = Path.GetFullPath(
+            Path.Combine(".aspire", "keycloak-realms", keycloakName),
+            builder.AppHostDirectory);
+        var json = File.ReadAllText(Path.Combine(importDirectory, $"{realm}-realm.json"));
+        return JsonDocument.Parse(json);
     }
 
     private static IResourceBuilder<KeycloakResource> CreateKeycloak(
@@ -99,6 +170,7 @@ public sealed class AddRealmTests
                 values[pair.Key] = pair.Value switch
                 {
                     ReferenceExpression expression => expression.ValueExpression,
+                    ParameterResource parameter => parameter.ValueExpression,
                     _ => pair.Value?.ToString() ?? string.Empty
                 };
             }

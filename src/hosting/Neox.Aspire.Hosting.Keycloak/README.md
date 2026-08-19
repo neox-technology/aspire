@@ -1,15 +1,14 @@
 # Neox.Aspire.Hosting.Keycloak
 
 `Neox.Aspire.Hosting.Keycloak` extends upstream [`Aspire.Hosting.Keycloak`](https://aspire.dev/fr/integrations/security/keycloak/)
-with realm import helpers and (future) env projection for API and SPA resources.
+with realm import helpers and env projection for API and SPA resources.
 
 ## Quick Start
 
 ```csharp
-var database = builder.AddPostgres("postgres").AddDatabase("keycloakdb");
+var apiClientSecret = builder.AddParameter("keycloak-api-client-secret", "secret", secret: true);
 
 builder.AddKeycloak("auth", adminPassword: password)
-    .WithPostgres(database)
     .AddRealm(r =>
     {
         r.Clients = new ConcurrentBag<ClientRepresentation>
@@ -17,14 +16,21 @@ builder.AddKeycloak("auth", adminPassword: password)
             new() { ClientId = "neox-spa", PublicClient = true, Enabled = true }
         };
     }, realm: "neox")
-    .WithOrganization("Acme", "acme.com");
+    .WithOrganization("Acme", "acme.com")
+    .AddJwtClient("api-client", "neox-api", apiClientSecret);
+
+builder.AddProject<Projects.Api>("api")
+    .WithReference(keycloak)
+    .WithKeycloakJwtBearer(apiClient);
 ```
 
 `AddRealm` writes `.aspire/keycloak-realms/{keycloakName}/{realm}-realm.json` under the AppHost directory and wires upstream `WithRealmImport` once per Keycloak container.
 
 `WithOrganizations` enables the organizations feature on the realm JSON. `WithOrganization(name, domain)` adds an organization and domain idempotently (can be chained after `AddRealm`).
 
-`WithKeycloakWebApi` and `WithKeycloakSpa` are reserved for future env projection; they are currently no-ops.
+`AddJwtClient` registers a confidential JWT client on the realm (realm JSON + child `KeycloakJwtClientResource`). `WithKeycloakJwtBearer` projects `Keycloak__*` environment variables and `WaitFor`s Keycloak and the realm.
+
+`WithKeycloakSpa` is reserved for future SPA env projection; it is currently a no-op.
 
 ## See also
 

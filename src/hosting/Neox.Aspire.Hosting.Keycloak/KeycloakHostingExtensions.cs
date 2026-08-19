@@ -79,15 +79,87 @@ public static class KeycloakHostingExtensions
         return builder;
     }
 
-    public static IResourceBuilder<TResource> WithKeycloakWebApi<TResource>(
+    public static IResourceBuilder<KeycloakJwtClientResource> AddJwtClient(
+        this IResourceBuilder<KeycloakRealmResource> builder,
+        string name,
+        string clientId,
+        IResourceBuilder<ParameterResource> clientSecret,
+        string? audience = null)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        ArgumentException.ThrowIfNullOrWhiteSpace(clientId);
+        ArgumentNullException.ThrowIfNull(clientSecret);
+
+        audience ??= clientId;
+        var secretValue = ResolveParameterDefault(clientSecret.Resource);
+
+        MutateRealmJson(builder.Resource, representation =>
+        {
+            representation.Clients ??= [];
+            representation.Clients.GetOrAdd(
+                c => c.ClientId == clientId,
+                new ClientRepresentation
+                {
+                    ClientId = clientId,
+                    Enabled = true,
+                    PublicClient = false,
+                    BearerOnly = false,
+                    ClientAuthenticatorType = "client-secret",
+                    Secret = secretValue,
+                    StandardFlowEnabled = false,
+                    DirectAccessGrantsEnabled = false,
+                    ServiceAccountsEnabled = false,
+                });
+        });
+
+        var jwtClient = new KeycloakJwtClientResource(
+            name,
+            builder.Resource,
+            clientId,
+            clientSecret.Resource,
+            audience);
+        return builder.ApplicationBuilder.AddResource(jwtClient)
+            .ExcludeFromManifest();
+    }
+
+    public static IResourceBuilder<TResource> WithKeycloakJwtBearer<TResource>(
         this IResourceBuilder<TResource> builder,
-        IResourceBuilder<KeycloakRealmResource> realm,
+        IResourceBuilder<KeycloakJwtClientResource> jwtClient,
         string sectionName = "Keycloak__")
         where TResource : IResourceWithEnvironment, IResourceWithWaitSupport
     {
         ArgumentNullException.ThrowIfNull(builder);
-        ArgumentNullException.ThrowIfNull(realm);
+        ArgumentNullException.ThrowIfNull(jwtClient);
         ArgumentException.ThrowIfNullOrWhiteSpace(sectionName);
+
+        var client = jwtClient.Resource;
+        var realm = client.Parent;
+        var keycloak = client.Keycloak;
+        var keycloakBuilder = builder.ApplicationBuilder.CreateResourceBuilder(keycloak);
+        var realmBuilder = builder.ApplicationBuilder.CreateResourceBuilder(realm);
+        var authServerUrl = keycloakBuilder.GetEndpoint("http");
+
+        builder.WithEnvironment($"{sectionName}AuthServerUrl", authServerUrl);
+        builder.WithEnvironment($"{sectionName}Realm", realm.Realm);
+        builder.WithEnvironment(
+            $"{sectionName}Authority",
+            ReferenceExpression.Create($"{authServerUrl}/realms/{realm.Realm}"));
+        builder.WithEnvironment($"{sectionName}ClientId", client.ClientId);
+        builder.WithEnvironment($"{sectionName}Audience", client.Audience);
+        builder.WithEnvironment($"{sectionName}ClientSecret", client.ClientSecret);
+        builder.WithEnvironment($"{sectionName}ServiceName", keycloak.Name);
+
+        if (!builder.Resource.Annotations.OfType<WaitAnnotation>().Any(wait => ReferenceEquals(wait.Resource, keycloak)))
+        {
+            builder.WaitFor(keycloakBuilder);
+        }
+
+        if (!builder.Resource.Annotations.OfType<WaitAnnotation>().Any(wait => ReferenceEquals(wait.Resource, realm)))
+        {
+            builder.WaitFor(realmBuilder);
+        }
+
         return builder;
     }
 
@@ -120,6 +192,45 @@ public static class KeycloakHostingExtensions
     {
         representation.OrganizationsEnabled = true;
         representation.Organizations ??= [];
+    }
+
+    private static string ResolveParameterDefault(ParameterResource parameter)
+    {
+        ArgumentNullException.ThrowIfNull(parameter);
+
+        if (parameter.Default is not null)
+        {
+            try
+            {
+                var fromDefault = parameter.Default.GetDefaultValue();
+                if (!string.IsNullOrWhiteSpace(fromDefault))
+                {
+                    return fromDefault;
+                }
+            }
+            catch
+            {
+                // Ignore non-constant defaults at registration time.
+            }
+        }
+
+#pragma warning disable CS0618
+        try
+        {
+            var fromValue = parameter.Value;
+            if (!string.IsNullOrWhiteSpace(fromValue))
+            {
+                return fromValue;
+            }
+        }
+        catch
+        {
+            // Value throws when the parameter has no default and is unresolved.
+        }
+#pragma warning restore CS0618
+
+        throw new InvalidOperationException(
+            $"Parameter '{parameter.Name}' has no resolvable default value for realm import.");
     }
 
     private static void MutateRealmJson(

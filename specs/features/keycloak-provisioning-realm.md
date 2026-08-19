@@ -37,7 +37,7 @@ This package is not an Aspire hosting library. [`keycloak-hosting`](keycloak-hos
 
 ## Out of scope
 
-- Aspire hosting env projection (`WithKeycloakWebApi` / `WithKeycloakSpa` — owned by [`keycloak-hosting`](keycloak-hosting.md))
+- Aspire hosting env projection (`WithKeycloakJwtBearer` / `WithKeycloakSpa` — owned by [`keycloak-hosting`](keycloak-hosting.md))
 - Full Admin REST client / HTTP calls
 - Keycloak **beta** or undocumented endpoints
 - Automatic catalogue refresh in CI

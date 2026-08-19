@@ -8,7 +8,9 @@ public static class ServiceNames
     {
         public const string Keycloak = $"{AuthPrefix}-keycloak";
         public const string Realm = $"{AuthPrefix}-realm";
-        public const string ClientId = "neox-spa";
+        public const string ApiClient = $"{AuthPrefix}-api-client";
+        public const string ApiClientId = "neox-api";
+        public const string SpaClientId = "neox-spa";
         private const string AuthPrefix = $"{Prefix}-auth";
     }
 
