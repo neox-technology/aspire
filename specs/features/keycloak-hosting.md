@@ -64,6 +64,7 @@ See [`domain-glossary.md`](domain-glossary.md).
 | Package id | `Neox.Aspire.Hosting.Keycloak` |
 | Namespace | `Neox.Aspire.Hosting.Keycloak` |
 | Core types | `KeycloakRealmResource`, `KeycloakHostingExtensions` |
+| Upstream package | `Aspire.Hosting.Keycloak` $(AspireHostingKeycloakVersion) (preview; no stable $(AspireVersion) on nuget.org) |
 | Upstream doc | https://aspire.dev/fr/integrations/security/keycloak/ |
 | Unit tests | `tests/keycloak/Neox.Aspire.Hosting.Keycloak.Tests.csproj` |
 | Sample AppHost | `tests/keycloak/aspire/apphost/` |

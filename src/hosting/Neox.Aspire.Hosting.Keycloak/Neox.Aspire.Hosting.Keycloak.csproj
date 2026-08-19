@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <PackageReference Include="Aspire.Hosting" Version="$(AspireVersion)" />
+    <PackageReference Include="Aspire.Hosting.Keycloak" Version="$(AspireHostingKeycloakVersion)" />
   </ItemGroup>
 
   <ItemGroup>
