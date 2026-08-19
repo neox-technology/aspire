@@ -10,6 +10,12 @@ public static class Auth
 
     public static void Configure(IDistributedApplicationBuilder builder)
     {
-        Keycloak = builder.AddKeycloak(ServiceNames.Auth.Keycloak, 8080);
+        var username = builder.AddParameter("keycloak-admin-username", "admin");
+        var password = builder.AddParameter("keycloak-admin-password", "admin", secret: true);
+
+        Keycloak = builder.AddKeycloak(
+            ServiceNames.Auth.Keycloak,
+            adminUsername: username,
+            adminPassword: password);
     }
 }
