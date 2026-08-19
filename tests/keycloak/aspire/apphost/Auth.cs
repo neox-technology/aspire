@@ -22,6 +22,7 @@ public static class Auth {
 
         Realm = Keycloak.AddRealm();
         Realm.WithOrganization("neox", "neox-technology.com");
+
         ApiClient = Realm.AddJwtClient(
             ServiceNames.Auth.ApiClient,
             ServiceNames.Auth.ApiClientId,
