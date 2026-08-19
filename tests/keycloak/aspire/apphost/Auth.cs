@@ -9,16 +9,10 @@ public static class Auth {
         var username = builder.AddParameter("keycloak-admin-username", "admin");
         var password = builder.AddParameter("keycloak-admin-password", "admin", secret: true);
 
-        var database = Infrastructure.Postgres.AddDatabase(
-            ServiceNames.Databases.Keycloak,
-            "keycloakdb");
-
         Keycloak = builder.AddKeycloak(
                 ServiceNames.Auth.Keycloak,
                 adminUsername: username,
-                adminPassword: password)
-            .WithLifetime(ContainerLifetime.Persistent)
-            .WithPostgres(database);
+                adminPassword: password);
 
         var realm = Keycloak.AddRealm();
         var org = realm.WithOrganization("neox", "neox-technology.com");

@@ -4,16 +4,6 @@ public static class ServiceNames
 {
     public const string Prefix = "neox-keycloak";
 
-    public static class Infrastructure
-    {
-        public const string Postgres = $"{Prefix}-infrastructure-postgres";
-    }
-
-    public static class Databases
-    {
-        public const string Keycloak = $"{Prefix}-databases-keycloak";
-    }
-
     public static class Auth
     {
         public const string Keycloak = $"{AuthPrefix}-keycloak";
