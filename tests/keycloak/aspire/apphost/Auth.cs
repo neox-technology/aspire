@@ -26,6 +26,7 @@ public static class Auth {
         ApiClient = Realm.AddJwtClient(
             ServiceNames.Auth.ApiClient,
             ServiceNames.Auth.ApiClientId,
-            apiClientSecret);
+            apiClientSecret)
+            .WithRedirectUrl(new Uri("https://localhost/swagger/oauth2-redirect.html"));
     }
 }
