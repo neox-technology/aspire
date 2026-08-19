@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import ConnectionStub from './ConnectionStub.jsx'
-import { createKeycloakConfig } from './authConfig.js'
+import { createKeycloakConfig, isKeycloakConfigured } from './authConfig.js'
+import { getKeycloakUsername } from './keycloakClient.js'
 
 describe('KEYCLOAK_ env mapping', () => {
   it('maps KEYCLOAK_* variables', () => {
@@ -14,6 +15,7 @@ describe('KEYCLOAK_ env mapping', () => {
     expect(config.url).toBe('http://localhost:8080')
     expect(config.realm).toBe('neox')
     expect(config.clientId).toBe('neox-spa')
+    expect(isKeycloakConfigured(config)).toBe(true)
   })
 
   it('returns empty realm and clientId when env is missing', () => {
@@ -22,6 +24,7 @@ describe('KEYCLOAK_ env mapping', () => {
     expect(config.url).toBe('http://localhost:8080')
     expect(config.realm).toBe('')
     expect(config.clientId).toBe('')
+    expect(isKeycloakConfigured(config)).toBe(false)
   })
 
   it('derives authority from url and realm', () => {
@@ -34,6 +37,16 @@ describe('KEYCLOAK_ env mapping', () => {
     expect(`${config.url}/realms/${config.realm}`).toBe(
       'https://localhost:50938/realms/master',
     )
+  })
+})
+
+describe('getKeycloakUsername', () => {
+  it('prefers preferred_username from token', () => {
+    expect(
+      getKeycloakUsername({
+        tokenParsed: { preferred_username: 'demo', sub: 'id' },
+      }),
+    ).toBe('demo')
   })
 })
 
@@ -57,5 +70,46 @@ describe('ConnectionStub', () => {
     const html = renderToStaticMarkup(<ConnectionStub config={config} />)
 
     expect(html).toContain('missing config')
+  })
+
+  it('shows Sign in when configured and signed out', () => {
+    const config = createKeycloakConfig({
+      KEYCLOAK_URL: 'https://localhost:50938',
+      KEYCLOAK_REALM: 'master',
+      KEYCLOAK_CLIENT_ID: 'neox-spa',
+    })
+    const html = renderToStaticMarkup(
+      <ConnectionStub
+        config={config}
+        keycloak={{ login: () => {}, logout: () => {} }}
+        authenticated={false}
+      />,
+    )
+
+    expect(html).toContain('signed out')
+    expect(html).toContain('Sign in')
+  })
+
+  it('shows user and Sign out when authenticated', () => {
+    const config = createKeycloakConfig({
+      KEYCLOAK_URL: 'https://localhost:50938',
+      KEYCLOAK_REALM: 'master',
+      KEYCLOAK_CLIENT_ID: 'neox-spa',
+    })
+    const html = renderToStaticMarkup(
+      <ConnectionStub
+        config={config}
+        keycloak={{
+          login: () => {},
+          logout: () => {},
+          tokenParsed: { preferred_username: 'demo-user' },
+        }}
+        authenticated
+      />,
+    )
+
+    expect(html).toContain('signed in')
+    expect(html).toContain('demo-user')
+    expect(html).toContain('Sign out')
   })
 })

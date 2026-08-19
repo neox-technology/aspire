@@ -6,4 +6,16 @@ export function createKeycloakConfig(env = import.meta.env) {
   }
 }
 
+export function isKeycloakConfigured(config) {
+  return Boolean(config.realm && config.clientId)
+}
+
+export function createKeycloakInitOptions() {
+  return {
+    onLoad: 'check-sso',
+    pkceMethod: 'S256',
+    checkLoginIframe: false,
+  }
+}
+
 export const keycloakConfig = createKeycloakConfig()
