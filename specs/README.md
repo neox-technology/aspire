@@ -76,4 +76,5 @@ After creating or updating a feature, refresh the index below **and** the status
 | [`efcore-migration-worker`](features/efcore-migration-worker.md) | implemented | EF Core migration worker + Aspire xUnit harnesses (SqlServer/Postgres/MySQL/Oracle) |
 | [`azure-custom-domains`](features/azure-custom-domains.md) | implemented | ACA custom domain ops (OctoDNS-in-Docker, managed certs, `aspire do`) |
 | [`azure-entra-id`](features/azure-entra-id.md) | implemented | Shipping `AddAzureAppRegistration` + `WithSupportedAccountType` + `AddScope` + `AddAppRole` + `AddWebApplication` + `AddSpaApplication` + `WithPermission` + `AddCertificate` / `WithKeyCredential` + `EntraIdInstance` + `WithMicrosoftIdentityWebApplication` + `WithEntraIdSpaApplication` |
+| [`keycloak-hosting`](features/keycloak-hosting.md) | implemented | Shipping `AddKeycloakRealm` + `WithKeycloakWebApi` + `WithKeycloakSpa` and Keycloak sample harness under `tests/keycloak/` |
 | [`azure-provisioning-graph`](features/azure-provisioning-graph.md) | implemented | Shipping `Neox.Azure.Provisioning.Graph` — source-generated Graph Bicep constructs from msgraph-bicep-types v1.0/1.0.0 |
