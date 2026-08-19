@@ -348,10 +348,10 @@ public static class KeycloakRealmProvisioningCodeGen
     {
         var sb = new StringBuilder();
         AppendFileHeader(sb);
-        sb.Append("/// <summary>Polymorphic union for ").Append(EscapeXml(union.ContextSchemaName));
+        sb.Append("/// <summary>Polymorphic union for ").Append(EscapeXml(union.ContextSchemaName ?? string.Empty));
         if (!string.IsNullOrEmpty(union.PropertyJsonName))
         {
-            sb.Append('.').Append(EscapeXml(union.PropertyJsonName));
+            sb.Append('.').Append(EscapeXml(union.PropertyJsonName ?? string.Empty));
         }
 
         sb.AppendLine(".</summary>");
@@ -784,7 +784,7 @@ public static class KeycloakRealmProvisioningCodeGen
         }
 
         const string prefix = "#/components/schemas/";
-        if (!value.StartsWith(prefix, StringComparison.Ordinal))
+        if (value is null || !value.StartsWith(prefix, StringComparison.Ordinal))
         {
             return false;
         }

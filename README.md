@@ -7,6 +7,7 @@
 | [Neox.Aspire.EntityFrameworkCore.MigrationWorker](https://www.nuget.org/packages/Neox.Aspire.EntityFrameworkCore.MigrationWorker) | [![NuGet Downloads](https://img.shields.io/nuget/dt/Neox.Aspire.EntityFrameworkCore.MigrationWorker.svg)](https://www.nuget.org/packages/Neox.Aspire.EntityFrameworkCore.MigrationWorker) | [README](src/Neox.Aspire.EntityFrameworkCore.MigrationWorker/README.md) |
 | [Neox.Aspire.Hosting.Azure.CustomDomains](https://www.nuget.org/packages/Neox.Aspire.Hosting.Azure.CustomDomains) | [![NuGet Downloads](https://img.shields.io/nuget/dt/Neox.Aspire.Hosting.Azure.CustomDomains.svg)](https://www.nuget.org/packages/Neox.Aspire.Hosting.Azure.CustomDomains) | [README](src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains/README.md) |
 | [Neox.Azure.Provisioning.Graph](src/provisioning/Neox.Azure.Provisioning.Graph/README.md) | — | [README](src/provisioning/Neox.Azure.Provisioning.Graph/README.md) |
+| [Neox.Keycloak.Provisioning.Realm](src/provisioning/Neox.Keycloak.Provisioning.Realm/README.md) | — | [README](src/provisioning/Neox.Keycloak.Provisioning.Realm/README.md) |
 | [Neox.Aspire.Hosting.Azure.EntraId](src/hosting/Neox.Aspire.Hosting.Azure.EntraId/README.md) | — | [README](src/hosting/Neox.Aspire.Hosting.Azure.EntraId/README.md) |
 | [Neox.Aspire.Hosting.Keycloak](src/hosting/Neox.Aspire.Hosting.Keycloak/README.md) | — | [README](src/hosting/Neox.Aspire.Hosting.Keycloak/README.md) |
 
@@ -28,6 +29,7 @@ Pick a package and install from nuget.org (see the package README for usage):
 dotnet add package Neox.Aspire.EntityFrameworkCore.MigrationWorker
 dotnet add package Neox.Aspire.Hosting.Azure.CustomDomains
 dotnet add package Neox.Azure.Provisioning.Graph
+dotnet add package Neox.Keycloak.Provisioning.Realm
 dotnet add package Neox.Aspire.Hosting.Azure.EntraId
 dotnet add package Neox.Aspire.Hosting.Keycloak
 ```
@@ -37,6 +39,7 @@ dotnet add package Neox.Aspire.Hosting.Keycloak
 | [MigrationWorker](src/Neox.Aspire.EntityFrameworkCore.MigrationWorker/README.md) | `AddEfCoreMigrationService<TDbContext>()` |
 | [CustomDomains](src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains/README.md) | `AddDomainOpsProvider` + `WithAzureCustomDomainOps` |
 | [Azure.Provisioning.Graph](src/provisioning/Neox.Azure.Provisioning.Graph/README.md) | `GraphApplication` / `GraphServicePrincipal` (`Azure.Provisioning` constructs from msgraph-bicep-types) |
+| [Keycloak.Provisioning.Realm](src/provisioning/Neox.Keycloak.Provisioning.Realm/README.md) | `RealmRepresentation` / `ClientRepresentation` (Keycloak realm import JSON POCOs from Admin REST OpenAPI) |
 | [Azure.EntraId](src/hosting/Neox.Aspire.Hosting.Azure.EntraId/README.md) | `AddAzureAppRegistration` + `WithSupportedAccountType` / `AddScope` / `AddAppRole` / `AddWebApplication` / `AddSpaApplication` / `WithPermission` / `AddCertificate` / `WithKeyCredential` / `EntraIdInstance` / `WithMicrosoftIdentityWebApplication` / `WithEntraIdSpaApplication` (`AzureProvisioningResource` + Graph CDK) |
 | [Keycloak](src/hosting/Neox.Aspire.Hosting.Keycloak/README.md) | `AddKeycloakRealm` + `WithKeycloakWebApi` + `WithKeycloakSpa` |
 
@@ -61,6 +64,7 @@ See [`specs/README.md`](specs/README.md). Terminology: [`domain-glossary`](specs
 | Azure Entra ID hosting | Implemented ([`azure-entra-id`](specs/features/azure-entra-id.md)) — `AddAzureAppRegistration` + `AddScope` + `AddAppRole` + `AddWebApplication` + `AddSpaApplication` + `WithPermission` + `AddCertificate` / `WithKeyCredential` + `EntraIdInstance` + `WithMicrosoftIdentityWebApplication` + `WithEntraIdSpaApplication` |
 | Keycloak hosting | Implemented ([`keycloak-hosting`](specs/features/keycloak-hosting.md)) — `AddKeycloakRealm` + `WithKeycloakWebApi` + `WithKeycloakSpa`; harness runs upstream `AddKeycloak` container |
 | Azure.Provisioning Graph | Implemented ([`azure-provisioning-graph`](specs/features/azure-provisioning-graph.md)) — source-generated Graph Bicep constructs |
+| Keycloak realm provisioning | Implemented ([`keycloak-provisioning-realm`](specs/features/keycloak-provisioning-realm.md)) — source-generated realm POCOs from Keycloak OpenAPI 26.2.5 |
 
 ## Useful links
 
@@ -78,10 +82,11 @@ Packable libraries live under `src/`. Hosting packages use the `Neox.Aspire.Host
 | [`Neox.Aspire.EntityFrameworkCore.MigrationWorker`](src/Neox.Aspire.EntityFrameworkCore.MigrationWorker) | One-shot EF Core migration `BackgroundService` via `AddEfCoreMigrationService<TDbContext>()` |
 | [`Neox.Aspire.Hosting.Azure.CustomDomains`](src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains) | ACA custom domain ops (`WithAzureCustomDomainOps`, OctoDNS / managed certs via `aspire do`) |
 | [`Neox.Azure.Provisioning.Graph`](src/provisioning/Neox.Azure.Provisioning.Graph) | Graph Bicep `Azure.Provisioning` constructs (Shipping; source-generated from msgraph-bicep-types) |
+| [`Neox.Keycloak.Provisioning.Realm`](src/provisioning/Neox.Keycloak.Provisioning.Realm) | Keycloak realm import JSON POCOs (Shipping; source-generated from Keycloak Admin REST OpenAPI) |
 | [`Neox.Aspire.Hosting.Azure.EntraId`](src/hosting/Neox.Aspire.Hosting.Azure.EntraId) | Entra ID `AddAzureAppRegistration` + `AddWebApplication` + `AddSpaApplication` + `EntraIdInstance` + `WithMicrosoftIdentityWebApplication` + `WithEntraIdSpaApplication` + `WithPermission` + `AddCertificate` / `WithKeyCredential` (`AzureProvisioningResource`; Shipping) |
 | [`Neox.Aspire.Hosting.Keycloak`](src/hosting/Neox.Aspire.Hosting.Keycloak) | Keycloak `AddKeycloakRealm` + `WithKeycloakWebApi` + `WithKeycloakSpa` (env wiring; harness uses upstream `AddKeycloak`; Shipping) |
 
-Tests: [`tests/efcore-migration-worker/`](tests/efcore-migration-worker/) (Aspire harnesses, Docker), [`tests/azure-custom-domains/`](tests/azure-custom-domains/) (unit + sample AppHost), [`tests/azure-provisioning-graph/`](tests/azure-provisioning-graph/) (Graph CDK unit tests), [`tests/azure-entraid/`](tests/azure-entraid/) (unit tests + sample AppHost Auth group + stub API/SPA), and [`tests/keycloak/`](tests/keycloak/) (unit tests + sample AppHost with upstream Keycloak container + API/SPA auth config stub). Specs: [`specs/`](specs/README.md).
+Tests: [`tests/efcore-migration-worker/`](tests/efcore-migration-worker/) (Aspire harnesses, Docker), [`tests/azure-custom-domains/`](tests/azure-custom-domains/) (unit + sample AppHost), [`tests/azure-provisioning-graph/`](tests/azure-provisioning-graph/) (Graph CDK unit tests), [`tests/keycloak-provisioning/`](tests/keycloak-provisioning/) (Keycloak realm CDK unit tests), [`tests/azure-entraid/`](tests/azure-entraid/) (unit tests + sample AppHost Auth group + stub API/SPA), and [`tests/keycloak/`](tests/keycloak/) (unit tests + sample AppHost with upstream Keycloak container + API/SPA auth config stub). Specs: [`specs/`](specs/README.md).
 
 ### Build
 

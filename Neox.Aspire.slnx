@@ -5,6 +5,8 @@
   <Folder Name="/src/provisioning/">
     <Project Path="src/provisioning/Neox.Azure.Provisioning.Graph/Neox.Azure.Provisioning.Graph.csproj" />
     <Project Path="src/provisioning/Neox.Azure.Provisioning.Graph.Generators.Internal/Neox.Azure.Provisioning.Graph.Generators.Internal.csproj" />
+    <Project Path="src/provisioning/Neox.Keycloak.Provisioning.Realm/Neox.Keycloak.Provisioning.Realm.csproj" />
+    <Project Path="src/provisioning/Neox.Keycloak.Provisioning.Realm.Generators.Internal/Neox.Keycloak.Provisioning.Realm.Generators.Internal.csproj" />
   </Folder>
   <Folder Name="/src/hosting/">
     <Project Path="src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains/Neox.Aspire.Hosting.Azure.CustomDomains.csproj" />
@@ -40,6 +42,9 @@
       <Build />
       <Deploy />
     </Project>
+  </Folder>
+  <Folder Name="/tests/keycloak-provisioning/">
+    <Project Path="tests/keycloak-provisioning/Neox.Keycloak.Provisioning.Realm.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/keycloak/">
     <Project Path="tests/keycloak/Neox.Aspire.Hosting.Keycloak.Tests.csproj" />
@@ -113,5 +118,6 @@
   <Folder Name="/tools/">
     <Project Path="tools/octodns-provider-catalog/octodns-provider-catalog.csproj" />
     <Project Path="tools/msgraph-bicep-types-catalog/msgraph-bicep-types-catalog.csproj" />
+    <Project Path="tools/keycloak-realm-openapi-catalog/keycloak-realm-openapi-catalog.csproj" />
   </Folder>
 </Solution>

@@ -3,7 +3,7 @@
 | Field | Value |
 |-------|-------|
 | Slug | `keycloak-provisioning-realm` |
-| Status | defined |
+| Status | implemented |
 | Last code review | 2026-08-19 |
 
 ## Summary
@@ -45,15 +45,15 @@ This package is not an Aspire hosting library. Future [`keycloak-hosting`](keycl
 
 ## Acceptance criteria
 
-- [ ] Package `Neox.Keycloak.Provisioning.Realm` under `src/provisioning/Neox.Keycloak.Provisioning.Realm/` (`IsPackable=true`, `net10.0`).
-- [ ] Generator `Neox.Keycloak.Provisioning.Realm.Generators.Internal` (`IsPackable=false`) emits POCOs from AdditionalFiles `openapi.json`.
-- [ ] Projects listed in `Neox.Aspire.slnx` only.
-- [ ] `{paths.keycloakProvisioningRealm}` / `{aspire.packages.keycloakProvisioningRealm}` in `.cursor/rules/neox-rules.json`.
-- [ ] Checked-in `openapi.json` / `index.json` pin Keycloak **26.2.5**.
-- [ ] Public types include `RealmRepresentation`, `ClientRepresentation` with `ConcurrentBag` / `ConcurrentDictionary` collections.
-- [ ] `oneOf` unions emit interface + `JsonConverter` with round-trip tests.
-- [ ] Refresh tool `tools/keycloak-realm-openapi-catalog` can rewrite the snapshot.
-- [ ] xUnit tests under `tests/keycloak-provisioning/` (no live Keycloak).
+- [x] Package `Neox.Keycloak.Provisioning.Realm` under `src/provisioning/Neox.Keycloak.Provisioning.Realm/` (`IsPackable=true`, `net10.0`).
+- [x] Generator `Neox.Keycloak.Provisioning.Realm.Generators.Internal` (`IsPackable=false`) emits POCOs from AdditionalFiles `openapi.json`.
+- [x] Projects listed in `Neox.Aspire.slnx` only.
+- [x] `{paths.keycloakProvisioningRealm}` / `{aspire.packages.keycloakProvisioningRealm}` in `.cursor/rules/neox-rules.json`.
+- [x] Checked-in `openapi.json` / `index.json` pin Keycloak **26.2.5**.
+- [x] Public types include `RealmRepresentation`, `ClientRepresentation` with `ConcurrentBag` / `ConcurrentDictionary` collections.
+- [x] `oneOf` unions emit interface + `JsonConverter` with round-trip tests.
+- [x] Refresh tool `tools/keycloak-realm-openapi-catalog` can rewrite the snapshot.
+- [x] xUnit tests under `tests/keycloak-provisioning/` (no live Keycloak).
 
 ## Terminology
 
