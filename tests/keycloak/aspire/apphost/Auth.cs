@@ -13,9 +13,14 @@ public static class Auth
         var username = builder.AddParameter("keycloak-admin-username", "admin");
         var password = builder.AddParameter("keycloak-admin-password", "admin", secret: true);
 
+        var database = Infrastructure.Postgres.AddDatabase(
+            ServiceNames.Databases.Keycloak,
+            "keycloakdb");
+
         Keycloak = builder.AddKeycloak(
-            ServiceNames.Auth.Keycloak,
-            adminUsername: username,
-            adminPassword: password);
+                ServiceNames.Auth.Keycloak,
+                adminUsername: username,
+                adminPassword: password)
+            .WithPostgres(database);
     }
 }

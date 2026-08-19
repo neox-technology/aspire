@@ -10,6 +10,8 @@
   <ItemGroup>
     <PackageReference Include="Aspire.Hosting.JavaScript" Version="$(AspireVersion)" />
     <PackageReference Include="Aspire.Hosting.Keycloak" Version="$(AspireHostingKeycloakVersion)" />
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" Version="$(AspireVersion)" />
+    <PackageReference Include="CommunityToolkit.Aspire.Hosting.Keycloak.Extensions" Version="$(CommunityToolkitAspireHostingKeycloakExtensionsVersion)" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\..\src\hosting\Neox.Aspire.Hosting.Keycloak\Neox.Aspire.Hosting.Keycloak.csproj" IsAspireProjectResource="false" />

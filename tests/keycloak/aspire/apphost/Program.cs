@@ -8,6 +8,7 @@ public static class Program
     {
         var builder = DistributedApplication.CreateBuilder(args);
 
+        Infrastructure.Configure(builder);
         Auth.Configure(builder);
         Services.Configure(builder);
         Web.Configure(builder);
