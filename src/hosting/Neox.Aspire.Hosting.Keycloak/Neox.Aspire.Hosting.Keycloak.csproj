@@ -21,6 +21,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\provisioning\Neox.Keycloak.Provisioning.Realm\Neox.Keycloak.Provisioning.Realm.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="Neox.Aspire.Hosting.Keycloak.Tests" />
   </ItemGroup>
 </Project>

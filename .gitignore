@@ -364,6 +364,9 @@ MigrationBackup/
 deploy/k8s-artifacts/
 aspire-output/
 
+# Generated Keycloak realm import files (AddRealm)
+*-realm.json
+
 # Staging Helm values with secrets (use deploy/k8s/values.staging.template.yaml)
 deploy/k8s/values.staging.yaml
 deploy/k8s/values.*.yaml

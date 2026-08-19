@@ -1,25 +1,46 @@
+using System.Text.Json;
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
+using Neox.Keycloak.Provisioning.Realm;
 
 namespace Neox.Aspire.Hosting.Keycloak;
 
 public static class KeycloakHostingExtensions
 {
-    public static IResourceBuilder<KeycloakRealmResource> AddKeycloakRealm(
-        this IDistributedApplicationBuilder builder,
-        string name,
-        string realm,
-        string authServerUrl,
-        string? clientId = null,
-        string? clientSecret = null)
+    private const string RealmImportRelativeRoot = ".aspire/keycloak-realms";
+
+    public static IResourceBuilder<KeycloakRealmResource> AddRealm(
+        this IResourceBuilder<KeycloakResource> builder,
+        Action<RealmRepresentation>? configure = null,
+        string realm = "master")
     {
         ArgumentNullException.ThrowIfNull(builder);
-        ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(realm);
-        ArgumentException.ThrowIfNullOrWhiteSpace(authServerUrl);
 
-        var resource = new KeycloakRealmResource(name, realm, authServerUrl, clientId, clientSecret);
-        return builder.AddResource(resource)
+        var keycloak = builder.Resource;
+        var importDirectory = Path.GetFullPath(
+            Path.Combine(RealmImportRelativeRoot, keycloak.Name),
+            builder.ApplicationBuilder.AppHostDirectory);
+        Directory.CreateDirectory(importDirectory);
+
+        var representation = new RealmRepresentation
+        {
+            Realm = realm,
+            Enabled = true,
+        };
+        configure?.Invoke(representation);
+        representation.Realm = realm;
+
+        var realmFilePath = Path.Combine(importDirectory, $"{realm}-realm.json");
+        File.WriteAllText(
+            realmFilePath,
+            JsonSerializer.Serialize(representation, KeycloakRealmJsonOptions.Default));
+
+        EnsureRealmImport(builder, importDirectory);
+
+        var resourceName = $"{keycloak.Name}-{realm}";
+        var realmResource = new KeycloakRealmResource(resourceName, keycloak, realm, importDirectory);
+        return builder.ApplicationBuilder.AddResource(realmResource)
             .ExcludeFromManifest();
     }
 
@@ -32,28 +53,6 @@ public static class KeycloakHostingExtensions
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(realm);
         ArgumentException.ThrowIfNullOrWhiteSpace(sectionName);
-
-        var model = realm.Resource;
-        builder.WithEnvironment($"{sectionName}AuthServerUrl", model.AuthServerUrl);
-        builder.WithEnvironment($"{sectionName}Realm", model.Realm);
-        builder.WithEnvironment($"{sectionName}Authority", $"{model.AuthServerUrl}/realms/{model.Realm}");
-
-        if (!string.IsNullOrWhiteSpace(model.ClientId))
-        {
-            builder.WithEnvironment($"{sectionName}ClientId", model.ClientId);
-            builder.WithEnvironment($"{sectionName}Audience", model.ClientId);
-        }
-
-        if (model.ClientSecret is not null)
-        {
-            builder.WithEnvironment($"{sectionName}ClientSecret", model.ClientSecret);
-        }
-
-        if (!builder.Resource.Annotations.OfType<WaitAnnotation>().Any(wait => ReferenceEquals(wait.Resource, model)))
-        {
-            builder.WaitFor(realm);
-        }
-
         return builder;
     }
 
@@ -66,20 +65,19 @@ public static class KeycloakHostingExtensions
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(realm);
         ArgumentException.ThrowIfNullOrWhiteSpace(sectionName);
-
-        var model = realm.Resource;
-        builder.WithEnvironment($"{sectionName}URL", model.AuthServerUrl);
-        builder.WithEnvironment($"{sectionName}REALM", model.Realm);
-        if (!string.IsNullOrWhiteSpace(model.ClientId))
-        {
-            builder.WithEnvironment($"{sectionName}CLIENT_ID", model.ClientId);
-        }
-
-        if (!builder.Resource.Annotations.OfType<WaitAnnotation>().Any(wait => ReferenceEquals(wait.Resource, model)))
-        {
-            builder.WaitFor(realm);
-        }
-
         return builder;
+    }
+
+    private static void EnsureRealmImport(
+        IResourceBuilder<KeycloakResource> builder,
+        string importDirectory)
+    {
+        if (builder.Resource.Annotations.OfType<KeycloakRealmImportAnnotation>().Any())
+        {
+            return;
+        }
+
+        builder.Resource.Annotations.Add(new KeycloakRealmImportAnnotation(importDirectory));
+        builder.WithRealmImport(importDirectory);
     }
 }

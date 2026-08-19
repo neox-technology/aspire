@@ -10,7 +10,7 @@
 
 Shipping CDK package **`Neox.Keycloak.Provisioning.Realm`** under `src/provisioning/Neox.Keycloak.Provisioning.Realm/` exposes Keycloak Admin REST realm representation types as **source-generated** JSON POCOs (`RealmRepresentation`, `ClientRepresentation`, …). Types are generated at build time from a checked-in snapshot of the official Keycloak Admin REST OpenAPI (`openapi.json`, pin **26.2.5** from [Keycloak docs-api](https://www.keycloak.org/docs-api/26.2.5/rest-api/openapi.json)). The generator project is not packable. Builds do not fetch the network; refreshing the snapshot is a manual tool run.
 
-This package is not an Aspire hosting library. Future [`keycloak-hosting`](keycloak-hosting.md) integration will consume it for realm JSON generation and `WithRealmImport`.
+This package is not an Aspire hosting library. [`keycloak-hosting`](keycloak-hosting.md) consumes it via `AddRealm` for realm JSON generation and upstream `WithRealmImport`.
 
 ## User scenarios
 
@@ -32,12 +32,12 @@ This package is not an Aspire hosting library. Future [`keycloak-hosting`](keycl
 ## Dependencies
 
 - Arcade pack ([`nuget-org`](nuget-org.md)), terminology ([`domain-glossary`](domain-glossary.md)), repo identity ([`aspire-bootstrap`](aspire-bootstrap.md))
-- Future consumer hosting ([`keycloak-hosting`](keycloak-hosting.md))
+- [`keycloak-hosting`](keycloak-hosting.md) — consumer `AddRealm` hosting API
 - Official OpenAPI: [Keycloak Admin REST API](https://www.keycloak.org/docs-api/26.2.5/rest-api/) (generated from [keycloak/keycloak](https://github.com/keycloak/keycloak))
 
 ## Out of scope
 
-- Aspire hosting APIs (`AddKeycloakRealm`, `WithRealmImport` — owned by [`keycloak-hosting`](keycloak-hosting.md))
+- Aspire hosting env projection (`WithKeycloakWebApi` / `WithKeycloakSpa` — owned by [`keycloak-hosting`](keycloak-hosting.md))
 - Full Admin REST client / HTTP calls
 - Keycloak **beta** or undocumented endpoints
 - Automatic catalogue refresh in CI

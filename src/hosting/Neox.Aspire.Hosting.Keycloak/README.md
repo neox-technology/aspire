@@ -1,24 +1,27 @@
 # Neox.Aspire.Hosting.Keycloak
 
-`Neox.Aspire.Hosting.Keycloak` provides Aspire hosting extensions to inject
-Keycloak settings into API and SPA resources from a single model resource.
-
-This package references upstream [`Aspire.Hosting.Keycloak`](https://aspire.dev/fr/integrations/security/keycloak/)
-for future composition with the official Keycloak container resource. Neox helpers
-focus on env projection (`AddKeycloakRealm`, `WithKeycloakWebApi`, `WithKeycloakSpa`).
+`Neox.Aspire.Hosting.Keycloak` extends upstream [`Aspire.Hosting.Keycloak`](https://aspire.dev/fr/integrations/security/keycloak/)
+with realm import helpers and (future) env projection for API and SPA resources.
 
 ## Quick Start
 
 ```csharp
-var auth = builder.AddKeycloakRealm(
-    name: "auth",
-    realm: "neox",
-    authServerUrl: "http://localhost:8080",
-    clientId: "neox-spa");
+var database = builder.AddPostgres("postgres").AddDatabase("keycloakdb");
 
-builder.AddProject<Projects.Api>("api")
-    .WithKeycloakWebApi(auth);
+builder.AddKeycloak("auth", adminPassword: password)
+    .WithPostgres(database)
+    .AddRealm(r =>
+    {
+        r.Clients = new ConcurrentBag<ClientRepresentation>
+        {
+            new() { ClientId = "neox-spa", PublicClient = true, Enabled = true }
+        };
+    }, realm: "neox");
 ```
+
+`AddRealm` writes `.aspire/keycloak-realms/{keycloakName}/{realm}-realm.json` under the AppHost directory and wires upstream `WithRealmImport` once per Keycloak container.
+
+`WithKeycloakWebApi` and `WithKeycloakSpa` are reserved for future env projection; they are currently no-ops.
 
 ## See also
 

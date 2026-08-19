@@ -4,13 +4,12 @@ namespace Neox.Aspire.Hosting.Keycloak;
 
 public sealed class KeycloakRealmResource(
     string name,
+    KeycloakResource parent,
     string realm,
-    string authServerUrl,
-    string? clientId,
-    string? clientSecret) : Resource(name)
+    string importDirectory)
+    : Resource(name), IResourceWithParent<KeycloakResource>
 {
+    public KeycloakResource Parent { get; } = parent;
     public string Realm { get; } = realm;
-    public string AuthServerUrl { get; } = authServerUrl.TrimEnd('/');
-    public string? ClientId { get; } = clientId;
-    public string? ClientSecret { get; } = clientSecret;
+    public string ImportDirectory { get; } = importDirectory;
 }
