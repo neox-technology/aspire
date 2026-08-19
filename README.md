@@ -59,7 +59,7 @@ See [`specs/README.md`](specs/README.md). Terminology: [`domain-glossary`](specs
 | GitHub Actions | Absent from this tree ([`gitflow-ci`](specs/features/gitflow-ci.md), [`nuget-org`](specs/features/nuget-org.md)) |
 | NuGet packages | Shipping libraries in `src/`; local Arcade pack |
 | Azure Entra ID hosting | Implemented ([`azure-entra-id`](specs/features/azure-entra-id.md)) — `AddAzureAppRegistration` + `AddScope` + `AddAppRole` + `AddWebApplication` + `AddSpaApplication` + `WithPermission` + `AddCertificate` / `WithKeyCredential` + `EntraIdInstance` + `WithMicrosoftIdentityWebApplication` + `WithEntraIdSpaApplication` |
-| Keycloak hosting | Implemented ([`keycloak-hosting`](specs/features/keycloak-hosting.md)) — `AddKeycloakRealm` + `WithKeycloakWebApi` + `WithKeycloakSpa` |
+| Keycloak hosting | Implemented ([`keycloak-hosting`](specs/features/keycloak-hosting.md)) — `AddKeycloakRealm` + `WithKeycloakWebApi` + `WithKeycloakSpa`; harness runs upstream `AddKeycloak` container |
 | Azure.Provisioning Graph | Implemented ([`azure-provisioning-graph`](specs/features/azure-provisioning-graph.md)) — source-generated Graph Bicep constructs |
 
 ## Useful links
@@ -79,9 +79,9 @@ Packable libraries live under `src/`. Hosting packages use the `Neox.Aspire.Host
 | [`Neox.Aspire.Hosting.Azure.CustomDomains`](src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains) | ACA custom domain ops (`WithAzureCustomDomainOps`, OctoDNS / managed certs via `aspire do`) |
 | [`Neox.Azure.Provisioning.Graph`](src/provisioning/Neox.Azure.Provisioning.Graph) | Graph Bicep `Azure.Provisioning` constructs (Shipping; source-generated from msgraph-bicep-types) |
 | [`Neox.Aspire.Hosting.Azure.EntraId`](src/hosting/Neox.Aspire.Hosting.Azure.EntraId) | Entra ID `AddAzureAppRegistration` + `AddWebApplication` + `AddSpaApplication` + `EntraIdInstance` + `WithMicrosoftIdentityWebApplication` + `WithEntraIdSpaApplication` + `WithPermission` + `AddCertificate` / `WithKeyCredential` (`AzureProvisioningResource`; Shipping) |
-| [`Neox.Aspire.Hosting.Keycloak`](src/hosting/Neox.Aspire.Hosting.Keycloak) | Keycloak `AddKeycloakRealm` + `WithKeycloakWebApi` + `WithKeycloakSpa` (resource-model env wiring; Shipping) |
+| [`Neox.Aspire.Hosting.Keycloak`](src/hosting/Neox.Aspire.Hosting.Keycloak) | Keycloak `AddKeycloakRealm` + `WithKeycloakWebApi` + `WithKeycloakSpa` (env wiring; harness uses upstream `AddKeycloak`; Shipping) |
 
-Tests: [`tests/efcore-migration-worker/`](tests/efcore-migration-worker/) (Aspire harnesses, Docker), [`tests/azure-custom-domains/`](tests/azure-custom-domains/) (unit + sample AppHost), [`tests/azure-provisioning-graph/`](tests/azure-provisioning-graph/) (Graph CDK unit tests), [`tests/azure-entraid/`](tests/azure-entraid/) (unit tests + sample AppHost Auth group + stub API/SPA), and [`tests/keycloak/`](tests/keycloak/) (unit tests + sample AppHost + API/SPA auth config stub). Specs: [`specs/`](specs/README.md).
+Tests: [`tests/efcore-migration-worker/`](tests/efcore-migration-worker/) (Aspire harnesses, Docker), [`tests/azure-custom-domains/`](tests/azure-custom-domains/) (unit + sample AppHost), [`tests/azure-provisioning-graph/`](tests/azure-provisioning-graph/) (Graph CDK unit tests), [`tests/azure-entraid/`](tests/azure-entraid/) (unit tests + sample AppHost Auth group + stub API/SPA), and [`tests/keycloak/`](tests/keycloak/) (unit tests + sample AppHost with upstream Keycloak container + API/SPA auth config stub). Specs: [`specs/`](specs/README.md).
 
 ### Build
 
