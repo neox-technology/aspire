@@ -94,17 +94,10 @@ public static class KeycloakHostingExtensions
         audience ??= clientId;
         var secretValue = ResolveParameterDefault(clientSecret.Resource);
 
-        var jwtClient = new KeycloakJwtClientResource(
-            name,
-            builder.Resource,
-            clientId,
-            clientSecret.Resource,
-            audience);
-
         MutateRealmJson(builder.Resource, representation =>
         {
             representation.Clients ??= [];
-            var client = representation.Clients.GetOrAdd(
+            representation.Clients.GetOrAdd(
                 c => c.ClientId == clientId,
                 new ClientRepresentation
                 {
@@ -118,28 +111,16 @@ public static class KeycloakHostingExtensions
                     DirectAccessGrantsEnabled = false,
                     ServiceAccountsEnabled = false,
                 });
-            ApplyJwtClientAuthDefaults(client, jwtClient);
         });
 
+        var jwtClient = new KeycloakJwtClientResource(
+            name,
+            builder.Resource,
+            clientId,
+            clientSecret.Resource,
+            audience);
         return builder.ApplicationBuilder.AddResource(jwtClient)
             .ExcludeFromManifest();
-    }
-
-    public static IResourceBuilder<KeycloakJwtClientResource> WithRedirectUrl(
-        this IResourceBuilder<KeycloakJwtClientResource> builder,
-        Uri url)
-    {
-        ArgumentNullException.ThrowIfNull(builder);
-        ArgumentNullException.ThrowIfNull(url);
-
-        if (!builder.Resource.RedirectUrls.Any(existing =>
-                string.Equals(existing.AbsoluteUri, url.AbsoluteUri, StringComparison.Ordinal)))
-        {
-            builder.Resource.RedirectUrls.Add(url);
-        }
-
-        SyncJwtClientRealmJson(builder.Resource);
-        return builder;
     }
 
     public static IResourceBuilder<TResource> WithKeycloakJwtBearer<TResource>(
@@ -211,72 +192,6 @@ public static class KeycloakHostingExtensions
     {
         representation.OrganizationsEnabled = true;
         representation.Organizations ??= [];
-    }
-
-    private static void SyncJwtClientRealmJson(KeycloakJwtClientResource client)
-    {
-        ArgumentNullException.ThrowIfNull(client);
-
-        MutateRealmJson(client.Parent, representation =>
-        {
-            var clientRep = representation.Clients?.FirstOrDefault(c => c.ClientId == client.ClientId)
-                ?? throw new InvalidOperationException(
-                    $"Client '{client.ClientId}' was not found in realm '{client.Parent.Realm}'.");
-
-            ApplyJwtClientAuthDefaults(clientRep, client);
-
-            if (client.RedirectUrls.Count == 0)
-            {
-                return;
-            }
-
-            clientRep.RedirectUris ??= [];
-            clientRep.WebOrigins ??= [];
-            foreach (var redirectUrl in client.RedirectUrls)
-            {
-                var redirectUri = redirectUrl.AbsoluteUri;
-                clientRep.RedirectUris.GetOrAdd(u => u == redirectUri, redirectUri);
-
-                var origin = GetWebOrigin(redirectUrl);
-                clientRep.WebOrigins.GetOrAdd(o => o == origin, origin);
-            }
-
-            clientRep.StandardFlowEnabled = true;
-        });
-    }
-
-    private static void ApplyJwtClientAuthDefaults(
-        ClientRepresentation client,
-        KeycloakJwtClientResource resource)
-    {
-        ArgumentNullException.ThrowIfNull(client);
-        ArgumentNullException.ThrowIfNull(resource);
-
-        client.Protocol = "openid-connect";
-        client.ProtocolMappers ??= [];
-        client.ProtocolMappers.GetOrAdd(
-            mapper => mapper.Name == "audience",
-            new ProtocolMapperRepresentation
-            {
-                Name = "audience",
-                Protocol = "openid-connect",
-                ProtocolMapper = "oidc-audience-mapper",
-                Config = new ConcurrentDictionary<string, string>(StringComparer.Ordinal)
-                {
-                    ["included.client.audience"] = resource.Audience,
-                    ["access.token.claim"] = "true",
-                    ["id.token.claim"] = "false",
-                },
-            });
-    }
-
-    private static string GetWebOrigin(Uri url)
-    {
-        ArgumentNullException.ThrowIfNull(url);
-
-        return url.IsDefaultPort
-            ? $"{url.Scheme}://{url.Host}"
-            : $"{url.Scheme}://{url.Host}:{url.Port}";
     }
 
     private static string ResolveParameterDefault(ParameterResource parameter)
