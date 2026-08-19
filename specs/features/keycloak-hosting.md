@@ -33,6 +33,7 @@ The official Aspire integration ([Keycloak integration](https://aspire.dev/fr/in
 - [`domain-glossary`](domain-glossary.md)
 - [`aspire-bootstrap`](aspire-bootstrap.md)
 - [`azure-entra-id`](azure-entra-id.md)
+- [`keycloak-provisioning-realm`](keycloak-provisioning-realm.md) — realm JSON POCOs (future consumer for realm import)
 - Upstream integration: [Keycloak integration (Aspire)](https://aspire.dev/fr/integrations/security/keycloak/) — packages `Aspire.Hosting.Keycloak` (hosting) and `Aspire.Keycloak.Authentication` (client JWT/OIDC handlers; not consumed by Neox hosting yet)
 
 ## Out of scope

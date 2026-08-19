@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Neox.Keycloak.Provisioning.Realm</RootNamespace>
+    <IsPackable>true</IsPackable>
+    <SuppressFinalPackageVersion>true</SuppressFinalPackageVersion>
+    <Description>Keycloak realm representation POCOs (source-generated from Keycloak Admin REST OpenAPI).</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>keycloak;provisioning;realm;openapi</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <AdditionalFiles Include="generated\openapi.json" />
+    <None Include="generated\index.json" Pack="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Neox.Keycloak.Provisioning.Realm.Generators.Internal\Neox.Keycloak.Provisioning.Realm.Generators.Internal.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Neox.Keycloak.Provisioning.Realm.Tests" />
+  </ItemGroup>
+</Project>

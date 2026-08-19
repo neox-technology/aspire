@@ -7,7 +7,8 @@
     "customDomains": "src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains",
     "azureEntraId": "src/hosting/Neox.Aspire.Hosting.Azure.EntraId",
     "keycloak": "src/hosting/Neox.Aspire.Hosting.Keycloak",
-    "azureProvisioningGraph": "src/provisioning/Neox.Azure.Provisioning.Graph"
+    "azureProvisioningGraph": "src/provisioning/Neox.Azure.Provisioning.Graph",
+    "keycloakProvisioningRealm": "src/provisioning/Neox.Keycloak.Provisioning.Realm"
   },
   "specs": {
     "root": "specs",
@@ -22,7 +23,8 @@
       "customDomains": "Neox.Aspire.Hosting.Azure.CustomDomains",
       "azureEntraId": "Neox.Aspire.Hosting.Azure.EntraId",
       "keycloak": "Neox.Aspire.Hosting.Keycloak",
-      "azureProvisioningGraph": "Neox.Azure.Provisioning.Graph"
+      "azureProvisioningGraph": "Neox.Azure.Provisioning.Graph",
+      "keycloakProvisioningRealm": "Neox.Keycloak.Provisioning.Realm"
     }
   }
 }
