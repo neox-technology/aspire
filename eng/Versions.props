@@ -16,5 +16,8 @@
     <MicrosoftExtensionsHostingAbstractionsVersion>10.0.8</MicrosoftExtensionsHostingAbstractionsVersion>
     <!-- Arcade property (XUnitVersion); pins xunit.core / assert / runners -->
     <XUnitVersion>2.9.3</XUnitVersion>
+    <AzureProvisioningVersion>1.5.0</AzureProvisioningVersion>
+    <MicrosoftIdentityWebVersion>4.13.2</MicrosoftIdentityWebVersion>
+    <SwashbuckleAspNetCoreVersion>10.2.3</SwashbuckleAspNetCoreVersion>
   </PropertyGroup>
 </Project>

@@ -1,82 +1,64 @@
-# NuGet publish to nuget.org
+# NuGet pack (nuget.org identity)
 
 | Field | Value |
 |-------|-------|
 | Slug | `nuget-org` |
 | Status | defined |
-| Last code review | 2026-08-04 |
+| Last code review | 2026-08-16 |
 
 ## Summary
 
-Arcade pack/publish for Neox Aspire packages: **public** delivery to **nuget.org** via [Trusted Publishing](https://learn.microsoft.com/nuget/nuget-org/trusted-publishing) (GitHub Actions OIDC → short-lived API key with `NuGet/login@v1`) on `main`, and **private daily** validation builds to **GitHub Packages** on `release/**` before the public ship. Follows microsoft/aspire conventions (`-restore -build -pack`, `OfficialBuildId`, `StabilizePackageVersion` → `DotNetFinalVersionKind`). Packages are MIT-licensed (`PackageLicenseExpression`). Coexists with GitFlow automation ([`gitflow-ci`](gitflow-ci.md)). Release identity lives in `eng/Versions.props`, updated by start-release so shipping versions align with the git tag core.
+Arcade **local** pack for Neox Aspire packages. Public package ids historically ship on **nuget.org** (MIT, `PackageLicenseExpression`). **GitHub Actions publish is not in this tree**: no Trusted Publishing workflow, no daily GitHub Packages push. Follows microsoft/aspire versioning locally (`-restore -build -pack`, `StabilizePackageVersion` → `DotNetFinalVersionKind`). Release identity lives in `eng/Versions.props`. Coexists with the GitFlow **branch convention** ([`gitflow-ci`](gitflow-ci.md)).
 
 ## User scenarios
 
-- A contributor opens a PR targeting `develop` or `main`; CI builds, tests, and packs with `*-ci` versions and does **not** push NuGet.
-- A contributor pushes (or updates) a `release/**` branch; the publish workflow packs Shipping as `X.Y.Z-daily.{OfficialBuildId}` (forcing `PreReleaseVersionLabel=daily` and `StabilizePackageVersion=false` regardless of committed props) and pushes to the private GitHub Packages NuGet feed for pre-ship validation.
-- A PR merges to `main` (typically via GitFlow release/hotfix); the publish workflow packs with `OfficialBuildId`, exchanges an OIDC token for a temporary nuget.org API key, and pushes Shipping nupkgs (and snupkgs when present) using committed `Versions.props`.
-- A consumer installs packages from nuget.org with no private feed or PAT.
-- An internal validator installs a release-branch daily from GitHub Packages (`https://nuget.pkg.github.com/neox-technology/index.json`) with a GitHub credential that can read packages.
-- When `StabilizePackageVersion=true` on `main` (stable release / promote), packages stabilize to exact `X.Y.Z` via `DotNetFinalVersionKind=release`.
-- Preview releases on `main` keep `StabilizePackageVersion=false`: packages use Arcade’s date-based prerelease suffix with the release `VersionPrefix`.
+1. **Contributor packs locally** — Arcade restore/build/pack writes Shipping nupkgs (and snupkgs when present) under `artifacts/packages/`.
+2. **Consumer installs from nuget.org** — existing published packages remain installable; this tree does not push new versions until a publish workflow exists again.
+3. **Contributor sets preview vs stabilize** — edits `eng/Versions.props` (`VersionPrefix`, `PreReleaseVersionLabel`, `StabilizePackageVersion`).
 
-## Routes (if UI)
+## Business rules
 
-_N/A — CI / packaging._
+1. **Local pack** — `Build.cmd` / `eng/common/build.sh --pack` is the delivery path in this tree.
+2. **No publish workflows** — `.github/workflows/ci.yml` and `publish-nuget.yml` are absent. Do not treat nuget.org Trusted Publishing or GitHub Packages daily push as implemented here.
+3. **MIT** — root `LICENSE` + `PackageLicenseExpression=MIT`.
+4. **Shipping opt-in** — repo `IsPackable` default is false; Shipping projects opt in.
+5. **Daily label** — the Arcade `daily` prerelease label remains a **term** for a possible future `release/**` private feed; it is not produced by an in-repo workflow today.
 
 ## Dependencies
 
-- Arcade SDK (local `eng/common`, `Build.cmd` / `build.sh`)
-- GitHub Actions with `id-token: write` for OIDC (nuget.org) and `packages: write` (GitHub Packages)
-- nuget.org Trusted Publishing policy for this repository
-- Repo secret `NUGET_USER` (nuget.org profile name, not email)
-- `GITHUB_TOKEN` for GitHub Packages push on `release/**`
-- GitFlow branch model and Actions ([`gitflow-ci`](gitflow-ci.md))
+- [`aspire-bootstrap`](aspire-bootstrap.md) — repository identity and no-GHA rule
+- [`arcade-bootstrap`](arcade-bootstrap.md) — Arcade clone-and-build
+- [`gitflow-ci`](gitflow-ci.md) — branch convention
+- [`domain-glossary`](domain-glossary.md) — **Shipping**, **daily**
 
 ## Out of scope
 
+- Restoring GitHub Actions publish in this bootstrap
 - Long-lived nuget.org API keys stored as repo secrets
 - Azure Artifacts / dnceng / 1ES / BAR / MicroBuild signing
-- Publishing NuGet from `develop` or `hotfix/**` (daily is `release/**` only; public is `main` only)
-- WinGet / npm / CLI installer channels from microsoft/aspire
-- Replacing nuget.org as the public consumer channel
+- WinGet / npm / CLI installer channels
 
 ## Acceptance criteria
 
-- [x] Spec documents PR → `develop`/`main` CI (pack `*-ci`, no push), push `release/**` → daily GitHub Packages, and merge → `main` publish to nuget.org via Trusted Publishing.
-- [x] `Directory.Build.props` sets package metadata (`RepositoryUrl`, MIT via `PackageLicenseExpression`, symbols).
-- [x] Root `LICENSE` is MIT (SPDX).
-- [x] `eng/Versions.props` maps `StabilizePackageVersion=true` → `DotNetFinalVersionKind=release`.
-- [x] `.github/workflows/ci.yml` runs on `pull_request` to `develop` and `main` (build/test/pack, no push) and guards release/hotfix version alignment.
-- [x] `.github/workflows/publish-nuget.yml` on `main` (+ `workflow_dispatch` from main) uses `NuGet/login@v1` + `id-token: write` and pushes Shipping packages to `https://api.nuget.org/v3/index.json`.
-- [x] `.github/workflows/publish-nuget.yml` on `release/**` packs with `/p:StabilizePackageVersion=false` `/p:PreReleaseVersionLabel=daily` `/p:OfficialBuildId=…` and pushes Shipping to `https://nuget.pkg.github.com/neox-technology/index.json` with `GITHUB_TOKEN` (`packages: write`).
-- [x] README documents nuget.org consumption, Arcade versioning (including tag alignment), MIT license, and the private daily GitHub Packages feed for release-branch validation.
+- [x] Spec states local Arcade pack and that GHA publish is **not** in this tree
+- [x] `Directory.Build.props` sets package metadata (`RepositoryUrl`, MIT via `PackageLicenseExpression`, symbols)
+- [x] Root `LICENSE` is MIT (SPDX)
+- [x] `eng/Versions.props` maps `StabilizePackageVersion=true` → `DotNetFinalVersionKind=release`
+- [x] README documents local pack, MIT license, and nuget.org consumption of **already published** packages
+- [x] No `.github/workflows/` for CI or publish
+- [ ] GitHub Actions restore: PR CI pack (`*-ci`, no push), `release/**` daily GitHub Packages, `main` nuget.org Trusted Publishing
 
 ## Terminology
 
-See [`domain-glossary`](domain-glossary.md). **Daily** = Arcade prerelease label `daily` producing `X.Y.Z-daily.{OfficialBuildId}` for private pre-ship packages (not the public nuget.org identity).
+See [`domain-glossary`](domain-glossary.md). **Daily** = Arcade prerelease label `daily` producing `X.Y.Z-daily.{OfficialBuildId}` when that pipeline exists (not wired here).
 
 ## Implementation notes
 
 | Item | Path |
 |------|------|
-| CI workflow | `.github/workflows/ci.yml` |
-| Publish workflow | `.github/workflows/publish-nuget.yml` |
-| Package metadata | `Directory.Build.props` / `Directory.Build.targets` (repo URL, MIT `PackageLicenseExpression`, Neox copyright, symbols) |
+| CI / publish workflows | **Absent** |
+| Package metadata | `Directory.Build.props` / `Directory.Build.targets` |
 | License | Root `LICENSE` (MIT); NuGet `PackageLicenseExpression=MIT` |
-| Versions | `eng/Versions.props` (`VersionPrefix`, `PreReleaseVersionLabel`, `StabilizePackageVersion` → `DotNetFinalVersionKind`) |
-| Daily overrides | MSBuild `/p:StabilizePackageVersion=false` `/p:PreReleaseVersionLabel=daily` on `release/**` only |
-| Shipping packages | `src/Neox.Aspire.EntityFrameworkCore.MigrationWorker/`; `src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains/`; `src/hosting/Neox.Aspire.Hosting.Auth.Abstractions/`; `src/hosting/Neox.Aspire.Hosting.Auth.EntraId/` |
-| GitFlow version bump | [`gitflow-ci`](gitflow-ci.md) start-release commits `Versions.props` |
-| Secret | `NUGET_USER` — nuget.org profile name |
-| GitHub Packages | org `neox-technology`; auth `GITHUB_TOKEN` |
-
-### Trusted Publishing policy (manual on nuget.org)
-
-| Field | Value |
-|-------|-------|
-| Repository Owner | `neox-technology` |
-| Repository | `aspire` |
-| Workflow File | `publish-nuget.yml` |
-| Environment | _(empty)_ |
-| Owner | nuget.org account/org that owns the packages |
+| Versions | `eng/Versions.props` |
+| Shipping packages | `{paths}` in `.cursor/rules/neox-rules.json` |
+| GitFlow | [`gitflow-ci`](gitflow-ci.md) |

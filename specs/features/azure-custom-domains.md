@@ -26,6 +26,7 @@ None — `aspire do` pipeline steps only.
 ## Dependencies
 
 - Arcade pack/publish ([`nuget-org`](nuget-org.md)), terminology ([`domain-glossary`](domain-glossary.md))
+- Sibling Azure hosting ([`azure-entra-id`](azure-entra-id.md))
 - `Aspire.Hosting.Azure.AppContainers` (`ITokenCredentialProvider`), `Azure.ResourceManager.AppContainers`, YamlDotNet
 - Consumer/CI: Docker for OctoDNS images; Azure CLI binary not required for DomainOps ARM
 - Experimental `ConfigureCustomDomain` (`ASPIREACADOMAINS001`) remains consumer-owned

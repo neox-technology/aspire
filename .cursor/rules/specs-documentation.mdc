@@ -1,0 +1,22 @@
+---
+description: Document new features and keep cross-feature consistency
+globs: README.md,specs/**/*
+alwaysApply: true
+---
+
+# Specs documentation workflow
+
+Lire `.cursor/rules/neox-rules.json` pour les chemins projet (`specs.features`, `specs.featuresIndex`, `specs.glossaryOwner`, `docs.contentDir`, `paths.schemas`).
+
+When defining or updating a feature:
+
+1. **Read first** — `README.md` and every file in `{specs.features}/*.md` before writing.
+2. **Create or update** — `{specs.features}/<slug>.md` using the template in `{specs.featuresIndex}` (kebab-case slug).
+3. **Update index** — add or refresh the row in root `README.md` (link, status, short description).
+4. **Check consistency** across all feature specs:
+   - `Dependencies` ↔ related features (bidirectional where applicable)
+   - `Out of scope` — no overlapping ownership
+   - **Terminology** — align entity names, roles, and status values with linked specs (`Dependencies`). If `{specs.glossaryOwner}` is set, read `{specs.features}/{specs.glossaryOwner}.md` as the **terminological authority**; do not redefine those terms elsewhere without updating the owner spec. If `{docs.contentDir}` is set (hub or lib doc repo), catalog terms must match `{specs.glossaryOwner}` **and** schemas under `{paths.schemas}` or `{docs.hubSchemasBaseUrl}`.
+   - Acceptance criteria — no contradictions between features
+5. **Fix related docs** — if an inconsistency is found, update existing feature files, not only the new one.
+6. **No code** until the feature status is at least `defined`, unless the user explicitly requests implementation.

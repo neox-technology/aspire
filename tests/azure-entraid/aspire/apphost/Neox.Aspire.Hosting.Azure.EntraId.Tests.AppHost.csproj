@@ -1,0 +1,19 @@
+﻿<Project Sdk="Aspire.AppHost.Sdk/13.4.6">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>Neox.Aspire.Hosting.Azure.EntraId.Tests.AppHost</RootNamespace>
+    <UserSecretsId>22d1dbc1-29b4-4234-ae02-4b0bbb5ba71c</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.JavaScript" Version="$(AspireVersion)" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\..\src\hosting\Neox.Aspire.Hosting.Azure.EntraId\Neox.Aspire.Hosting.Azure.EntraId.csproj" IsAspireProjectResource="false" />
+    <ProjectReference Include="..\service-defaults\Neox.Aspire.Hosting.Azure.EntraId.Tests.ServiceDefaults.csproj" IsAspireProjectResource="false" />
+    <ProjectReference Include="..\..\src\apis\Neox.Aspire.Hosting.Azure.EntraId.Tests.Api.csproj" />
+  </ItemGroup>
+</Project>
