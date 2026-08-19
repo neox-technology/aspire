@@ -1,6 +1,4 @@
 using Neox.Aspire.Hosting.Keycloak.Tests.ServiceDefaults;
-using Neox.Keycloak.Provisioning.Realm;
-using System.Collections.Concurrent;
 
 namespace Neox.Aspire.Hosting.Keycloak.Tests.AppHost;
 
@@ -22,11 +20,7 @@ public static class Auth {
             .WithLifetime(ContainerLifetime.Persistent)
             .WithPostgres(database);
 
-        Keycloak.AddRealm(r => {
-            r.Clients = new ConcurrentBag<ClientRepresentation>
-            {
-                new() { ClientId = "neox-spa", PublicClient = true, Enabled = true }
-            };
-        });
+        var realm = Keycloak.AddRealm();
+        var org = realm.WithOrganization("neox", "neox-technology.com");
     }
 }
