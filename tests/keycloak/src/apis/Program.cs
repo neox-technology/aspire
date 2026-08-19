@@ -41,6 +41,18 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 builder.Services.AddAuthorization();
+
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddCors(options =>
+    {
+        options.AddDefaultPolicy(policy =>
+            policy.AllowAnyOrigin()
+                .AllowAnyHeader()
+                .AllowAnyMethod());
+    });
+}
+
 builder.Services.AddAuthentication()
     .AddKeycloakJwtBearer(
         serviceName: builder.Configuration["Keycloak:ServiceName"]!,
@@ -67,6 +79,11 @@ if (app.Environment.IsDevelopment())
         c.OAuthClientId(builder.Configuration["Keycloak:ClientId"]);
         c.OAuthClientSecret(builder.Configuration["Keycloak:ClientSecret"]);
     });
+}
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseCors();
 }
 
 app.UseAuthentication();

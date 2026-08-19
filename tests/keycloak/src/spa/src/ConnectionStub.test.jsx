@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import ConnectionStub from './ConnectionStub.jsx'
 import { createKeycloakConfig, isKeycloakConfigured } from './authConfig.js'
-import { getKeycloakUsername } from './keycloakClient.js'
 
 describe('KEYCLOAK_ env mapping', () => {
   it('maps KEYCLOAK_* variables', () => {
@@ -37,16 +36,6 @@ describe('KEYCLOAK_ env mapping', () => {
     expect(`${config.url}/realms/${config.realm}`).toBe(
       'https://localhost:50938/realms/master',
     )
-  })
-})
-
-describe('getKeycloakUsername', () => {
-  it('prefers preferred_username from token', () => {
-    expect(
-      getKeycloakUsername({
-        tokenParsed: { preferred_username: 'demo', sub: 'id' },
-      }),
-    ).toBe('demo')
   })
 })
 
@@ -90,7 +79,7 @@ describe('ConnectionStub', () => {
     expect(html).toContain('Sign in')
   })
 
-  it('shows user and Sign out when authenticated', () => {
+  it('shows user from /me and Sign out when authenticated', () => {
     const config = createKeycloakConfig({
       KEYCLOAK_URL: 'https://localhost:50938',
       KEYCLOAK_REALM: 'master',
@@ -102,14 +91,35 @@ describe('ConnectionStub', () => {
         keycloak={{
           login: () => {},
           logout: () => {},
-          tokenParsed: { preferred_username: 'demo-user' },
         }}
         authenticated
+        userName="demo-user"
       />,
     )
 
     expect(html).toContain('signed in')
     expect(html).toContain('demo-user')
     expect(html).toContain('Sign out')
+  })
+
+  it('shows loading while /me is in flight', () => {
+    const config = createKeycloakConfig({
+      KEYCLOAK_URL: 'https://localhost:50938',
+      KEYCLOAK_REALM: 'master',
+      KEYCLOAK_CLIENT_ID: 'neox-spa',
+    })
+    const html = renderToStaticMarkup(
+      <ConnectionStub
+        config={config}
+        keycloak={{
+          login: () => {},
+          logout: () => {},
+        }}
+        authenticated
+        userLoading
+      />,
+    )
+
+    expect(html).toContain('loading…')
   })
 })

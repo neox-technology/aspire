@@ -1,14 +1,14 @@
-import { getKeycloakUsername } from './keycloakClient.js'
-
 export default function ConnectionStub({
   config,
   keycloak = null,
   authenticated = false,
   initError = null,
+  userLoading = false,
+  userName = null,
+  userError = null,
 }) {
   const authority = `${config.url}/realms/${config.realm}`
   const configured = Boolean(config.realm && config.clientId)
-  const username = getKeycloakUsername(keycloak)
 
   return (
     <main>
@@ -29,13 +29,14 @@ export default function ConnectionStub({
             {authenticated ? (
               <>
                 <dt>User</dt>
-                <dd>{username ?? '—'}</dd>
+                <dd>{userLoading ? 'loading…' : (userName ?? '—')}</dd>
               </>
             ) : null}
           </>
         ) : null}
       </dl>
       {initError ? <p role="alert">{initError}</p> : null}
+      {userError ? <p role="alert">{userError}</p> : null}
       {configured && keycloak ? (
         authenticated ? (
           <button type="button" onClick={() => keycloak.logout()}>

@@ -14,6 +14,7 @@ public static class Web
             .AddViteApp(ServiceNames.Web.Spa, "../../src/spa")
             .WithExternalHttpEndpoints()
             .WithReference(Services.Api)
+            .WithEnvironment("VITE_API_BASE_URL", Services.Api.GetEndpoint("http"))
             .WithReference(Auth.Keycloak)
             .WithKeycloakSpa(Auth.SpaClient)
             .WaitFor(Auth.Keycloak);

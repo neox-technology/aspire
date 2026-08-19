@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import { fetchMe } from './apiClient.js'
 import ConnectionStub from './ConnectionStub.jsx'
 import {
+  apiConfig,
   createKeycloakInitOptions,
+  isApiConfigured,
   isKeycloakConfigured,
   keycloakConfig,
 } from './authConfig.js'
@@ -12,6 +15,9 @@ export default function App() {
   const [authenticated, setAuthenticated] = useState(false)
   const [keycloak, setKeycloak] = useState(null)
   const [initError, setInitError] = useState(null)
+  const [userLoading, setUserLoading] = useState(false)
+  const [userName, setUserName] = useState(null)
+  const [userError, setUserError] = useState(null)
   const initStarted = useRef(false)
 
   useEffect(() => {
@@ -23,7 +29,11 @@ export default function App() {
     const client = createKeycloakClient(keycloakConfig)
 
     client.onAuthSuccess = () => setAuthenticated(true)
-    client.onAuthLogout = () => setAuthenticated(false)
+    client.onAuthLogout = () => {
+      setAuthenticated(false)
+      setUserName(null)
+      setUserError(null)
+    }
     client.onAuthRefreshSuccess = () => setAuthenticated(true)
     client.onTokenExpired = () => {
       client.updateToken(30).catch(() => client.logout())
@@ -43,6 +53,43 @@ export default function App() {
       })
   }, [])
 
+  useEffect(() => {
+    if (!authenticated || !keycloak || !isApiConfigured(apiConfig)) {
+      setUserLoading(false)
+      setUserName(null)
+      setUserError(null)
+      return
+    }
+
+    let cancelled = false
+    setUserLoading(true)
+    setUserError(null)
+
+    keycloak
+      .updateToken(30)
+      .then(() => fetchMe(apiConfig.baseUrl, keycloak.token))
+      .then((profile) => {
+        if (!cancelled) {
+          setUserName(profile.name ?? null)
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) {
+          setUserName(null)
+          setUserError(error instanceof Error ? error.message : String(error))
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setUserLoading(false)
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [authenticated, keycloak])
+
   if (!ready) {
     return (
       <main>
@@ -58,6 +105,9 @@ export default function App() {
       keycloak={keycloak}
       authenticated={authenticated}
       initError={initError}
+      userLoading={userLoading}
+      userName={userName}
+      userError={userError}
     />
   )
 }

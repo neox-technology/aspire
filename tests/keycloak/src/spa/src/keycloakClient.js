@@ -7,11 +7,3 @@ export function createKeycloakClient(config) {
     clientId: config.clientId,
   })
 }
-
-export function getKeycloakUsername(keycloak) {
-  if (!keycloak?.tokenParsed) {
-    return null
-  }
-
-  return keycloak.tokenParsed.preferred_username ?? keycloak.tokenParsed.sub ?? null
-}

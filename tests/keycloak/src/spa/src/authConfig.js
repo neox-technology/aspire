@@ -18,4 +18,15 @@ export function createKeycloakInitOptions() {
   }
 }
 
+export function createApiConfig(env = import.meta.env) {
+  return {
+    baseUrl: env.VITE_API_BASE_URL ?? '',
+  }
+}
+
+export function isApiConfigured(config) {
+  return Boolean(config.baseUrl)
+}
+
 export const keycloakConfig = createKeycloakConfig()
+export const apiConfig = createApiConfig()
