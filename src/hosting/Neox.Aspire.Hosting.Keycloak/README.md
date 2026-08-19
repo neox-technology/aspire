@@ -17,7 +17,8 @@ builder.AddKeycloak("auth", adminPassword: password)
         };
     }, realm: "neox")
     .WithOrganization("Acme", "acme.com")
-    .AddJwtClient("api-client", "neox-api", apiClientSecret);
+    .AddJwtClient("api-client", "neox-api", apiClientSecret)
+    .WithRedirectUrl(new Uri("https://localhost/swagger/oauth2-redirect.html"));
 
 builder.AddProject<Projects.Api>("api")
     .WithReference(keycloak)
@@ -28,7 +29,7 @@ builder.AddProject<Projects.Api>("api")
 
 `WithOrganizations` enables the organizations feature on the realm JSON. `WithOrganization(name, domain)` adds an organization and domain idempotently (can be chained after `AddRealm`).
 
-`AddJwtClient` registers a confidential JWT client on the realm (realm JSON + child `KeycloakJwtClientResource`). `WithKeycloakJwtBearer` projects `Keycloak__*` environment variables and `WaitFor`s Keycloak and the realm.
+`AddJwtClient` registers a confidential JWT client on the realm (realm JSON + child `KeycloakJwtClientResource`) with an `oidc-audience-mapper` so access tokens include the configured audience. `WithRedirectUrl` accumulates OAuth2 redirect URIs and web origins for Swagger or web clients (enables standard flow). `WithKeycloakJwtBearer` projects `Keycloak__*` environment variables and `WaitFor`s Keycloak and the realm.
 
 `WithKeycloakSpa` is reserved for future SPA env projection; it is currently a no-op.
 

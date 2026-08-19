@@ -64,6 +64,7 @@ if (app.Environment.IsDevelopment())
     {
         c.SwaggerEndpoint("v1/swagger.json", "v1");
         c.OAuthClientId(builder.Configuration["Keycloak:ClientId"]);
+        c.OAuthClientSecret(builder.Configuration["Keycloak:ClientSecret"]);
     });
 }
 

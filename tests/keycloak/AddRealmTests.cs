@@ -136,6 +136,82 @@ public sealed class AddRealmTests
             wait => ReferenceEquals(wait.Resource, realm.Resource));
     }
 
+    [Fact]
+    public void AddJwtClient_writes_audience_protocol_mapper()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var keycloak = CreateKeycloak(builder, "auth-mapper");
+        var realm = keycloak.AddRealm(realm: "neox");
+        var secret = builder.AddParameter("api-secret", "secret", secret: true);
+        realm.AddJwtClient("api-client", "neox-api", secret);
+
+        using var document = ReadRealmJson(builder, "auth-mapper", "neox");
+        var client = document.RootElement.GetProperty("clients")[0];
+        var mappers = client.GetProperty("protocolMappers");
+        Assert.Equal(1, mappers.GetArrayLength());
+
+        var audienceMapper = mappers[0];
+        Assert.Equal("audience", audienceMapper.GetProperty("name").GetString());
+        Assert.Equal("oidc-audience-mapper", audienceMapper.GetProperty("protocolMapper").GetString());
+        Assert.Equal(
+            "neox-api",
+            audienceMapper.GetProperty("config").GetProperty("included.client.audience").GetString());
+    }
+
+    [Fact]
+    public void WithRedirectUrl_writes_redirect_uri_to_realm_json()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var keycloak = CreateKeycloak(builder, "auth-redirect");
+        var realm = keycloak.AddRealm(realm: "neox");
+        var secret = builder.AddParameter("api-secret", "secret", secret: true);
+        var redirectUri = new Uri("https://localhost/swagger/oauth2-redirect.html");
+        realm.AddJwtClient("api-client", "neox-api", secret)
+            .WithRedirectUrl(redirectUri);
+
+        using var document = ReadRealmJson(builder, "auth-redirect", "neox");
+        var client = document.RootElement.GetProperty("clients")[0];
+        Assert.True(client.GetProperty("standardFlowEnabled").GetBoolean());
+        Assert.Contains(
+            redirectUri.AbsoluteUri,
+            client.GetProperty("redirectUris").EnumerateArray().Select(element => element.GetString()));
+    }
+
+    [Fact]
+    public void WithRedirectUrl_writes_web_origin()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var keycloak = CreateKeycloak(builder, "auth-origin");
+        var realm = keycloak.AddRealm(realm: "neox");
+        var secret = builder.AddParameter("api-secret", "secret", secret: true);
+        realm.AddJwtClient("api-client", "neox-api", secret)
+            .WithRedirectUrl(new Uri("https://localhost/swagger/oauth2-redirect.html"));
+
+        using var document = ReadRealmJson(builder, "auth-origin", "neox");
+        var client = document.RootElement.GetProperty("clients")[0];
+        Assert.Contains(
+            "https://localhost",
+            client.GetProperty("webOrigins").EnumerateArray().Select(element => element.GetString()));
+    }
+
+    [Fact]
+    public void WithRedirectUrl_is_idempotent_for_duplicate_calls()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var keycloak = CreateKeycloak(builder, "auth-redirect-idempotent");
+        var realm = keycloak.AddRealm(realm: "neox");
+        var secret = builder.AddParameter("api-secret", "secret", secret: true);
+        var redirectUri = new Uri("https://localhost/swagger/oauth2-redirect.html");
+        var jwtClient = realm.AddJwtClient("api-client", "neox-api", secret);
+        jwtClient.WithRedirectUrl(redirectUri);
+        jwtClient.WithRedirectUrl(redirectUri);
+
+        using var document = ReadRealmJson(builder, "auth-redirect-idempotent", "neox");
+        var client = document.RootElement.GetProperty("clients")[0];
+        Assert.Equal(1, client.GetProperty("redirectUris").GetArrayLength());
+        Assert.Equal(1, client.GetProperty("webOrigins").GetArrayLength());
+    }
+
     private static JsonDocument ReadRealmJson(
         IDistributedApplicationBuilder builder,
         string keycloakName,
