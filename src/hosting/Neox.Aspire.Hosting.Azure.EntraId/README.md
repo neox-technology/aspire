@@ -154,6 +154,22 @@ Set the secret locally with `dotnet user-secrets set "Parameters:api-cert-thumbp
 
 Never upload the PFX or private key to Entra. Existing applications omit `keyCredentials` (same as scopes / roles). Graph `keyCredentials` replaces the whole collection: every `WithKeyCredential` on the model is emitted together.
 
+### Client secrets (`WithSecret`)
+
+Graph Bicep cannot create `passwordCredentials`. `WithSecret` binds a secret `ParameterResource`; after ARM provisions (or resolves) the app registration, **run mode** calls Graph REST `addPassword`, fills the parameter, and persists `Parameters:{name}` to AppHost user secrets when missing. Re-runs reuse an existing config/user-secret value (no second `addPassword`). Does not emit Bicep `passwordCredentials`. Wire consumers with `WaitFor` the registration then `WithEnvironment`.
+
+```csharp
+var secret = builder.AddParameter("api-client-secret", secret: true);
+var api = builder.AddAzureAppRegistration("api")
+    .WithSecret(secret);
+
+builder.AddProject<Projects.Api>("api")
+    .WaitFor(api)
+    .WithEnvironment("AzureAd__ClientSecret", secret);
+```
+
+Requires Microsoft Graph **`Application.ReadWrite.All`** (same as app registration deploy).
+
 ### Existing applications
 
 Aspire 13.4.6 `RunAsExisting` / `PublishAsExisting` / `AsExisting` apply. The annotation **name** is the Graph `uniqueName` (not an ARM resource name). Omit resource group (tenant object; ARM resource-group deployment is only the vehicle).
@@ -172,7 +188,7 @@ Same local provisioning settings as other Aspire Azure resources:
 - `Azure:Location`
 - `Azure:ResourceGroup`
 
-The deploying identity also needs Microsoft Graph **`Application.ReadWrite.All`**. Resource-group Contributor is not enough.
+The deploying identity also needs Microsoft Graph **`Application.ReadWrite.All`**. Resource-group Contributor is not enough. The same Graph permission covers run-mode `WithSecret` (`addPassword`).
 
 ## Sample AppHost
 

@@ -611,6 +611,50 @@ public static class AzureEntraIdHostingExtensions
 
         return builder;
     }
+
+    /// <summary>
+    /// Binds a secret <see cref="ParameterResource"/> to this app registration. After ARM
+    /// provisions (or resolves) the application, run-mode <c>OnResourceReady</c> calls Graph
+    /// <c>addPassword</c>, fills the parameter, and persists <c>Parameters:{name}</c> to
+    /// AppHost user secrets when missing. Does not emit Bicep <c>passwordCredentials</c>.
+    /// </summary>
+    public static IResourceBuilder<AzureEntraIdAppRegistrationResource> WithSecret(
+        this IResourceBuilder<AzureEntraIdAppRegistrationResource> builder,
+        IResourceBuilder<ParameterResource> secret)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(secret);
+
+        var parameter = secret.Resource;
+        if (!parameter.Secret)
+        {
+            throw new ArgumentException(
+                $"Parameter '{parameter.Name}' must be created with secret: true to use WithSecret.",
+                nameof(secret));
+        }
+
+        if (builder.Resource.ClientSecrets.Exists(existing => ReferenceEquals(existing, parameter)))
+        {
+            throw new ArgumentException(
+                $"Client secret parameter '{parameter.Name}' is already defined on '{builder.Resource.Name}'.",
+                nameof(secret));
+        }
+
+        EntraIdClientSecretLifecycle.EnsureDeferredEmptyDefault(parameter);
+        builder.Resource.ClientSecrets.Add(parameter);
+
+        if (!builder.Resource.TryGetLastAnnotation<EntraIdClientSecretReadyAnnotation>(out _))
+        {
+            builder.WithAnnotation(new EntraIdClientSecretReadyAnnotation());
+            builder.OnResourceReady(async (app, evt, ct) =>
+            {
+                await EntraIdClientSecretLifecycle.OnAppRegistrationReadyAsync(app, evt, ct)
+                    .ConfigureAwait(false);
+            });
+        }
+
+        return builder;
+    }
 }
 
 internal sealed class AzureEntraIdRedirectUrisAnnotation : IResourceAnnotation
