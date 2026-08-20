@@ -4,7 +4,7 @@
 |-------|-------|
 | Slug | `azure-entra-id` |
 | Status | implemented |
-| Last code review | 2026-08-17 |
+| Last code review | 2026-08-20 |
 
 ## Summary
 
@@ -132,9 +132,9 @@ The public hosting API is **`AddAzureAppRegistration`** (`AzureProvisioningResou
 - [x] Package README documents `AddSpaApplication`, `WithRedirectUri(Uri)` on the SPA child, and `WithEntraIdSpaApplication`.
 - [x] `EntraIdInstance.Workforce` injects `https://login.microsoftonline.com/`; `EntraIdInstance.Ciam(string)` injects `https://{subdomain}.ciamlogin.com/` after trim; empty / `://` / `/` subdomains throw; `Ciam(IResourceBuilder<ParameterResource>)` interpolates the parameter and does not read `Parameter.Value` at `Configure()`; a null instance argument throws.
 - [x] Package README documents `EntraIdInstance` (`Workforce` / `Ciam`) as the first argument of `WithMicrosoftIdentityWebApplication` and `WithEntraIdSpaApplication`.
-- [ ] `WithSecret(IResourceBuilder<ParameterResource>)` accumulates secret parameters; non-secret parameter throws; duplicate same `ParameterResource` on the same registration throws; registers `OnResourceReady` once.
-- [ ] Run-mode Ready handler: existing `Parameters:{name}` skips Graph; otherwise Graph REST `addPassword` using `ObjectId`, completes the parameter, and persists via `IUserSecretsManager` when available; Bicep never emits `passwordCredentials` (create or existing).
-- [ ] Package README documents `WithSecret` and the `Parameters:{name}` user-secrets key.
+- [x] `WithSecret(IResourceBuilder<ParameterResource>)` accumulates secret parameters; non-secret parameter throws; duplicate same `ParameterResource` on the same registration throws; registers `OnResourceReady` once.
+- [x] Run-mode Ready handler: existing `Parameters:{name}` skips Graph; otherwise Graph REST `addPassword` using `ObjectId`, completes the parameter, and persists via `IUserSecretsManager` when available; Bicep never emits `passwordCredentials` (create or existing).
+- [x] Package README documents `WithSecret` and the `Parameters:{name}` user-secrets key.
 
 ## Terminology
 
