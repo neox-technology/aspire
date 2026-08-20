@@ -7,6 +7,7 @@ public static class ServiceNames {
         public const string AccessAsUserScope = $"{AuthPrefix}-aau";
         public const string Api = $"{AuthPrefix}-api";
         public const string ApiCert = $"{AuthPrefix}-api-cert";
+        public const string ApiClientSecret = $"{AuthPrefix}-api-client-secret";
         public const string ApiSwagger = $"{AuthPrefix}-api-swagger";
         public const string Spa = $"{AuthPrefix}-spa";
         public const string SpaApp = $"{AuthPrefix}-spa-app";
