@@ -156,7 +156,7 @@ Never upload the PFX or private key to Entra. Existing applications omit `keyCre
 
 ### Client secrets (`WithSecret`)
 
-Graph Bicep cannot create `passwordCredentials`. `WithSecret` binds a secret `ParameterResource`; after ARM provisions (or resolves) the app registration, **run mode** calls Graph REST `addPassword`, fills the parameter, and persists `Parameters:{name}` to AppHost user secrets when missing. Re-runs reuse an existing config/user-secret value (no second `addPassword`). Does not emit Bicep `passwordCredentials`. Wire consumers with `WaitFor` the registration then `WithEnvironment`.
+Graph Bicep cannot create `passwordCredentials`. `WithSecret` creates an `EntraIdPasswordCredentialResource` child that `WaitFor`s the app registration; after the parent is ready, **run mode** calls Graph REST `addPassword`, fills the parameter, and persists `Parameters:{name}` to AppHost user secrets when missing. Re-runs reuse an existing config/user-secret value. `WithMicrosoftIdentityWebApplication` and `WithEntraIdSpaApplication` inject `{sectionName}ClientSecret` from the first password credential and `WaitFor` each credential resource.
 
 ```csharp
 var secret = builder.AddParameter("api-client-secret", secret: true);
@@ -164,8 +164,7 @@ var api = builder.AddAzureAppRegistration("api")
     .WithSecret(secret);
 
 builder.AddProject<Projects.Api>("api")
-    .WaitFor(api)
-    .WithEnvironment("AzureAd__ClientSecret", secret);
+    .WithMicrosoftIdentityWebApplication(EntraIdInstance.Workforce, swagger);
 ```
 
 Requires Microsoft Graph **`Application.ReadWrite.All`** (same as app registration deploy).

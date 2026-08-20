@@ -8,8 +8,8 @@ using Microsoft.Extensions.Logging;
 namespace Neox.Aspire.Hosting.Azure;
 
 /// <summary>
-/// Run-mode helper: after the app registration is ready, create missing client secrets via Graph
-/// <c>addPassword</c>, complete the Aspire parameter, and persist to user secrets.
+/// Run-mode helper for <see cref="EntraIdPasswordCredentialResource"/>: Graph
+/// <c>addPassword</c>, complete the Aspire parameter, persist to user secrets.
 /// </summary>
 internal static class EntraIdClientSecretLifecycle
 {
@@ -24,109 +24,135 @@ internal static class EntraIdClientSecretLifecycle
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
 #pragma warning disable ASPIREUSERSECRETS001
-    internal static async Task OnAppRegistrationReadyAsync(
-        AzureEntraIdAppRegistrationResource app,
-        ResourceReadyEvent evt,
+    internal static async Task EnsureSecretAsync(
+        EntraIdPasswordCredentialResource credential,
+        IServiceProvider services,
+        ILogger logger,
         CancellationToken cancellationToken)
     {
-        if (app.ClientSecrets.Count == 0)
-        {
-            return;
-        }
-
-        var executionContext = evt.Services.GetService<DistributedApplicationExecutionContext>();
+        var executionContext = services.GetService<DistributedApplicationExecutionContext>();
         if (executionContext is null || !executionContext.IsRunMode)
         {
             return;
         }
 
-        var logger = evt.Services.GetService<ILoggerFactory>()?.CreateLogger("Neox.Aspire.Hosting.Azure.EntraId.WithSecret");
-        var configuration = evt.Services.GetService<IConfiguration>();
-        var userSecrets = evt.Services.GetService<IUserSecretsManager>()
-            ?? evt.Services.GetService<IDistributedApplicationBuilder>()?.UserSecretsManager;
-        var passwordClient = ResolvePasswordClient(app, evt.Services);
+        var parameter = credential.SecretParameter;
+        var parent = credential.Parent;
+        var configuration = services.GetService<IConfiguration>();
+        var userSecrets = services.GetService<IUserSecretsManager>()
+            ?? services.GetService<IDistributedApplicationBuilder>()?.UserSecretsManager;
+        var passwordClient = ResolvePasswordClient(credential, services);
 
-        string? objectId = null;
-
-        foreach (var parameter in app.ClientSecrets)
+        var configKey = GetConfigurationKey(parameter);
+        var existing = configuration?[configKey];
+        if (string.IsNullOrEmpty(existing))
         {
-            var configKey = GetConfigurationKey(parameter);
-            var existing = configuration?[configKey];
-            if (string.IsNullOrEmpty(existing))
+            existing = TryGetCurrentParameterValue(parameter);
+        }
+
+        if (!string.IsNullOrEmpty(existing))
+        {
+            logger.LogInformation(
+                "Client secret parameter {ParameterName} already has a value; skipping Graph addPassword.",
+                parameter.Name);
+            EnsureParameterValue(parameter, existing);
+            return;
+        }
+
+        var objectId = await parent.ObjectId.GetValueAsync(cancellationToken).ConfigureAwait(false);
+        if (string.IsNullOrEmpty(objectId))
+        {
+            throw new InvalidOperationException(
+                $"App registration '{parent.Name}' ObjectId output is empty; cannot create client secret '{parameter.Name}'.");
+        }
+
+        logger.LogInformation(
+            "Creating Entra client secret for parameter {ParameterName} on application {ObjectId}.",
+            parameter.Name,
+            objectId);
+
+        var secretText = await passwordClient
+            .AddPasswordAsync(objectId, parameter.Name, cancellationToken)
+            .ConfigureAwait(false);
+
+        EnsureParameterValue(parameter, secretText);
+
+        if (userSecrets is { IsAvailable: true })
+        {
+            if (!userSecrets.TrySetSecret(configKey, secretText))
             {
-                existing = TryGetCurrentParameterValue(parameter);
-            }
-
-            if (!string.IsNullOrEmpty(existing))
-            {
-                logger?.LogInformation(
-                    "Client secret parameter {ParameterName} already has a value; skipping Graph addPassword.",
-                    parameter.Name);
-                EnsureParameterValue(parameter, existing);
-                continue;
-            }
-
-            objectId ??= await app.ObjectId.GetValueAsync(cancellationToken).ConfigureAwait(false);
-            if (string.IsNullOrEmpty(objectId))
-            {
-                throw new InvalidOperationException(
-                    $"App registration '{app.Name}' ObjectId output is empty; cannot create client secret '{parameter.Name}'.");
-            }
-
-            logger?.LogInformation(
-                "Creating Entra client secret for parameter {ParameterName} on application {ObjectId}.",
-                parameter.Name,
-                objectId);
-
-            var secretText = await passwordClient
-                .AddPasswordAsync(objectId, parameter.Name, cancellationToken)
-                .ConfigureAwait(false);
-
-            EnsureParameterValue(parameter, secretText);
-
-            if (userSecrets is { IsAvailable: true })
-            {
-                if (!userSecrets.TrySetSecret(configKey, secretText))
-                {
-                    logger?.LogWarning(
-                        "Failed to persist client secret parameter {ParameterName} to user secrets ({ConfigKey}).",
-                        parameter.Name,
-                        configKey);
-                }
-                else
-                {
-                    logger?.LogInformation(
-                        "Persisted client secret parameter {ParameterName} to user secrets ({ConfigKey}).",
-                        parameter.Name,
-                        configKey);
-                }
+                logger.LogWarning(
+                    "Failed to persist client secret parameter {ParameterName} to user secrets ({ConfigKey}).",
+                    parameter.Name,
+                    configKey);
             }
             else
             {
-                logger?.LogWarning(
-                    "User secrets are unavailable; client secret parameter {ParameterName} was set in-memory only.",
-                    parameter.Name);
+                logger.LogInformation(
+                    "Persisted client secret parameter {ParameterName} to user secrets ({ConfigKey}).",
+                    parameter.Name,
+                    configKey);
             }
+        }
+        else
+        {
+            logger.LogWarning(
+                "User secrets are unavailable; client secret parameter {ParameterName} was set in-memory only.",
+                parameter.Name);
         }
     }
 #pragma warning restore ASPIREUSERSECRETS001
 
     internal static void EnsureDeferredEmptyDefault(ParameterResource parameter)
     {
-        // Avoid ParameterProcessor interactive prompt before OnResourceReady fills the value.
         if (parameter.Default is null)
         {
             parameter.Default = new DeferredEmptyParameterDefault();
         }
     }
 
+    internal static void BindClientSecretEnvironment<TResource>(
+        IResourceBuilder<TResource> builder,
+        AzureEntraIdAppRegistrationResource parent,
+        string sectionName)
+        where TResource : IResourceWithEnvironment, IResourceWithWaitSupport
+    {
+        if (parent.PasswordCredentials.Count == 0)
+        {
+            return;
+        }
+
+        builder.WithEnvironment($"{sectionName}ClientSecret", parent.PasswordCredentials[0].SecretParameter);
+
+        for (var i = 1; i < parent.PasswordCredentials.Count; i++)
+        {
+            var index = parent.KeyCredentials.Count + (i - 1);
+            var secret = parent.PasswordCredentials[i].SecretParameter;
+            builder.WithEnvironment($"{sectionName}ClientCredentials__{index}__SourceType", "ClientSecret");
+            builder.WithEnvironment($"{sectionName}ClientCredentials__{index}__ClientSecret", secret);
+        }
+
+        foreach (var credential in parent.PasswordCredentials)
+        {
+            if (!builder.Resource.Annotations.OfType<WaitAnnotation>().Any(wait => ReferenceEquals(wait.Resource, credential)))
+            {
+                builder.WaitFor(builder.ApplicationBuilder.CreateResourceBuilder(credential));
+            }
+        }
+    }
+
     private static IEntraIdAppPasswordClient ResolvePasswordClient(
-        AzureEntraIdAppRegistrationResource app,
+        EntraIdPasswordCredentialResource credential,
         IServiceProvider services)
     {
-        if (app.TryGetLastAnnotation<EntraIdAppPasswordClientAnnotation>(out var annotation))
+        if (credential.TryGetLastAnnotation<EntraIdAppPasswordClientAnnotation>(out var onCredential))
         {
-            return annotation.Client;
+            return onCredential.Client;
+        }
+
+        if (credential.Parent.TryGetLastAnnotation<EntraIdAppPasswordClientAnnotation>(out var onParent))
+        {
+            return onParent.Client;
         }
 
         return services.GetService<IEntraIdAppPasswordClient>() ?? new EntraIdAppPasswordClient();
@@ -188,10 +214,6 @@ internal static class EntraIdClientSecretLifecycle
         created.TrySetResult(value);
     }
 
-    /// <summary>
-    /// Supplies an empty default so ParameterProcessor does not treat the secret as missing
-    /// before <see cref="OnAppRegistrationReadyAsync"/> runs.
-    /// </summary>
     private sealed class DeferredEmptyParameterDefault : ParameterDefault
     {
         public override string GetDefaultValue() => string.Empty;
@@ -206,5 +228,3 @@ internal sealed class EntraIdAppPasswordClientAnnotation(IEntraIdAppPasswordClie
 {
     public IEntraIdAppPasswordClient Client { get; } = client;
 }
-
-internal sealed class EntraIdClientSecretReadyAnnotation : IResourceAnnotation;
