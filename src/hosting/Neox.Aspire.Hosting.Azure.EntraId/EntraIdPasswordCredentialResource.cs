@@ -3,18 +3,19 @@ using Aspire.Hosting.ApplicationModel;
 namespace Neox.Aspire.Hosting.Azure;
 
 /// <summary>
-/// Aspire child resource that creates an Entra application password via Graph
-/// <c>addPassword</c> after the parent app registration is ready.
+/// Aspire resource that creates an Entra application password via Graph
+/// <c>addPassword</c> after the linked app registration is ready.
 /// Not a provisioning resource; does not emit Bicep <c>passwordCredentials</c>.
+/// Linked via <see cref="Parent"/> / <c>PasswordCredentials</c> (not
+/// <see cref="IResourceWithParent{T}"/> — Aspire forbids <c>WaitFor</c> on a parent).
 /// </summary>
-public sealed class EntraIdPasswordCredentialResource
-    : Resource, IResourceWithParent<AzureEntraIdAppRegistrationResource>, IResourceWithWaitSupport
+public sealed class EntraIdPasswordCredentialResource : Resource, IResourceWithWaitSupport
 {
     /// <summary>
     /// Initializes a new <see cref="EntraIdPasswordCredentialResource"/>.
     /// </summary>
     /// <param name="name">Aspire resource name.</param>
-    /// <param name="parent">Parent app registration.</param>
+    /// <param name="parent">Linked app registration.</param>
     /// <param name="secretParameter">Secret parameter that receives <c>secretText</c>.</param>
     public EntraIdPasswordCredentialResource(
         string name,
@@ -29,7 +30,9 @@ public sealed class EntraIdPasswordCredentialResource
         SecretParameter = secretParameter;
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// App registration that owns this client secret.
+    /// </summary>
     public AzureEntraIdAppRegistrationResource Parent { get; }
 
     /// <summary>

@@ -21,7 +21,6 @@ public static class Auth {
 
         Api = builder.AddAzureAppRegistration(ServiceNames.Auth.Api)
             .WithDefaultIdentifierUri()
-            .WithKeyCredential(ApiCert)
             .WithSecret(ApiClientSecret);
 
         ApiSwagger = Api.AddWebApplication(ServiceNames.Auth.ApiSwagger)

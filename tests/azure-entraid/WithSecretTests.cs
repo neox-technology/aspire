@@ -3,6 +3,7 @@ using Aspire.Hosting.ApplicationModel;
 using Aspire.Hosting.Azure;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Neox.Aspire.Hosting.Azure;
 using Xunit;
 
@@ -13,18 +14,22 @@ namespace Neox.Aspire.Hosting.Azure.EntraId.Tests;
 public sealed class WithSecretTests
 {
     [Fact]
-    public void WithSecret_accumulates_secret_parameter()
+    public void WithSecret_creates_password_credential_that_waits_for_parent()
     {
         var builder = DistributedApplication.CreateBuilder();
         var secret = builder.AddParameter("api-client-secret", secret: true);
         var app = builder.AddAzureAppRegistration("api")
             .WithSecret(secret);
 
-        Assert.Single(app.Resource.ClientSecrets, secret.Resource);
+        var credential = Assert.Single(app.Resource.PasswordCredentials);
+        Assert.Same(secret.Resource, credential.SecretParameter);
+        Assert.Same(app.Resource, credential.Parent);
+        Assert.Equal("api-api-client-secret", credential.Name);
         Assert.NotNull(secret.Resource.Default);
+        Assert.IsType<EntraIdPasswordCredentialResource>(credential);
         Assert.Contains(
-            app.Resource.Annotations.OfType<EntraIdClientSecretReadyAnnotation>(),
-            _ => true);
+            credential.Annotations.OfType<WaitAnnotation>(),
+            wait => ReferenceEquals(wait.Resource, app.Resource));
     }
 
     [Fact]
@@ -51,7 +56,7 @@ public sealed class WithSecretTests
     }
 
     [Fact]
-    public void WithSecret_registers_OnResourceReady_once_for_multiple_secrets()
+    public void WithSecret_accumulates_multiple_password_credentials()
     {
         var builder = DistributedApplication.CreateBuilder();
         var secret1 = builder.AddParameter("secret-one", secret: true);
@@ -60,8 +65,12 @@ public sealed class WithSecretTests
             .WithSecret(secret1)
             .WithSecret(secret2);
 
-        Assert.Equal(2, app.Resource.ClientSecrets.Count);
-        Assert.Single(app.Resource.Annotations.OfType<EntraIdClientSecretReadyAnnotation>());
+        Assert.Equal(2, app.Resource.PasswordCredentials.Count);
+        Assert.All(
+            app.Resource.PasswordCredentials,
+            credential => Assert.Contains(
+                credential.Annotations.OfType<WaitAnnotation>(),
+                wait => ReferenceEquals(wait.Resource, app.Resource)));
     }
 
     [Fact]
@@ -91,17 +100,18 @@ public sealed class WithSecretTests
     }
 
     [Fact]
-    public async Task OnResourceReady_calls_addPassword_when_parameter_missing()
+    public async Task EnsureSecret_calls_addPassword_when_parameter_missing()
     {
         var builder = DistributedApplication.CreateBuilder();
         var secret = builder.AddParameter("api-client-secret", secret: true);
         var app = builder.AddAzureAppRegistration("api")
             .WithSecret(secret);
 
+        var credential = Assert.Single(app.Resource.PasswordCredentials);
         app.Resource.Outputs[AzureEntraIdAppRegistrationResource.ObjectIdOutputName] = "obj-123";
 
         var fakeGraph = new FakePasswordClient("generated-secret-text");
-        app.WithAnnotation(new EntraIdAppPasswordClientAnnotation(fakeGraph));
+        credential.Annotations.Add(new EntraIdAppPasswordClientAnnotation(fakeGraph));
 
         var userSecrets = new FakeUserSecretsManager();
         var services = new ServiceCollection();
@@ -110,8 +120,11 @@ public sealed class WithSecretTests
         services.AddSingleton<IUserSecretsManager>(userSecrets);
         var sp = services.BuildServiceProvider();
 
-        var evt = new ResourceReadyEvent(app.Resource, sp);
-        await EntraIdClientSecretLifecycle.OnAppRegistrationReadyAsync(app.Resource, evt, CancellationToken.None);
+        await EntraIdClientSecretLifecycle.EnsureSecretAsync(
+            credential,
+            sp,
+            NullLogger.Instance,
+            CancellationToken.None);
 
         Assert.Single(fakeGraph.Calls);
         Assert.Equal("obj-123", fakeGraph.Calls[0].ObjectId);
@@ -124,17 +137,18 @@ public sealed class WithSecretTests
     }
 
     [Fact]
-    public async Task OnResourceReady_skips_graph_when_configuration_has_value()
+    public async Task EnsureSecret_skips_graph_when_configuration_has_value()
     {
         var builder = DistributedApplication.CreateBuilder();
         var secret = builder.AddParameter("api-client-secret", secret: true);
         var app = builder.AddAzureAppRegistration("api")
             .WithSecret(secret);
 
+        var credential = Assert.Single(app.Resource.PasswordCredentials);
         app.Resource.Outputs[AzureEntraIdAppRegistrationResource.ObjectIdOutputName] = "obj-123";
 
         var fakeGraph = new FakePasswordClient("should-not-be-used");
-        app.WithAnnotation(new EntraIdAppPasswordClientAnnotation(fakeGraph));
+        credential.Annotations.Add(new EntraIdAppPasswordClientAnnotation(fakeGraph));
 
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -150,8 +164,11 @@ public sealed class WithSecretTests
         services.AddSingleton<IUserSecretsManager>(userSecrets);
         var sp = services.BuildServiceProvider();
 
-        var evt = new ResourceReadyEvent(app.Resource, sp);
-        await EntraIdClientSecretLifecycle.OnAppRegistrationReadyAsync(app.Resource, evt, CancellationToken.None);
+        await EntraIdClientSecretLifecycle.EnsureSecretAsync(
+            credential,
+            sp,
+            NullLogger.Instance,
+            CancellationToken.None);
 
         Assert.Empty(fakeGraph.Calls);
         Assert.Empty(userSecrets.SetCalls);
@@ -161,25 +178,29 @@ public sealed class WithSecretTests
     }
 
     [Fact]
-    public async Task OnResourceReady_noop_outside_run_mode()
+    public async Task EnsureSecret_noop_outside_run_mode()
     {
         var builder = DistributedApplication.CreateBuilder();
         var secret = builder.AddParameter("api-client-secret", secret: true);
         var app = builder.AddAzureAppRegistration("api")
             .WithSecret(secret);
 
+        var credential = Assert.Single(app.Resource.PasswordCredentials);
         app.Resource.Outputs[AzureEntraIdAppRegistrationResource.ObjectIdOutputName] = "obj-123";
 
         var fakeGraph = new FakePasswordClient("should-not-be-used");
-        app.WithAnnotation(new EntraIdAppPasswordClientAnnotation(fakeGraph));
+        credential.Annotations.Add(new EntraIdAppPasswordClientAnnotation(fakeGraph));
 
         var services = new ServiceCollection();
         services.AddSingleton(new DistributedApplicationExecutionContext(DistributedApplicationOperation.Publish));
         services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
         var sp = services.BuildServiceProvider();
 
-        var evt = new ResourceReadyEvent(app.Resource, sp);
-        await EntraIdClientSecretLifecycle.OnAppRegistrationReadyAsync(app.Resource, evt, CancellationToken.None);
+        await EntraIdClientSecretLifecycle.EnsureSecretAsync(
+            credential,
+            sp,
+            NullLogger.Instance,
+            CancellationToken.None);
 
         Assert.Empty(fakeGraph.Calls);
     }
@@ -195,7 +216,6 @@ public sealed class WithSecretTests
         }
     }
 
-#pragma warning disable ASPIREUSERSECRETS001
     private sealed class FakeUserSecretsManager : IUserSecretsManager
     {
         private readonly Dictionary<string, string> _secrets = new(StringComparer.Ordinal);
