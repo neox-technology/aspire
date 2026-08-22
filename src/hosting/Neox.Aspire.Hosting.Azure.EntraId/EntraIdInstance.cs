@@ -74,4 +74,23 @@ public sealed class EntraIdInstance
                 $"{sectionName}Instance",
                 ReferenceExpression.Create($"https://{_subdomainParameter!}.ciamlogin.com/"));
     }
+
+    /// <summary>
+    /// Resolves the login host URL (trailing slash) for OIDC discovery construction.
+    /// </summary>
+    internal async Task<string> ResolveBaseUrlAsync(CancellationToken cancellationToken)
+    {
+        if (_literalUrl is not null)
+        {
+            return _literalUrl;
+        }
+
+        var subdomain = await _subdomainParameter!.GetValueAsync(cancellationToken).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(subdomain))
+        {
+            throw new InvalidOperationException("CIAM tenant subdomain parameter resolved to an empty value.");
+        }
+
+        return $"https://{subdomain.Trim()}.ciamlogin.com/";
+    }
 }

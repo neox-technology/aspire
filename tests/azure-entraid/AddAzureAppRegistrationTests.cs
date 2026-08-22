@@ -743,20 +743,26 @@ public sealed class AddAzureAppRegistrationTests
         var builder = DistributedApplication.CreateBuilder();
         builder.Configuration["Azure:TenantId"] = "11111111-1111-1111-1111-111111111111";
         var cert = AddTestCertificate(builder, "api-cert", "aabbcc");
+        var secret = builder.AddParameter("api-client-secret", secret: true);
         var app = builder.AddAzureAppRegistration("api")
             .WithDefaultIdentifierUri()
-            .WithKeyCredential(cert);
+            .WithKeyCredential(cert)
+            .WithSecret(secret);
         var web = app.AddWebApplication("swagger")
             .WithRedirectUri(new Uri("https://localhost/swagger/oauth2-redirect.html"));
         var container = builder.AddContainer("svc", "redis")
             .WithMicrosoftIdentityWebApplication(EntraIdInstance.Workforce, web);
 
+        var credential = Assert.Single(app.Resource.PasswordCredentials);
         Assert.Contains(
             container.Resource.Annotations.OfType<WaitAnnotation>(),
             wait => ReferenceEquals(wait.Resource, app.Resource));
         Assert.Contains(
             container.Resource.Annotations.OfType<WaitAnnotation>(),
             wait => ReferenceEquals(wait.Resource, cert.Resource));
+        Assert.Contains(
+            container.Resource.Annotations.OfType<WaitAnnotation>(),
+            wait => ReferenceEquals(wait.Resource, credential));
 
         var env = await ResolveEnvironmentAsync(builder, container.Resource);
         Assert.Equal("https://login.microsoftonline.com/", env["AzureAd__Instance"]);
@@ -766,6 +772,7 @@ public sealed class AddAzureAppRegistrationTests
         Assert.True(env.ContainsKey("AzureAd__ClientId"));
         Assert.True(env.ContainsKey("AzureAd__Audience"));
         Assert.True(env.ContainsKey("AzureAd__ClientCredentials__0__CertificateThumbprint"));
+        Assert.True(env.ContainsKey("AzureAd__ClientSecret"));
     }
 
     [Fact]
@@ -850,17 +857,23 @@ public sealed class AddAzureAppRegistrationTests
             "access_as_user",
             "Access API",
             "Allows the app to access the API");
+        var spaSecret = builder.AddParameter("spa-client-secret", secret: true);
         var spa = builder.AddAzureAppRegistration("spa")
             .WithDefaultIdentifierUri()
-            .WithPermission(access);
+            .WithPermission(access)
+            .WithSecret(spaSecret);
         var spaApp = spa.AddSpaApplication("spa-app")
             .WithRedirectUri(new Uri("http://localhost/"));
         var container = builder.AddContainer("frontend", "nginx")
             .WithEntraIdSpaApplication(EntraIdInstance.Workforce, spaApp);
 
+        var credential = Assert.Single(spa.Resource.PasswordCredentials);
         Assert.Contains(
             container.Resource.Annotations.OfType<WaitAnnotation>(),
             wait => ReferenceEquals(wait.Resource, spa.Resource));
+        Assert.Contains(
+            container.Resource.Annotations.OfType<WaitAnnotation>(),
+            wait => ReferenceEquals(wait.Resource, credential));
         Assert.DoesNotContain(
             container.Resource.Annotations.OfType<WaitAnnotation>(),
             wait => ReferenceEquals(wait.Resource, cert.Resource));
@@ -872,7 +885,7 @@ public sealed class AddAzureAppRegistrationTests
         Assert.True(env.ContainsKey("ENTRA_Audience"));
         Assert.Equal(AzureEntraIdHostingExtensions.SpaLoginScopes, env["ENTRA_LoginScopes"]);
         Assert.True(env.ContainsKey("ENTRA_Scope"));
-        Assert.DoesNotContain(env.Keys, static key => key.Contains("ClientCredentials", StringComparison.Ordinal));
+        Assert.True(env.ContainsKey("ENTRA_ClientSecret"));
     }
 
     [Fact]

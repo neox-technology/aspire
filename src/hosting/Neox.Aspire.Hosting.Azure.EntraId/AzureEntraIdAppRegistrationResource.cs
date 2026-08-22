@@ -84,6 +84,12 @@ public sealed class AzureEntraIdAppRegistrationResource : AzureProvisioningResou
     internal List<AsymmetricX509CertResource> KeyCredentials { get; } = [];
 
     /// <summary>
+    /// Password credentials registered via <c>WithSecret</c>. Created post-provision via Graph
+    /// <c>addPassword</c> on each <see cref="EntraIdPasswordCredentialResource"/> (not Bicep).
+    /// </summary>
+    internal List<EntraIdPasswordCredentialResource> PasswordCredentials { get; } = [];
+
+    /// <summary>
     /// Web platforms registered via <c>AddWebApplication</c>. Emitted as Graph
     /// <c>web.redirectUris</c> on the create Graph application only.
     /// </summary>

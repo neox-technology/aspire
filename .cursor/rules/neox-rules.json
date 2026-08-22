@@ -6,7 +6,10 @@
     "migrationWorker": "src/Neox.Aspire.EntityFrameworkCore.MigrationWorker",
     "customDomains": "src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains",
     "azureEntraId": "src/hosting/Neox.Aspire.Hosting.Azure.EntraId",
-    "azureProvisioningGraph": "src/provisioning/Neox.Azure.Provisioning.Graph"
+    "keycloak": "src/hosting/Neox.Aspire.Hosting.Keycloak",
+    "keycloakEntraId": "src/hosting/Neox.Aspire.Hosting.Keycloak.EntraId",
+    "azureProvisioningGraph": "src/provisioning/Neox.Azure.Provisioning.Graph",
+    "keycloakProvisioningRealm": "src/provisioning/Neox.Keycloak.Provisioning.Realm"
   },
   "specs": {
     "root": "specs",
@@ -20,7 +23,10 @@
       "migrationWorker": "Neox.Aspire.EntityFrameworkCore.MigrationWorker",
       "customDomains": "Neox.Aspire.Hosting.Azure.CustomDomains",
       "azureEntraId": "Neox.Aspire.Hosting.Azure.EntraId",
-      "azureProvisioningGraph": "Neox.Azure.Provisioning.Graph"
+      "keycloak": "Neox.Aspire.Hosting.Keycloak",
+      "keycloakEntraId": "Neox.Aspire.Hosting.Keycloak.EntraId",
+      "azureProvisioningGraph": "Neox.Azure.Provisioning.Graph",
+      "keycloakProvisioningRealm": "Neox.Keycloak.Provisioning.Realm"
     }
   }
 }

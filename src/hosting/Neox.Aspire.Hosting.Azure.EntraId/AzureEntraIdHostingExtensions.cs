@@ -358,6 +358,8 @@ public static class AzureEntraIdHostingExtensions
             builder.WithEnvironment($"{sectionName}ClientCredentials__{i}__CertificateThumbprint", cert.ThumbprintParameter);
         }
 
+        EntraIdClientSecretLifecycle.BindClientSecretEnvironment(builder, parent, sectionName);
+
         var parentBuilder = builder.ApplicationBuilder.CreateResourceBuilder(parent);
         if (!builder.Resource.Annotations.OfType<WaitAnnotation>().Any(wait => ReferenceEquals(wait.Resource, parent)))
         {
@@ -460,6 +462,8 @@ public static class AzureEntraIdHostingExtensions
                 $"{sectionName}Scope",
                 ReferenceExpression.Create($"api://{scopeResource.Parent.ClientId}/{scopeResource.Value}"));
         }
+
+        EntraIdClientSecretLifecycle.BindClientSecretEnvironment(builder, parent, sectionName);
 
         var parentBuilder = builder.ApplicationBuilder.CreateResourceBuilder(parent);
         if (!builder.Resource.Annotations.OfType<WaitAnnotation>().Any(wait => ReferenceEquals(wait.Resource, parent)))
@@ -609,6 +613,79 @@ public static class AzureEntraIdHostingExtensions
             builder.WaitFor(builder.ApplicationBuilder.CreateResourceBuilder(cert));
         }
 
+        return builder;
+    }
+
+    /// <summary>
+    /// Creates an <see cref="EntraIdPasswordCredentialResource"/> child
+    /// (<see cref="IResourceWithParent{T}"/>) of this app registration. In run mode,
+    /// after the parent reaches <c>Running</c> (via <see cref="ResourceNotificationService"/>),
+    /// calls Graph <c>addPassword</c>, fills the secret parameter, and persists
+    /// <c>Parameters:{name}</c> to AppHost user secrets when missing.
+    /// Does not emit Bicep <c>passwordCredentials</c>.
+    /// </summary>
+    public static IResourceBuilder<AzureEntraIdAppRegistrationResource> WithSecret(
+        this IResourceBuilder<AzureEntraIdAppRegistrationResource> builder,
+        IResourceBuilder<ParameterResource> secret)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(secret);
+
+        var parameter = secret.Resource;
+        if (!parameter.Secret)
+        {
+            throw new ArgumentException(
+                $"Parameter '{parameter.Name}' must be created with secret: true to use WithSecret.",
+                nameof(secret));
+        }
+
+        if (builder.Resource.PasswordCredentials.Exists(existing =>
+            ReferenceEquals(existing.SecretParameter, parameter)))
+        {
+            throw new ArgumentException(
+                $"Client secret parameter '{parameter.Name}' is already defined on '{builder.Resource.Name}'.",
+                nameof(secret));
+        }
+
+        EntraIdClientSecretLifecycle.EnsureDeferredEmptyDefault(parameter);
+
+        var credentialName = $"{builder.Resource.Name}-{parameter.Name}";
+        var credential = new EntraIdPasswordCredentialResource(credentialName, builder.Resource, parameter);
+        builder.Resource.PasswordCredentials.Add(credential);
+
+        var credentialBuilder = builder.ApplicationBuilder.AddResource(credential)
+            .ExcludeFromManifest()
+            .WithInitialState(new CustomResourceSnapshot
+            {
+                ResourceType = "EntraIdPasswordCredential",
+                State = KnownResourceStates.NotStarted,
+                Properties = []
+            })
+            .OnInitializeResource(async (cred, evt, ct) =>
+            {
+                try
+                {
+                    await EntraIdClientSecretLifecycle.EnsureSecretAsync(cred, evt.Services, evt.Logger, ct)
+                        .ConfigureAwait(false);
+                    await evt.Notifications.PublishUpdateAsync(cred, snapshot => snapshot with
+                    {
+                        State = new ResourceStateSnapshot(KnownResourceStates.Running, KnownResourceStateStyles.Success)
+                    }).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    evt.Logger.LogError(
+                        ex,
+                        "Failed to create Entra client secret for parameter {ParameterName}.",
+                        cred.SecretParameter.Name);
+                    await evt.Notifications.PublishUpdateAsync(cred, snapshot => snapshot with
+                    {
+                        State = new ResourceStateSnapshot(KnownResourceStates.FailedToStart, KnownResourceStateStyles.Error)
+                    }).ConfigureAwait(false);
+                }
+            });
+
+        _ = credentialBuilder;
         return builder;
     }
 }

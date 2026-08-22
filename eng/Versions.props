@@ -9,6 +9,9 @@
 
     <!-- Align with Aspire 13.4.6 net10.0 dependency graph -->
     <AspireVersion>13.4.6</AspireVersion>
+    <!-- Aspire.Hosting.Keycloak is preview-only on nuget.org (no stable 13.4.6) -->
+    <AspireHostingKeycloakVersion>13.4.6-preview.1.26319.6</AspireHostingKeycloakVersion>
+    <AspireKeycloakAuthenticationVersion>13.4.6-preview.1.26319.6</AspireKeycloakAuthenticationVersion>
     <MicrosoftEntityFrameworkCoreVersion>10.0.8</MicrosoftEntityFrameworkCoreVersion>
     <NpgsqlEntityFrameworkCorePostgreSQLVersion>10.0.0</NpgsqlEntityFrameworkCorePostgreSQLVersion>
     <MySqlEntityFrameworkCoreVersion>10.0.1</MySqlEntityFrameworkCoreVersion>

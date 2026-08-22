@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <PackageReference Include="Aspire.Hosting.Azure" Version="$(AspireVersion)" />
+    <PackageReference Include="Azure.Identity" Version="1.21.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -25,5 +26,6 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Neox.Aspire.Hosting.Azure.EntraId.Tests" />
+    <InternalsVisibleTo Include="Neox.Aspire.Hosting.Keycloak.EntraId" />
   </ItemGroup>
 </Project>

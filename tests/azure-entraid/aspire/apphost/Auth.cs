@@ -1,4 +1,5 @@
 using System.Security.Cryptography.X509Certificates;
+using Aspire.Hosting.ApplicationModel;
 using Neox.Aspire.Hosting.Azure;
 using Neox.Aspire.Hosting.Azure.EntraId.Tests.ServiceDefaults;
 
@@ -6,6 +7,7 @@ namespace Neox.Aspire.Hosting.Azure.EntraId.Tests.AppHost;
 
 public static class Auth {
     public static IResourceBuilder<AsymmetricX509CertResource> ApiCert { get; private set; } = null!;
+    public static IResourceBuilder<ParameterResource> ApiClientSecret { get; private set; } = null!;
     public static IResourceBuilder<AzureEntraIdAppRegistrationResource> Api { get; private set; } = null!;
     public static IResourceBuilder<AzureEntraIdWebApplicationResource> ApiSwagger { get; private set; } = null!;
     public static IResourceBuilder<AzureEntraIdAppRegistrationResource> Spa { get; private set; } = null!;
@@ -15,9 +17,11 @@ public static class Auth {
         var thumbprint = builder.AddParameter($"{ServiceNames.Auth.ApiCert}-thumbprint", secret: true);
         ApiCert = builder.AddCertificate(ServiceNames.Auth.ApiCert, thumbprint, StoreLocation.CurrentUser);
 
+        ApiClientSecret = builder.AddParameter(ServiceNames.Auth.ApiClientSecret, secret: true);
+
         Api = builder.AddAzureAppRegistration(ServiceNames.Auth.Api)
             .WithDefaultIdentifierUri()
-            .WithKeyCredential(ApiCert);
+            .WithSecret(ApiClientSecret);
 
         ApiSwagger = Api.AddWebApplication(ServiceNames.Auth.ApiSwagger)
             .WithRedirectUri(new Uri("https://localhost/swagger/oauth2-redirect.html"));
