@@ -1,0 +1,173 @@
+name: release-start
+
+# Manual cut of a release/* branch from develop.
+# Select major/minor/patch/preview; next version is computed from the latest v* tag.
+# Updates eng/Versions.props, pushes release/<version>, opens PR → main.
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Semver bump from latest v* tag"
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - preview
+        default: patch
+
+concurrency:
+  group: release-start-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  start-release:
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    name: Cut release branch and open PR
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.NEOX_GITFLOW_APP_ID }}
+          private-key: ${{ secrets.NEOX_GITFLOW_APP_PRIVATE_KEY }}
+
+      - name: Checkout develop
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: develop
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Compute next version
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          set -euo pipefail
+          git fetch --tags --force
+
+          LATEST=$(git tag -l 'v*' --sort=-v:refname | head -n1 || true)
+          if [ -z "$LATEST" ]; then
+            BASE="0.0.0"
+            echo "No v* tags found — base $BASE"
+          else
+            BASE="${LATEST#v}"
+            if ! [[ "$BASE" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-preview\.([0-9]+))?$ ]]; then
+              echo "::error::Latest tag '$LATEST' must be vX.Y.Z or vX.Y.Z-preview.N"
+              exit 1
+            fi
+            echo "Latest tag: $LATEST (base $BASE)"
+          fi
+
+          MAJOR=$(echo "$BASE" | cut -d. -f1)
+          MINOR=$(echo "$BASE" | cut -d. -f2)
+          PATCH=$(echo "$BASE" | cut -d. -f3 | sed 's/[^0-9].*//')
+          PREVIEW_N=""
+          if [[ "$BASE" =~ -preview\.([0-9]+)$ ]]; then
+            PREVIEW_N="${BASH_REMATCH[1]}"
+          fi
+
+          case "$BUMP" in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              VERSION="${MAJOR}.${MINOR}.${PATCH}"
+              STABILIZE="true"
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              VERSION="${MAJOR}.${MINOR}.${PATCH}"
+              STABILIZE="true"
+              ;;
+            patch)
+              PATCH=$((PATCH + 1))
+              VERSION="${MAJOR}.${MINOR}.${PATCH}"
+              STABILIZE="true"
+              ;;
+            preview)
+              if [ -n "$PREVIEW_N" ]; then
+                NEXT_PREVIEW=$((PREVIEW_N + 1))
+              else
+                # After a stable tag, next preview is the following patch core.
+                PATCH=$((PATCH + 1))
+                NEXT_PREVIEW=1
+              fi
+              VERSION="${MAJOR}.${MINOR}.${PATCH}-preview.${NEXT_PREVIEW}"
+              STABILIZE="false"
+              ;;
+            *)
+              echo "::error::Unsupported bump '$BUMP'"
+              exit 1
+              ;;
+          esac
+
+          CORE="${MAJOR}.${MINOR}.${PATCH}"
+          BRANCH="release/${VERSION}"
+          echo "Bump $BUMP → $VERSION (branch $BRANCH, VersionPrefix=$CORE, Stabilize=$STABILIZE)"
+
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            echo "::error::Branch $BRANCH already exists on origin"
+            exit 1
+          fi
+
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "BRANCH=$BRANCH" >> "$GITHUB_ENV"
+          echo "CORE=$CORE" >> "$GITHUB_ENV"
+          echo "STABILIZE=$STABILIZE" >> "$GITHUB_ENV"
+
+      - name: Create release branch and PR
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+          git config user.name "neox-gitflow[bot]"
+          git config user.email "neox-gitflow[bot]@users.noreply.github.com"
+
+          git checkout -b "$BRANCH"
+
+          PROPS="eng/Versions.props"
+          if [ -f "$PROPS" ]; then
+            sed -i "s|<VersionPrefix>[^<]*</VersionPrefix>|<VersionPrefix>${CORE}</VersionPrefix>|" "$PROPS"
+            sed -i "s|<StabilizePackageVersion>[^<]*</StabilizePackageVersion>|<StabilizePackageVersion>${STABILIZE}</StabilizePackageVersion>|" "$PROPS"
+
+            if ! grep -q "<VersionPrefix>${CORE}</VersionPrefix>" "$PROPS"; then
+              echo "::error::Failed to set VersionPrefix=${CORE} in $PROPS"
+              exit 1
+            fi
+            if ! grep -q "<StabilizePackageVersion>${STABILIZE}</StabilizePackageVersion>" "$PROPS"; then
+              echo "::error::Failed to set StabilizePackageVersion=${STABILIZE} in $PROPS"
+              exit 1
+            fi
+
+            git add "$PROPS"
+            git commit -m "chore: set package version ${CORE} (stabilize=${STABILIZE}) for ${BRANCH}"
+            PR_BODY="Automated release branch \`$BRANCH\` cut from \`develop\` (bump \`${{ inputs.bump }}\`). Updates \`eng/Versions.props\` (\`VersionPrefix=${CORE}\`, \`StabilizePackageVersion=${STABILIZE}\`). Validate with **release-private-publish**, then finish with **release-finalize**."
+          else
+            echo "No $PROPS — skipping VersionPrefix / StabilizePackageVersion update"
+            PR_BODY="Automated release branch \`$BRANCH\` cut from \`develop\` (bump \`${{ inputs.bump }}\`). Validate with **release-private-publish**, then finish with **release-finalize**."
+          fi
+
+          git push -u origin "$BRANCH"
+
+          EXISTING=$(gh pr list --head "$BRANCH" --base main --state open --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            echo "PR #$EXISTING already open for $BRANCH → main"
+            exit 0
+          fi
+
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "Release: $VERSION" \
+            --body "$PR_BODY"

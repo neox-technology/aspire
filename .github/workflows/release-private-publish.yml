@@ -1,0 +1,110 @@
+name: release-private-publish
+
+# Manual build/test/pack from a release/* branch, then push Shipping packages
+# to the private GitHub Packages feed (daily prerelease identity).
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: release-private-publish-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  private-publish:
+    if: startsWith(github.ref, 'refs/heads/release/')
+    runs-on: ubuntu-latest
+    name: Build, test, publish GitHub Packages
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Guard release branch semver
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          RAW="${REF_NAME#release/}"
+          RAW="${RAW#v}"
+          if ! [[ "$RAW" =~ ^([0-9]+\.[0-9]+\.[0-9]+)(-preview\.[0-9]+)?$ ]]; then
+            echo "::error::Branch '$REF_NAME' must be release/X.Y.Z or release/X.Y.Z-preview.N"
+            exit 1
+          fi
+          CORE="${BASH_REMATCH[1]}"
+          if [[ "$RAW" == *-preview.* ]]; then
+            EXPECT_STABILIZE="false"
+          else
+            EXPECT_STABILIZE="true"
+          fi
+
+          PROPS="eng/Versions.props"
+          if [ ! -f "$PROPS" ]; then
+            echo "OK: branch semver '$RAW' valid; no $PROPS to align"
+            exit 0
+          fi
+
+          PREFIX=$(grep -oP '(?<=<VersionPrefix>)[^<]+' "$PROPS" | head -n1)
+          STABILIZE=$(grep -oP '(?<=<StabilizePackageVersion>)[^<]+' "$PROPS" | head -n1)
+
+          if [ "$PREFIX" != "$CORE" ]; then
+            echo "::error::$PROPS VersionPrefix='$PREFIX' does not match branch core '$CORE' (from $REF_NAME)."
+            exit 1
+          fi
+          if [ "$STABILIZE" != "$EXPECT_STABILIZE" ]; then
+            echo "::error::$PROPS StabilizePackageVersion='$STABILIZE' expected '$EXPECT_STABILIZE' for $REF_NAME."
+            exit 1
+          fi
+          echo "OK: VersionPrefix=$PREFIX StabilizePackageVersion=$STABILIZE matches $REF_NAME"
+
+      - name: Compute OfficialBuildId
+        id: version
+        run: echo "official_build_id=$(date -u +%Y%m%d).${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build, test, and pack (daily)
+        run: >
+          ./eng/common/build.sh
+          --ci --restore --build --test --pack
+          --configuration Release
+          /p:Sign=false
+          /p:OfficialBuildId=${{ steps.version.outputs.official_build_id }}
+          /p:StabilizePackageVersion=false
+          /p:PreReleaseVersionLabel=daily
+
+      - name: Upload Shipping packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: Shipping-daily-${{ github.ref_name }}-${{ github.run_number }}
+          path: artifacts/packages/Release/Shipping/
+          if-no-files-found: error
+
+      - name: Push packages to GitHub Packages
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          packages=(artifacts/packages/Release/Shipping/*.nupkg)
+          symbols=(artifacts/packages/Release/Shipping/*.snupkg)
+          if [ ${#packages[@]} -eq 0 ]; then
+            echo "No Shipping packages found under artifacts/packages/Release/Shipping/"
+            exit 1
+          fi
+          source="https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
+          echo "Publishing ${#packages[@]} package(s) to $source"
+          for pkg in "${packages[@]}"; do
+            echo "  - $(basename "$pkg")"
+          done
+          dotnet nuget push "${packages[@]}" \
+            --source "$source" \
+            --api-key "${{ secrets.GITHUB_TOKEN }}" \
+            --skip-duplicate
+          if [ ${#symbols[@]} -gt 0 ]; then
+            echo "Publishing ${#symbols[@]} symbol package(s)"
+            dotnet nuget push "${symbols[@]}" \
+              --source "$source" \
+              --api-key "${{ secrets.GITHUB_TOKEN }}" \
+              --skip-duplicate
+          fi

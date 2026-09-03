@@ -1,0 +1,208 @@
+name: release-finalize
+
+# Manual finalize from a release/* branch:
+# 1) Squash-merge (close) the open PR to main
+# 2) Tag v<version> from the branch name
+# 3) Arcade build/test/pack
+# 4) Publish Shipping packages to nuget.org via Trusted Publishing (OIDC)
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: release-finalize-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  finalize:
+    if: startsWith(github.ref, 'refs/heads/release/')
+    runs-on: ubuntu-latest
+    name: Close PR, tag, publish nuget.org
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+    steps:
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.NEOX_GITFLOW_APP_ID }}
+          private-key: ${{ secrets.NEOX_GITFLOW_APP_PRIVATE_KEY }}
+
+      - name: Checkout release branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref_name }}
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Parse version from branch
+        id: version
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          RAW="${REF_NAME#release/}"
+          RAW="${RAW#v}"
+          if ! [[ "$RAW" =~ ^([0-9]+\.[0-9]+\.[0-9]+)(-preview\.[0-9]+)?$ ]]; then
+            echo "::error::Branch '$REF_NAME' must be release/X.Y.Z or release/X.Y.Z-preview.N"
+            exit 1
+          fi
+          CORE="${BASH_REMATCH[1]}"
+          if [[ "$RAW" == *-preview.* ]]; then
+            EXPECT_STABILIZE="false"
+          else
+            EXPECT_STABILIZE="true"
+          fi
+
+          PROPS="eng/Versions.props"
+          if [ -f "$PROPS" ]; then
+            PREFIX=$(grep -oP '(?<=<VersionPrefix>)[^<]+' "$PROPS" | head -n1)
+            STABILIZE=$(grep -oP '(?<=<StabilizePackageVersion>)[^<]+' "$PROPS" | head -n1)
+            if [ "$PREFIX" != "$CORE" ]; then
+              echo "::error::$PROPS VersionPrefix='$PREFIX' does not match branch core '$CORE'."
+              exit 1
+            fi
+            if [ "$STABILIZE" != "$EXPECT_STABILIZE" ]; then
+              echo "::error::$PROPS StabilizePackageVersion='$STABILIZE' expected '$EXPECT_STABILIZE'."
+              exit 1
+            fi
+          fi
+
+          TAG="v${RAW}"
+          echo "version=$RAW" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "core=$CORE" >> "$GITHUB_OUTPUT"
+          echo "head_ref=$REF_NAME" >> "$GITHUB_OUTPUT"
+          echo "Parsed version=$RAW tag=$TAG"
+
+      - name: Close release PR (squash-merge to main)
+        id: pr
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          HEAD_REF: ${{ steps.version.outputs.head_ref }}
+        run: |
+          set -euo pipefail
+          PR_NUMBER=$(gh pr list --head "$HEAD_REF" --base main --state open --json number --jq '.[0].number // empty')
+          if [ -z "$PR_NUMBER" ]; then
+            echo "::error::No open PR found for $HEAD_REF → main. Open or re-open the release PR before finalize."
+            exit 1
+          fi
+          echo "Merging PR #$PR_NUMBER ($HEAD_REF → main)"
+          gh pr merge "$PR_NUMBER" --squash --delete-branch=false
+          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Create tag v*
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          HEAD_REF: ${{ steps.version.outputs.head_ref }}
+        run: |
+          set -euo pipefail
+          git fetch origin main "$HEAD_REF" --tags --force
+          git checkout main
+          git pull origin main
+
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "::error::Tag $TAG already exists"
+            exit 1
+          fi
+
+          git config user.name "neox-gitflow[bot]"
+          git config user.email "neox-gitflow[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+          echo "Created and pushed $TAG"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists"
+          else
+            gh release create "$TAG" --title "$TAG" --generate-notes
+          fi
+
+      - name: Compute OfficialBuildId
+        id: buildid
+        run: echo "official_build_id=$(date -u +%Y%m%d).${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build, test, and pack
+        run: >
+          ./eng/common/build.sh
+          --ci --restore --build --test --pack
+          --configuration Release
+          /p:Sign=false
+          /p:OfficialBuildId=${{ steps.buildid.outputs.official_build_id }}
+
+      - name: Upload Shipping packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: Shipping-${{ steps.version.outputs.tag }}
+          path: artifacts/packages/Release/Shipping/
+          if-no-files-found: error
+
+      - name: NuGet login (OIDC → temp API key)
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      - name: Push packages to nuget.org
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          packages=(artifacts/packages/Release/Shipping/*.nupkg)
+          symbols=(artifacts/packages/Release/Shipping/*.snupkg)
+          if [ ${#packages[@]} -eq 0 ]; then
+            echo "No Shipping packages found under artifacts/packages/Release/Shipping/"
+            exit 1
+          fi
+          echo "Publishing ${#packages[@]} package(s) to nuget.org"
+          for pkg in "${packages[@]}"; do
+            echo "  - $(basename "$pkg")"
+          done
+          dotnet nuget push "${packages[@]}" \
+            --source "https://api.nuget.org/v3/index.json" \
+            --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" \
+            --skip-duplicate
+          if [ ${#symbols[@]} -gt 0 ]; then
+            echo "Publishing ${#symbols[@]} symbol package(s)"
+            dotnet nuget push "${symbols[@]}" \
+              --source "https://api.nuget.org/v3/index.json" \
+              --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" \
+              --skip-duplicate
+          fi
+
+      - name: Open sync PR main → develop
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          EXISTING=$(gh pr list --base develop --head main --state open --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            echo "Sync PR #$EXISTING already open (main → develop)"
+            exit 0
+          fi
+
+          git fetch origin develop main
+          AHEAD=$(git rev-list --count origin/develop..origin/main)
+          if [ "$AHEAD" -eq 0 ]; then
+            echo "develop already contains main — no sync PR"
+            exit 0
+          fi
+
+          gh pr create \
+            --base develop \
+            --head main \
+            --title "chore: sync main → develop after ${TAG}" \
+            --body "Automated back-sync after finalizing \`${{ steps.version.outputs.head_ref }}\` ($TAG). Squash-merge to keep develop aligned."
