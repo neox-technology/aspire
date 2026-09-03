@@ -2,7 +2,7 @@ name: release-start
 
 # Manual cut of a release/* branch from develop.
 # Select major/minor/patch/none + optional preview; next version is computed from the latest v* tag.
-# Updates eng/Versions.props, pushes release/<version>, opens PR → main.
+# Updates eng/Versions.props and pushes release/<version> (no PR).
 
 on:
   workflow_dispatch:
@@ -34,10 +34,9 @@ jobs:
   start-release:
     if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
-    name: Cut release branch and open PR
+    name: Cut release branch
     permissions:
       contents: write
-      pull-requests: write
     steps:
       - name: Create GitHub App token
         id: app-token
@@ -135,9 +134,7 @@ jobs:
           echo "CORE=$CORE" >> "$GITHUB_ENV"
           echo "STABILIZE=$STABILIZE" >> "$GITHUB_ENV"
 
-      - name: Create release branch and PR
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+      - name: Create and push release branch
         run: |
           set -euo pipefail
           git config user.name "neox-gitflow[bot]"
@@ -161,22 +158,9 @@ jobs:
 
             git add "$PROPS"
             git commit -m "chore: set package version ${CORE} (stabilize=${STABILIZE}) for ${BRANCH}"
-            PR_BODY="Automated release branch \`$BRANCH\` cut from \`develop\` (bump \`${{ inputs.bump }}\`, preview \`${{ inputs.preview }}\`). Updates \`eng/Versions.props\` (\`VersionPrefix=${CORE}\`, \`StabilizePackageVersion=${STABILIZE}\`). Validate with **release-private-publish**, then finish with **release-finalize**."
           else
             echo "No $PROPS — skipping VersionPrefix / StabilizePackageVersion update"
-            PR_BODY="Automated release branch \`$BRANCH\` cut from \`develop\` (bump \`${{ inputs.bump }}\`, preview \`${{ inputs.preview }}\`). Validate with **release-private-publish**, then finish with **release-finalize**."
           fi
 
           git push -u origin "$BRANCH"
-
-          EXISTING=$(gh pr list --head "$BRANCH" --base main --state open --json number --jq '.[0].number // empty')
-          if [ -n "$EXISTING" ]; then
-            echo "PR #$EXISTING already open for $BRANCH → main"
-            exit 0
-          fi
-
-          gh pr create \
-            --base main \
-            --head "$BRANCH" \
-            --title "Release: $VERSION" \
-            --body "$PR_BODY"
+          echo "Pushed $BRANCH — validate with release-private-publish, then finish with release-finalize."

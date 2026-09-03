@@ -119,11 +119,11 @@ Branch convention: `feature/*` → `develop`; `release/*` / `hotfix/*` → `main
 
 | Trigger | Workflow | Effect |
 |---------|----------|--------|
-| `workflow_dispatch` on `develop` | [`.github/workflows/release-start.yml`](.github/workflows/release-start.yml) | Bump from latest `v*` (`major` / `minor` / `patch` / `none` + optional preview); update [`eng/Versions.props`](eng/Versions.props); push `release/<version>` + PR → `main` |
+| `workflow_dispatch` on `develop` | [`.github/workflows/release-start.yml`](.github/workflows/release-start.yml) | Bump from latest `v*` (`major` / `minor` / `patch` / `none` + optional preview); update [`eng/Versions.props`](eng/Versions.props); push `release/<version>` (no PR) |
 | `workflow_dispatch` on `release/*` | [`.github/workflows/release-private-publish.yml`](.github/workflows/release-private-publish.yml) | Arcade build/test/pack (`daily` + `OfficialBuildId`) → private GitHub Packages |
-| `workflow_dispatch` on `release/*` | [`.github/workflows/release-finalize.yml`](.github/workflows/release-finalize.yml) | Squash-merge PR → `main`, tag `v*`, GitHub Release, Arcade build/test/pack → nuget.org (Trusted Publishing), sync PR `main` → `develop` |
+| `workflow_dispatch` on `release/*` | [`.github/workflows/release-finalize.yml`](.github/workflows/release-finalize.yml) | Squash-merge → `main` and `develop`, tag `v*`, GitHub Release, Arcade build/test/pack → nuget.org (Trusted Publishing) |
 
-Git automation uses org App **`neox-gitflow`** (`NEOX_GITFLOW_APP_ID` / `NEOX_GITFLOW_APP_PRIVATE_KEY`). nuget.org Trusted Publishing needs repo secret `NUGET_USER` (profile name) and a nuget.org policy for workflow file `release-finalize.yml`. Prefer squash-merge (linear history).
+Git automation uses org App **`neox-gitflow`** (`NEOX_GITFLOW_APP_ID` / `NEOX_GITFLOW_APP_PRIVATE_KEY`). nuget.org Trusted Publishing needs repo secret `NUGET_USER` (profile name) and a nuget.org policy for workflow file `release-finalize.yml`. Finalize uses squash-merge (linear history).
 
 Versioning follows Arcade (`VersionPrefix` / `StabilizePackageVersion` in [`eng/Versions.props`](eng/Versions.props)). Spec: [`nuget-org`](specs/features/nuget-org.md).
 
