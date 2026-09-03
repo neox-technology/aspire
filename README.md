@@ -5,7 +5,7 @@
 | Package | Downloads | README |
 |---------|-----------|--------|
 | [Neox.Aspire.EntityFrameworkCore.MigrationWorker](https://www.nuget.org/packages/Neox.Aspire.EntityFrameworkCore.MigrationWorker) | [![NuGet Downloads](https://img.shields.io/nuget/dt/Neox.Aspire.EntityFrameworkCore.MigrationWorker.svg)](https://www.nuget.org/packages/Neox.Aspire.EntityFrameworkCore.MigrationWorker) | [README](src/Neox.Aspire.EntityFrameworkCore.MigrationWorker/README.md) |
-| [Neox.Aspire.Hosting.Azure.CustomDomains](https://www.nuget.org/packages/Neox.Aspire.Hosting.Azure.CustomDomains) | [![NuGet Downloads](https://img.shields.io/nuget/dt/Neox.Aspire.Hosting.Azure.CustomDomains.svg)](https://www.nuget.org/packages/Neox.Aspire.Hosting.Azure.CustomDomains) | [README](src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains/README.md) |
+| [Neox.Aspire.Hosting.Azure.CustomDomains](src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains/README.md) | — | [README](src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains/README.md) |
 | [Neox.Azure.Provisioning.Graph](src/provisioning/Neox.Azure.Provisioning.Graph/README.md) | — | [README](src/provisioning/Neox.Azure.Provisioning.Graph/README.md) |
 | [Neox.Keycloak.Provisioning.Realm](src/provisioning/Neox.Keycloak.Provisioning.Realm/README.md) | — | [README](src/provisioning/Neox.Keycloak.Provisioning.Realm/README.md) |
 | [Neox.Aspire.Hosting.Azure.EntraId](src/hosting/Neox.Aspire.Hosting.Azure.EntraId/README.md) | — | [README](src/hosting/Neox.Aspire.Hosting.Azure.EntraId/README.md) |
@@ -28,7 +28,6 @@ Pick a package and install from nuget.org (see the package README for usage):
 
 ```bash
 dotnet add package Neox.Aspire.EntityFrameworkCore.MigrationWorker
-dotnet add package Neox.Aspire.Hosting.Azure.CustomDomains
 dotnet add package Neox.Azure.Provisioning.Graph
 dotnet add package Neox.Keycloak.Provisioning.Realm
 dotnet add package Neox.Aspire.Hosting.Azure.EntraId

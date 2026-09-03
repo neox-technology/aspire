@@ -4,8 +4,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Neox.Aspire.Hosting.Azure</RootNamespace>
-    <IsPackable>true</IsPackable>
-    <SuppressFinalPackageVersion>true</SuppressFinalPackageVersion>
+    <IsPackable>false</IsPackable>
+    <IsShipping>false</IsShipping>
     <Description>Aspire hosting helpers for Azure Container Apps custom domains (OctoDNS-in-Docker, managed certificates).</Description>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>aspire;azure;container-apps;dns;octodns;custom-domain</PackageTags>

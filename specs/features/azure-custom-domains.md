@@ -41,7 +41,7 @@ None — `aspire do` pipeline steps only.
 
 ## Acceptance criteria
 
-- [x] Package `Neox.Aspire.Hosting.Azure.CustomDomains` under `src/hosting/.../CustomDomains/`.
+- [x] Project `Neox.Aspire.Hosting.Azure.CustomDomains` under `src/hosting/.../CustomDomains/` (`IsPackable=false`, `IsShipping=false`).
 - [x] `AddDomainOpsProvider` + generated `.Cloudflare()` / `.Ovh()` / …; catalogue + generator offline-deterministic.
 - [x] Pipeline steps match **Pipeline step contracts** below (prereq → plan/provision zone → hostname → certs → bind → `deploy-domains`).
 - [x] Multi-resource same zone aggregates; multi-hostname same compute gets distinct `{dom}` steps and serialized ARM PATCH.
@@ -61,7 +61,7 @@ See [`domain-glossary`](domain-glossary.md).
 | Item | Path / value |
 |------|----------------|
 | Project | `src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains/` |
-| Package id | `Neox.Aspire.Hosting.Azure.CustomDomains` |
+| Package id | `Neox.Aspire.Hosting.Azure.CustomDomains` (non-shipping; `IsPackable=false`) |
 | Namespace | `Neox.Aspire.Hosting.Azure` |
 | Binding API | `WithAzureCustomDomainOps`, `AzureCustomDomainOps*` |
 | Provider / pipeline | `AddDomainOpsProvider`, `DomainOps*` |
