@@ -4,11 +4,11 @@
 |-------|-------|
 | Slug | `arcade-bootstrap` |
 | Status | implemented |
-| Last code review | 2026-08-16 |
+| Last code review | 2026-09-03 |
 
 ## Summary
 
-This repository already uses **Microsoft.DotNet.Arcade.Sdk** on **.NET 10** for clone-and-build and local pack: `global.json`, `NuGet.config`, `Directory.Build.*`, `eng/common`, preview versioning, MIT `LICENSE`, root `Build.cmd` / `build.sh`, and **`Neox.Aspire.slnx`**. GitHub Actions pack/publish is **not** in this tree. Do not refresh `eng/common` as part of the agent-kit bootstrap.
+This repository already uses **Microsoft.DotNet.Arcade.Sdk** on **.NET 10** for clone-and-build and local pack: `global.json`, `NuGet.config`, `Directory.Build.*`, `eng/common`, preview versioning, MIT `LICENSE`, root `Build.cmd` / `build.sh`, and **`Neox.Aspire.slnx`**. Manual release Actions invoke the same Arcade scripts for pack/publish ([`nuget-org`](nuget-org.md)). Do not refresh `eng/common` as part of the agent-kit bootstrap.
 
 ## User scenarios
 
@@ -23,19 +23,19 @@ This repository already uses **Microsoft.DotNet.Arcade.Sdk** on **.NET 10** for 
 3. **MIT license** — root `LICENSE` + `PackageLicenseExpression=MIT`; `Company` / `Authors` / `Copyright` are Neox Technology.
 4. **Pack default** — `IsPackable` is `false` repo-wide; Shipping projects opt in.
 5. **Preview** — `PreReleaseVersionLabel` is `preview`; `StabilizePackageVersion` is `false` until GA is decided (`eng/Versions.props`).
-6. **No GitHub Actions** — CI pack and publish-nuget workflows are not in this repository ([`nuget-org`](nuget-org.md)).
+6. **Release Actions** — pack/publish GitHub Actions call `eng/common/build.sh` ([`nuget-org`](nuget-org.md)); this bootstrap still owns local clone-and-build only.
 7. **Solution format** — the repo solution is `Neox.Aspire.slnx` (not `.sln`).
 
 ## Dependencies
 
 - [`aspire-bootstrap`](aspire-bootstrap.md) — repository identity
 - [`domain-glossary`](domain-glossary.md) — **Neox Aspire**, **Shipping**
-- [`nuget-org`](nuget-org.md) — local pack vs absent publish workflows
+- [`nuget-org`](nuget-org.md) — local pack and release publish workflows
 
 ## Out of scope
 
 - Refreshing `eng/common` or changing Arcade / SDK pins in this bootstrap
-- GitHub Actions CI / publish to GitHub Packages or nuget.org
+- Authoring release workflow YAML (owned by [`gitflow-ci`](gitflow-ci.md) / [`nuget-org`](nuget-org.md))
 - Azure DevOps dnceng pipelines
 - `darc` / Maestro / BAR
 - Helix test queues
@@ -48,7 +48,6 @@ This repository already uses **Microsoft.DotNet.Arcade.Sdk** on **.NET 10** for 
 - [x] `eng/Versions.props` exists (preview)
 - [x] Proprietary-vs-MIT: root `LICENSE` is MIT; packages use `PackageLicenseExpression`
 - [x] `Neox.Aspire.slnx` is the repo solution; SDK / TFM are **.NET 10** / `net10.0`; feed includes `dotnet10`
-- [x] No `.github/workflows/` in this tree
 - [x] Skill `.cursor/skills/arcade-bootstrap` is present for a later explicit refresh
 
 ## Terminology

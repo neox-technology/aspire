@@ -4,7 +4,7 @@
 |-------|-------|
 | Slug | `domain-glossary` |
 | Status | defined |
-| Last code review | 2026-08-17 |
+| Last code review | 2026-09-03 |
 
 ## Summary
 
@@ -18,10 +18,10 @@ Terminology authority for **Neox Aspire** packages in this **public** repository
 | **development host** | The saas Git repository (`neox-technology/saas`) that mounts this repo as a Git submodule (`aspire/`) so contributors can develop the packages there. The host does not own this product or its Arcade stack. Events may nest that host as `saas/` but still must not list these projects in `Neox.Events.slnx`. |
 | **submodule contribution** | The preferred workflow: commit in this repository first, then update the gitlink in saas, then the saas gitlink in Events when working from that workspace. |
 | **sample AppHost** | An isolated Aspire AppHost under `tests/` used as a package harness (for example `tests/efcore-migration-worker/*/apphost`). Not a product runtime, not the Events delivery AppHost, and not the saas **test AppHost** (`saas/tests/aspire`). Layout: `.cursor/rules/aspire-apphost.mdc`. |
-| **Neox Aspire packages** | Packable NuGet libraries under the `Neox.Aspire.*` root namespace (hosting and non-hosting). MIT-licensed. Historically published to nuget.org; local pack uses Arcade. GitHub Actions publish is not in this tree. |
+| **Neox Aspire packages** | Packable NuGet libraries under the `Neox.Aspire.*` root namespace (hosting and non-hosting). MIT-licensed. Published to nuget.org via Trusted Publishing; pre-ship **daily** builds go to private GitHub Packages; local pack uses Arcade. |
 | **hosting package** | A `Neox.Aspire.Hosting.*` library that AppHosts reference for Aspire resource/extension helpers. Lives under `src/hosting/` when present. |
 | **Shipping** | Arcade package output bucket for packages intended for consumers (`artifacts/packages/<Configuration>/Shipping/`). Distinct from non-shipping / internal artifacts. |
-| **daily** | Arcade prerelease label used on `release/**` pushes: packages version as `X.Y.Z-daily.{OfficialBuildId}` and publish to private GitHub Packages for pre-ship validation (not the public nuget.org identity). |
+| **daily** | Arcade prerelease label used by **release-private-publish** on `release/*`: packages version as `X.Y.Z-daily.{OfficialBuildId}` and publish to private GitHub Packages for pre-ship validation (not the public nuget.org identity). |
 | **migration worker** | Reusable non-hosting DI helper (`Neox.Aspire.EntityFrameworkCore.MigrationWorker`) that runs EF Core `MigrateAsync` for one or more registered `DbContext` types in a single one-shot `BackgroundService` (registration order, sequential), then stops the host once via repeated `AddEfCoreMigrationService<TDbContext>()` calls. |
 | **custom domain ops** | Hosting helpers (`Neox.Aspire.Hosting.Azure.CustomDomains`) that orchestrate ACA custom domain DNS and managed certificates via `aspire do` pipeline steps (plan/provision/deploy split for provider, zone, hostname add, env certs, and resource bind). |
 | **DomainOps provider** | Aspire resource (`DomainOpsProviderResource` and **source-generated** subtypes such as Cloudflare/OVH/Route53) that selects an OctoDNS DNS **provider**, holds auth parameter bindings, and drives generated `octodns.yaml` + Docker image choice. Aligns with octoDNS terminology (**provider**, not provisioner). Types are emitted from the versioned OctoDNS provider catalogue. |

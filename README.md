@@ -20,7 +20,7 @@ This repository is **public** (MIT). It is not an AppHost and does not run Aspir
 
 Prefer **submodule contribution**: commit in this repository first, then update the saas gitlink.
 
-Already published packages remain on [nuget.org](https://www.nuget.org/profiles/neox-technology). This tree has **no GitHub Actions**; pack locally with Arcade.
+Already published packages remain on [nuget.org](https://www.nuget.org/profiles/neox-technology). Pack locally with Arcade, or use the manual release GitHub Actions below.
 
 ## Getting started
 
@@ -60,10 +60,10 @@ See [`specs/README.md`](specs/README.md). Terminology: [`domain-glossary`](specs
 | `neox-rules.json` specs paths | Present ([`.cursor/rules/neox-rules.json`](.cursor/rules/neox-rules.json)) |
 | Domain glossary | Defined ([`domain-glossary`](specs/features/domain-glossary.md)) |
 | Aspire bootstrap | Defined ([`aspire-bootstrap`](specs/features/aspire-bootstrap.md)) |
-| Arcade clone-and-build | Implemented ([`arcade-bootstrap`](specs/features/arcade-bootstrap.md)) — .NET 10; `Neox.Aspire.slnx`; MIT; no GitHub Actions |
+| Arcade clone-and-build | Implemented ([`arcade-bootstrap`](specs/features/arcade-bootstrap.md)) — .NET 10; `Neox.Aspire.slnx`; MIT |
 | Sample AppHosts | Harnesses under `tests/` ([`.cursor/rules/aspire-apphost.mdc`](.cursor/rules/aspire-apphost.mdc)) |
-| GitHub Actions | Absent from this tree ([`gitflow-ci`](specs/features/gitflow-ci.md), [`nuget-org`](specs/features/nuget-org.md)) |
-| NuGet packages | Shipping libraries in `src/`; local Arcade pack |
+| GitHub Actions | Manual release workflows ([`gitflow-ci`](specs/features/gitflow-ci.md), [`nuget-org`](specs/features/nuget-org.md)) |
+| NuGet packages | Shipping libraries in `src/`; local Arcade pack + GHA publish |
 | Azure Entra ID hosting | Implemented ([`azure-entra-id`](specs/features/azure-entra-id.md)) — `AddAzureAppRegistration` + `AddScope` + `AddAppRole` + `AddWebApplication` + `AddSpaApplication` + `WithPermission` + `AddCertificate` / `WithKeyCredential` + `WithSecret` + `EntraIdInstance` + `WithMicrosoftIdentityWebApplication` + `WithEntraIdSpaApplication` |
 | Keycloak hosting | Implemented ([`keycloak-hosting`](specs/features/keycloak-hosting.md)) — `AddRealm` + `WithOrganizations` / `WithOrganization` / `AddJwtClient` / `AddOidcClient` / `AddIdentityProvider` + `WithLocalRedirectUri` / `WithRedirectUrl` + `WithKeycloakJwtBearer` / `WithKeycloakSpa` on upstream `AddKeycloak`; harness runs Keycloak with realm import, JWT API, and SPA stub |
 | Keycloak Entra ID hosting | Implemented ([`keycloak-entraid`](specs/features/keycloak-entraid.md)) — bridge `AddEntraIdIdentityProvider` (Entra app registration → Keycloak OIDC IdP) |
@@ -113,9 +113,19 @@ Run tests (Docker required for EF Core harnesses):
 Build.cmd -configuration Release -test
 ```
 
-### Git flow
+### Git flow / release Actions
 
-Branch convention: `feature/*` → `develop`; `release/*` / `hotfix/*` → `main`; `main` holds shipped releases. Spec: [`gitflow-ci`](specs/features/gitflow-ci.md). There are **no** in-repo GitHub Actions for auto-PR, CI, or NuGet publish. Versioning follows Arcade (`VersionPrefix` / `StabilizePackageVersion` in [`eng/Versions.props`](eng/Versions.props)). Spec: [`nuget-org`](specs/features/nuget-org.md).
+Branch convention: `feature/*` → `develop`; `release/*` / `hotfix/*` → `main`; `main` holds shipped releases. Spec: [`gitflow-ci`](specs/features/gitflow-ci.md).
+
+| Trigger | Workflow | Effect |
+|---------|----------|--------|
+| `workflow_dispatch` on `develop` | [`.github/workflows/release-start.yml`](.github/workflows/release-start.yml) | Bump from latest `v*` (`major` / `minor` / `patch` / `preview`); update [`eng/Versions.props`](eng/Versions.props); push `release/<version>` + PR → `main` |
+| `workflow_dispatch` on `release/*` | [`.github/workflows/release-private-publish.yml`](.github/workflows/release-private-publish.yml) | Arcade build/test/pack (`daily` + `OfficialBuildId`) → private GitHub Packages |
+| `workflow_dispatch` on `release/*` | [`.github/workflows/release-finalize.yml`](.github/workflows/release-finalize.yml) | Squash-merge PR → `main`, tag `v*`, GitHub Release, Arcade build/test/pack → nuget.org (Trusted Publishing), sync PR `main` → `develop` |
+
+Git automation uses org App **`neox-gitflow`** (`NEOX_GITFLOW_APP_ID` / `NEOX_GITFLOW_APP_PRIVATE_KEY`). nuget.org Trusted Publishing needs repo secret `NUGET_USER` (profile name) and a nuget.org policy for workflow file `release-finalize.yml`. Prefer squash-merge (linear history).
+
+Versioning follows Arcade (`VersionPrefix` / `StabilizePackageVersion` in [`eng/Versions.props`](eng/Versions.props)). Spec: [`nuget-org`](specs/features/nuget-org.md).
 
 ## License
 
