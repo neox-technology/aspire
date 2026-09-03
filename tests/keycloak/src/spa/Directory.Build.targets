@@ -1,6 +1,0 @@
-<Project>
-  <!-- Arcade invokes /t:Test on every project. JavaScript.Sdk has TestCommand but no Test target. -->
-  <Target Name="Test" DependsOnTargets="RunNpmInstall;GeneratePackageJsonProps;EvaluateNPMScripts">
-    <Exec Command="$(TestCommand)" WorkingDirectory="$(PackageJsonDirectory)" Condition="'$(TestCommand)' != ''" />
-  </Target>
-</Project>

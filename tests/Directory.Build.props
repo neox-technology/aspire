@@ -1,0 +1,9 @@
+<Project>
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup>
+    <IsShipping>false</IsShipping>
+    <IsPackable>false</IsPackable>
+    <IsTestUtilityProject Condition="'$(IsUnitTestProject)' != 'true'">true</IsTestUtilityProject>
+  </PropertyGroup>
+</Project>

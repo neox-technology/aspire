@@ -7,4 +7,10 @@
     <Authors>Neox Technology</Authors>
     <Copyright>© Neox Technology. All rights reserved.</Copyright>
   </PropertyGroup>
+
+  <PropertyGroup Condition="'$(IsPackable)' == 'true'">
+    <DebugType>portable</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+    <CopyOutputSymbolsToOutputDirectory>true</CopyOutputSymbolsToOutputDirectory>
+  </PropertyGroup>
 </Project>

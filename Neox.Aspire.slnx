@@ -38,12 +38,7 @@
   <Folder Name="/tests/azure-entraid/src/apis/">
     <Project Path="tests/azure-entraid/src/apis/Neox.Aspire.Hosting.Azure.EntraId.Tests.Api.csproj" />
   </Folder>
-  <Folder Name="/tests/azure-entraid/src/spa/">
-    <Project Path="tests/azure-entraid/src/spa/Neox.Aspire.Hosting.Azure.EntraId.Tests.Spa.esproj">
-      <Build />
-      <Deploy />
-    </Project>
-  </Folder>
+  <Folder Name="/tests/azure-entraid/src/spa/" />
   <Folder Name="/tests/keycloak-provisioning/">
     <Project Path="tests/keycloak-provisioning/Neox.Keycloak.Provisioning.Realm.Tests.csproj" />
   </Folder>
@@ -64,12 +59,7 @@
   <Folder Name="/tests/keycloak/src/apis/">
     <Project Path="tests/keycloak/src/apis/Neox.Aspire.Hosting.Keycloak.Tests.Api.csproj" />
   </Folder>
-  <Folder Name="/tests/keycloak/src/spa/">
-    <Project Path="tests/keycloak/src/spa/Neox.Aspire.Hosting.Keycloak.Tests.Spa.esproj">
-      <Build />
-      <Deploy />
-    </Project>
-  </Folder>
+  <Folder Name="/tests/keycloak/src/spa/" />
   <Folder Name="/tests/efcore-migration-worker/" />
   <Folder Name="/tests/efcore-migration-worker/postgresql/apphost/" />
   <Folder Name="/tests/efcore-migration-worker/postgresql/data/" />

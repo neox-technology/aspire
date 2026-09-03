@@ -1,0 +1,44 @@
+---
+description: Arcade non-shipping tests layout — no .esproj, tests/Directory.Build.props is the source of truth
+globs: tests/**
+alwaysApply: false
+---
+
+# Arcade tests under `tests/`
+
+## Shipping
+
+Every project under `tests/` is non-shipping. Source of truth: `tests/Directory.Build.props`.
+
+```xml
+<Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+<IsShipping>false</IsShipping>
+<IsPackable>false</IsPackable>
+<IsTestUtilityProject Condition="'$(IsUnitTestProject)' != 'true'">true</IsTestUtilityProject>
+```
+
+- **xUnit runners** — set `IsUnitTestProject=true` (required when the name does not end with `.Tests` / `.UnitTests`). Arcade then sets `IsTestProject` and runs `/t:Test`.
+- **Harnesses** (AppHost, API, Data, MigrationService, ServiceDefaults) — `IsTestUtilityProject` from the directory props. Do **not** set `IsTestProject=true` globally (Arcade would look for an xUnit runner).
+
+## SPA / JavaScript
+
+- **Forbidden:** `.esproj`, `Microsoft.VisualStudio.JavaScript.Sdk`, listing a SPA in the `.slnx`.
+- SPA is a Vite folder. Aspire wires it with `AddViteApp` on the path. No MSBuild project, no `ProjectReference` to the SPA.
+
+## Nested `Directory.Build.*`
+
+MSBuild uses the nearest file only. A nested `Directory.Build.props` / `.targets` **must import the parent**. An empty or dummy file (the old `.esproj` TFM/`Test`/`Pack` workaround) drops Arcade.
+
+```xml
+<!-- ❌ BAD -->
+<Project>
+  <!-- Keep Arcade from stamping a TFM -->
+</Project>
+```
+
+```xml
+<!-- ✅ GOOD — only if a nested file is truly needed -->
+<Project>
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+</Project>
+```

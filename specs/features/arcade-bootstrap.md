@@ -22,9 +22,10 @@ This repository already uses **Microsoft.DotNet.Arcade.Sdk** on **.NET 10** for 
 2. **Feeds** — `NuGet.config` uses `<clear />` and includes `dotnet-eng`, `dotnet-public`, `dotnet-tools`, **`dotnet10`**, and `nuget.org`.
 3. **MIT license** — root `LICENSE` + `PackageLicenseExpression=MIT`; `Company` / `Authors` / `Copyright` are Neox Technology.
 4. **Pack default** — `IsPackable` is `false` repo-wide; Shipping projects opt in.
-5. **Preview** — `PreReleaseVersionLabel` is `preview`; `StabilizePackageVersion` is `false` until GA is decided (`eng/Versions.props`).
-6. **Release Actions** — pack/publish GitHub Actions call `eng/common/build.sh` ([`nuget-org`](nuget-org.md)); this bootstrap still owns local clone-and-build only.
-7. **Solution format** — the repo solution is `Neox.Aspire.slnx` (not `.sln`).
+5. **Tests tree** — `tests/Directory.Build.props` imports the repo `Directory.Build.props` and sets `IsShipping=false`, `IsPackable=false`, and `IsTestUtilityProject` on fixtures. xUnit assemblies set `IsUnitTestProject`. No `.esproj` under `tests/`; harness SPAs are Vite folders wired with `AddViteApp`.
+6. **Preview** — `PreReleaseVersionLabel` is `preview`; `StabilizePackageVersion` is `false` until GA is decided (`eng/Versions.props`).
+7. **Release Actions** — pack/publish GitHub Actions call `eng/common/build.sh` ([`nuget-org`](nuget-org.md)); this bootstrap still owns local clone-and-build only.
+8. **Solution format** — the repo solution is `Neox.Aspire.slnx` (not `.sln`).
 
 ## Dependencies
 
@@ -49,6 +50,7 @@ This repository already uses **Microsoft.DotNet.Arcade.Sdk** on **.NET 10** for 
 - [x] Proprietary-vs-MIT: root `LICENSE` is MIT; packages use `PackageLicenseExpression`
 - [x] `Neox.Aspire.slnx` is the repo solution; SDK / TFM are **.NET 10** / `net10.0`; feed includes `dotnet10`
 - [x] Skill `.cursor/skills/arcade-bootstrap` is present for a later explicit refresh
+- [x] `tests/Directory.Build.props` marks the tests tree non-shipping (`IsShipping=false`, fixtures = `IsTestUtilityProject`)
 
 ## Terminology
 
@@ -61,5 +63,6 @@ See [`domain-glossary.md`](domain-glossary.md).
 | Skill | `.cursor/skills/arcade-bootstrap` |
 | SDK pin | `global.json` — `10.0.110` / Arcade `10.0.0-beta.26324.4` |
 | Solution | `Neox.Aspire.slnx` (libraries under `src/`; harnesses under `tests/`) |
+| Tests tree | `tests/Directory.Build.props` — `IsShipping=false`; xUnit = `IsUnitTestProject`; fixtures = `IsTestUtilityProject`; no `.esproj` |
 | License | `LICENSE` (MIT) |
 | Build | `Build.cmd` → `eng/common/Build.ps1` |

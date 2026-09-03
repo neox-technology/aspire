@@ -82,4 +82,6 @@ public static class Databases
 
 Cross-groupe : `Infrastructure.SqlServer`, `Databases.Application`. Ids : `ServiceNames.*`.
 
+A harness SPA is a **Vite folder** (`package.json` + sources). Wire it with `AddViteApp` on the directory. Do **not** add a `.esproj`, `Microsoft.VisualStudio.JavaScript.Sdk` project, or slnx entry — Arcade cannot build JavaScript.Sdk (`NU1012`, missing `Test`/`Pack`). See `.cursor/rules/arcade-tests.mdc`.
+
 **Interdit :** `apphost.cs` à la racine du repo ; resources en propriétés de `Program` ; câbler ces harnesses dans l’AppHost Events ou le test AppHost saas (`saas/tests/aspire`).
