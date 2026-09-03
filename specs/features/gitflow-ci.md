@@ -13,7 +13,7 @@ GitFlow **branch convention** for this repo: `feature/*` from `develop`; `releas
 ## User scenarios
 
 1. **Contributor cuts a feature** — branches `feature/*` from `develop` and opens a PR to `develop` (squash when ready).
-2. **Operator prepares a release** — runs **release-start** on `develop`, selects `major` / `minor` / `patch` / `preview`, which computes the next version from the latest `v*` tag, updates `eng/Versions.props`, pushes `release/<version>`, and opens a PR to `main`.
+2. **Operator prepares a release** — runs **release-start** on `develop`, selects `major` / `minor` / `patch` / `none` and optional **preview**, which computes the next version from the latest `v*` tag, updates `eng/Versions.props`, pushes `release/<version>`, and opens a PR to `main`.
 3. **Operator validates on the private feed** — runs **release-private-publish** on `release/*` (Arcade build/test/pack with `daily` label → GitHub Packages).
 4. **Operator finishes a release** — runs **release-finalize** on `release/*`: squash-merges the open PR to `main`, tags `v<version>`, creates a GitHub Release, Arcade build/test/pack, Trusted Publishing to nuget.org, optional sync PR `main` → `develop`.
 
@@ -64,8 +64,9 @@ See [`domain-glossary`](domain-glossary.md).
 
 Intended Versions.props mapping when start-release runs (latest `v*` tag = base):
 
-| bump | Branch / tag | `Versions.props` |
-|------|--------------|------------------|
-| patch / minor / major | stable `X.Y.Z` | `VersionPrefix=X.Y.Z`, `StabilizePackageVersion=true` |
-| preview (last tag already `-preview.N`) | same core + `-preview.N+1` | `VersionPrefix`=core, `StabilizePackageVersion=false` |
-| preview (last tag stable) | next patch core + `-preview.1` | `VersionPrefix`=core, `StabilizePackageVersion=false` |
+| bump | preview | Branch / tag | `Versions.props` |
+|------|---------|--------------|------------------|
+| patch / minor / major | false | stable `X.Y.Z` | `VersionPrefix=X.Y.Z`, `StabilizePackageVersion=true` |
+| patch / minor / major | true | core + `-preview.1` | `VersionPrefix`=core, `StabilizePackageVersion=false` |
+| none | true | same core; `-preview.N+1` or start `-preview.1` | stabilize false |
+| none | false | promote: strip `-preview.N`, keep `X.Y.Z` | stabilize true |

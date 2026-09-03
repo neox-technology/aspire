@@ -4,7 +4,7 @@
     <PreReleaseVersionLabel>preview</PreReleaseVersionLabel>
     <!-- Set to true for repo-wide GA (stable versions). Leave false while preview. -->
     <!-- Packages with SuppressFinalPackageVersion stay prerelease after stabilize. -->
-    <StabilizePackageVersion>true</StabilizePackageVersion>
+    <StabilizePackageVersion>false</StabilizePackageVersion>
     <DotNetFinalVersionKind Condition="'$(StabilizePackageVersion)' == 'true'">release</DotNetFinalVersionKind>
 
     <!-- Align with Aspire 13.4.6 net10.0 dependency graph -->
