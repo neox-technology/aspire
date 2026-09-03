@@ -286,6 +286,12 @@ FakesAssemblies/
 .ntvs_analysis.dat
 node_modules/
 
+# Vite (create-vite template; logs/node_modules/editor already covered above)
+# https://github.com/vitejs/vite/blob/main/packages/create-vite/template-react/_gitignore
+dist
+dist-ssr
+*.local
+
 # Visual Studio 6 build log
 *.plg
 
