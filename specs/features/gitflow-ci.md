@@ -14,8 +14,8 @@ GitFlow **branch convention** for this repo: `feature/*` from `develop`; `releas
 
 1. **Contributor cuts a feature** — branches `feature/*` from `develop` and opens a PR to `develop` (squash when ready).
 2. **Operator prepares a release** — runs **release-start** on `develop`, selects `major` / `minor` / `patch` / `none` and optional **preview**, which computes the next version from the latest `v*` tag, updates `eng/Versions.props`, and pushes `release/<version>` (no PR).
-3. **Operator validates on the private feed** — runs **release-private-publish** on `release/*` (Arcade build/test/pack with `daily` label → GitHub Packages).
-4. **Operator finishes a release** — runs **release-finalize** on `release/*`: squash-merges into `main` and `develop`, tags `v<version>`, creates a GitHub Release, Arcade build/test/pack, Trusted Publishing to nuget.org.
+3. **Operator validates on the private feed** — runs **release-private-publish** on `release/*` (reusable **arcade-build-test-package** with `daily` label → GitHub Packages).
+4. **Operator finishes a release** — runs **release-finalize** on `release/*`: squash-merges into `main` and `develop`, tags `v<version>`, creates a GitHub Release, runs **arcade-build-test-package**, Trusted Publishing to nuget.org.
 
 ## Business rules
 
@@ -43,8 +43,9 @@ GitFlow **branch convention** for this repo: `feature/*` from `develop`; `releas
 
 - [x] README and this spec describe GitFlow branches plus the three manual release workflows
 - [x] `.github/workflows/release-start.yml` cuts `release/*` from `develop` (no PR)
-- [x] `.github/workflows/release-private-publish.yml` builds/tests/packs and pushes daily packages to GitHub Packages from `release/*`
-- [x] `.github/workflows/release-finalize.yml` squash-merges into `main` and `develop`, tags `v*`, and publishes to nuget.org
+- [x] `.github/workflows/release-private-publish.yml` builds/tests/packs via arcade-build-test-package and pushes daily packages to GitHub Packages from `release/*`
+- [x] `.github/workflows/release-finalize.yml` squash-merges into `main` and `develop`, tags `v*`, packs via arcade-build-test-package, and publishes to nuget.org
+- [x] `.github/workflows/arcade-build-test-package.yml` reusable workflow for Arcade restore/build/test/pack
 - [x] `eng/Versions.props` remains the Arcade version source of truth (updated by start-release)
 
 ## Terminology
@@ -58,6 +59,7 @@ See [`domain-glossary`](domain-glossary.md).
 | Start release | `.github/workflows/release-start.yml` |
 | Private feed | `.github/workflows/release-private-publish.yml` |
 | Finalize / nuget.org | `.github/workflows/release-finalize.yml` |
+| Arcade build/test/pack (reusable) | `.github/workflows/arcade-build-test-package.yml` |
 | Arcade version SoT | `eng/Versions.props` |
 | Related packaging spec | [`nuget-org`](nuget-org.md) |
 | Secrets | `NEOX_GITFLOW_APP_ID`, `NEOX_GITFLOW_APP_PRIVATE_KEY`, `NUGET_USER` |

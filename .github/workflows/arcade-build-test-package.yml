@@ -1,0 +1,60 @@
+name: arcade-build-test-package
+
+# Reusable Arcade restore/build/test/pack. Uploads Shipping packages as an artifact.
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: "Optional checkout ref (branch, tag, or SHA). Empty uses the caller workflow ref."
+        type: string
+        required: false
+        default: ""
+      configuration:
+        description: "Build configuration"
+        type: string
+        required: false
+        default: Release
+      official_build_id:
+        description: "Arcade OfficialBuildId (e.g. yyyyMMdd.r)"
+        type: string
+        required: true
+      extra_msbuild_args:
+        description: "Additional MSBuild /p: arguments (space-separated)"
+        type: string
+        required: false
+        default: ""
+      artifact_name:
+        description: "Name of the uploaded Shipping artifact"
+        type: string
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Arcade build, test, pack
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.ref != '' && inputs.ref || github.ref }}
+
+      - name: Build, test, and pack
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC2086
+          ./eng/common/build.sh \
+            --ci --restore --build --test --pack \
+            --configuration "${{ inputs.configuration }}" \
+            /p:Sign=false \
+            /p:OfficialBuildId="${{ inputs.official_build_id }}" \
+            ${{ inputs.extra_msbuild_args }}
+
+      - name: Upload Shipping packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: artifacts/packages/${{ inputs.configuration }}/Shipping/
+          if-no-files-found: error

@@ -60,6 +60,7 @@ See [`domain-glossary`](domain-glossary.md). **Daily** = Arcade prerelease label
 |------|------|
 | Private publish workflow | `.github/workflows/release-private-publish.yml` |
 | nuget.org finalize workflow | `.github/workflows/release-finalize.yml` |
+| Shared Arcade pack | `.github/workflows/arcade-build-test-package.yml` |
 | Package metadata | `Directory.Build.props` / `Directory.Build.targets` |
 | License | Root `LICENSE` (MIT); NuGet `PackageLicenseExpression=MIT` |
 | Versions | `eng/Versions.props` |

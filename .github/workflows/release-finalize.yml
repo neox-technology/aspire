@@ -3,7 +3,7 @@ name: release-finalize
 # Manual finalize from a release/* branch:
 # 1) Squash-merge release branch into main and develop
 # 2) Tag v<version> on main
-# 3) Arcade build/test/pack
+# 3) Arcade build/test/pack (reusable workflow)
 # 4) Publish Shipping packages to nuget.org via Trusted Publishing (OIDC)
 
 on:
@@ -17,14 +17,17 @@ permissions:
   contents: read
 
 jobs:
-  finalize:
+  prepare:
     if: startsWith(github.ref, 'refs/heads/release/')
     runs-on: ubuntu-latest
-    name: Squash to main/develop, tag, publish nuget.org
-    timeout-minutes: 60
+    name: Squash to main/develop and tag
     permissions:
       contents: write
-      id-token: write
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+      official_build_id: ${{ steps.buildid.outputs.official_build_id }}
+      artifact_name: ${{ steps.buildid.outputs.artifact_name }}
     steps:
       - name: Create GitHub App token
         id: app-token
@@ -155,28 +158,35 @@ jobs:
 
       - name: Compute OfficialBuildId
         id: buildid
-        run: echo "official_build_id=$(date -u +%Y%m%d).${{ github.run_number }}" >> "$GITHUB_OUTPUT"
-
-      - name: Checkout main for pack
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
         run: |
           set -euo pipefail
-          git fetch origin main
-          git checkout -B main origin/main
+          BUILD_ID="$(date -u +%Y%m%d).${{ github.run_number }}"
+          echo "official_build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
+          echo "artifact_name=Shipping-${TAG}" >> "$GITHUB_OUTPUT"
 
-      - name: Build, test, and pack
-        run: >
-          ./eng/common/build.sh
-          --ci --restore --build --test --pack
-          --configuration Release
-          /p:Sign=false
-          /p:OfficialBuildId=${{ steps.buildid.outputs.official_build_id }}
+  build:
+    needs: prepare
+    uses: ./.github/workflows/arcade-build-test-package.yml
+    with:
+      ref: ${{ needs.prepare.outputs.tag }}
+      official_build_id: ${{ needs.prepare.outputs.official_build_id }}
+      artifact_name: ${{ needs.prepare.outputs.artifact_name }}
 
-      - name: Upload Shipping packages
-        uses: actions/upload-artifact@v4
+  publish:
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    name: Push to nuget.org
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Download Shipping packages
+        uses: actions/download-artifact@v4
         with:
-          name: Shipping-${{ steps.version.outputs.tag }}
-          path: artifacts/packages/Release/Shipping/
-          if-no-files-found: error
+          name: ${{ needs.prepare.outputs.artifact_name }}
+          path: packages
 
       - name: NuGet login (OIDC → temp API key)
         uses: NuGet/login@v1
@@ -188,10 +198,11 @@ jobs:
         run: |
           set -euo pipefail
           shopt -s nullglob
-          packages=(artifacts/packages/Release/Shipping/*.nupkg)
-          symbols=(artifacts/packages/Release/Shipping/*.snupkg)
+          mapfile -t packages < <(find packages -type f -name '*.nupkg' | sort -u)
+          mapfile -t symbols < <(find packages -type f -name '*.snupkg' | sort -u)
           if [ ${#packages[@]} -eq 0 ]; then
-            echo "No Shipping packages found under artifacts/packages/Release/Shipping/"
+            echo "No Shipping packages found in downloaded artifact"
+            find packages -type f -print || true
             exit 1
           fi
           echo "Publishing ${#packages[@]} package(s) to nuget.org"
