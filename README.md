@@ -47,7 +47,7 @@ dotnet add package Neox.Aspire.Hosting.Keycloak.EntraId
 | [Keycloak.EntraId](src/hosting/Neox.Aspire.Hosting.Keycloak.EntraId/README.md) | `AddEntraIdIdentityProvider` — Entra app registration as Keycloak OIDC identity provider |
 
 > [!NOTE]
-> .NET SDK **10.0.110** is pinned in [`global.json`](global.json). Arcade installs a local copy via `eng/common` when needed.
+> .NET SDK **10.0.111** is pinned in [`global.json`](global.json). Arcade installs a local copy via `eng/common` when needed.
 
 ## Specs
 

@@ -18,7 +18,7 @@ This repository already uses **Microsoft.DotNet.Arcade.Sdk** on **.NET 10** for 
 
 ## Business rules
 
-1. **Arcade toolset** — `sdk.version` / `tools.dotnet` are **.NET 10** (`10.0.110` in `global.json`). `msbuild-sdks.Microsoft.DotNet.Arcade.Sdk` is `10.0.0-beta.26324.4`.
+1. **Arcade toolset** — `sdk.version` / `tools.dotnet` are **.NET 10** (`10.0.111` in `global.json`). `msbuild-sdks.Microsoft.DotNet.Arcade.Sdk` is `10.0.0-beta.26379.2`.
 2. **Feeds** — `NuGet.config` uses `<clear />` and includes `dotnet-eng`, `dotnet-public`, `dotnet-tools`, **`dotnet10`**, and `nuget.org`.
 3. **MIT license** — root `LICENSE` + `PackageLicenseExpression=MIT`; `Company` / `Authors` / `Copyright` are Neox Technology.
 4. **Pack default** — `IsPackable` is `false` repo-wide; Shipping projects opt in.
@@ -61,7 +61,7 @@ See [`domain-glossary.md`](domain-glossary.md).
 | Item | Path / note |
 |------|-------------|
 | Skill | `.cursor/skills/arcade-bootstrap` |
-| SDK pin | `global.json` — `10.0.110` / Arcade `10.0.0-beta.26324.4` |
+| SDK pin | `global.json` — `10.0.111` / Arcade `10.0.0-beta.26379.2` |
 | Solution | `Neox.Aspire.slnx` (libraries under `src/`; harnesses under `tests/`) |
 | Tests tree | `tests/Directory.Build.props` — `IsShipping=false`; xUnit = `IsUnitTestProject`; fixtures = `IsTestUtilityProject`; no `.esproj` |
 | License | `LICENSE` (MIT) |

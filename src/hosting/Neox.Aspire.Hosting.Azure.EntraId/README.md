@@ -171,7 +171,7 @@ Requires Microsoft Graph **`Application.ReadWrite.All`** (same as app registrati
 
 ### Existing applications
 
-Aspire 13.4.6 `RunAsExisting` / `PublishAsExisting` / `AsExisting` apply. The annotation **name** is the Graph `uniqueName` (not an ARM resource name). Omit resource group (tenant object; ARM resource-group deployment is only the vehicle).
+Aspire 13.5.3 `RunAsExisting` / `PublishAsExisting` / `AsExisting` apply. The annotation **name** is the Graph `uniqueName` (not an ARM resource name). Omit resource group (tenant object; ARM resource-group deployment is only the vehicle).
 
 ```csharp
 var existingName = builder.AddParameter("existingAppUniqueName");

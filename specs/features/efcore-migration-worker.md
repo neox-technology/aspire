@@ -30,7 +30,7 @@ _N/A — DI / worker library._
 - Terminology ([`domain-glossary`](domain-glossary.md))
 - `Microsoft.EntityFrameworkCore.Relational` (`MigrateAsync`)
 - `Microsoft.NET.Sdk.Worker` (library `OutputType`)
-- Aspire **13.4.x** hosting/testing + EF client integrations (integration tests)
+- Aspire **13.5.x** hosting/testing + EF client integrations (integration tests)
 - Docker (integration tests / CI)
 
 ## Out of scope

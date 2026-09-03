@@ -17,7 +17,7 @@
 
   <ItemGroup>
     <PackageReference Include="Aspire.Hosting.Azure" Version="$(AspireVersion)" />
-    <PackageReference Include="Azure.Identity" Version="1.21.0" />
+    <PackageReference Include="Azure.Identity" Version="$(AzureIdentityVersion)" />
   </ItemGroup>
 
   <ItemGroup>

@@ -5,5 +5,9 @@
     <IsShipping>false</IsShipping>
     <IsPackable>false</IsPackable>
     <IsTestUtilityProject Condition="'$(IsUnitTestProject)' != 'true'">true</IsTestUtilityProject>
+    <!-- Aspire 13.5+: ASPIRE010 is a warning (error under Arcade TreatWarningsAsErrors).
+         Harnesses keep NuGet-restored DCP/dashboard; they do not use the Aspire CLI bundle. -->
+    <AspireUseCliBundle>false</AspireUseCliBundle>
+    <NoWarn>$(NoWarn);ASPIRE010</NoWarn>
   </PropertyGroup>
 </Project>

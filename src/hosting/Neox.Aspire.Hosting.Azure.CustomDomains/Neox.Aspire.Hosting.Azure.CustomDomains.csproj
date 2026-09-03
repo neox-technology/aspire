@@ -19,9 +19,9 @@
 
   <ItemGroup>
     <PackageReference Include="Aspire.Hosting.Azure.AppContainers" Version="$(AspireVersion)" />
-    <PackageReference Include="Azure.Identity" Version="1.21.0" />
-    <PackageReference Include="Azure.ResourceManager.AppContainers" Version="1.5.0" />
-    <PackageReference Include="YamlDotNet" Version="16.3.0" />
+    <PackageReference Include="Azure.Identity" Version="$(AzureIdentityVersion)" />
+    <PackageReference Include="Azure.ResourceManager.AppContainers" Version="$(AzureResourceManagerAppContainersVersion)" />
+    <PackageReference Include="YamlDotNet" Version="$(YamlDotNetVersion)" />
   </ItemGroup>
 
   <ItemGroup>
