@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Neox.Aspire.Hosting.Keycloak.EntraId</RootNamespace>
+    <IsPackable>true</IsPackable>
+    <SuppressFinalPackageVersion>true</SuppressFinalPackageVersion>
+    <Description>Aspire hosting bridge that wires an Azure Entra ID app registration as a Keycloak OIDC identity provider.</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>aspire;keycloak;entra;oidc;identity-provider</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Neox.Aspire.Hosting.Keycloak\Neox.Aspire.Hosting.Keycloak.csproj" />
+    <ProjectReference Include="..\Neox.Aspire.Hosting.Azure.EntraId\Neox.Aspire.Hosting.Azure.EntraId.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Neox.Aspire.Hosting.Keycloak.EntraId.Tests" />
+  </ItemGroup>
+</Project>

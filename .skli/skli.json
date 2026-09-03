@@ -1,0 +1,67 @@
+{
+  "$schema": "https://raw.githubusercontent.com/zortracks/skli/main/schemas/skli.project.schema.json",
+  "version": 1,
+  "name": "aspire",
+  "description": "",
+  "versioning": "tag",
+  "tags": [],
+  "skills": {
+    "aspire": {
+      "source": "local",
+      "path": ".cursor/skills/aspire",
+      "versioning": "none",
+      "ide": "cursor"
+    },
+    "aspire-deployment": {
+      "source": "local",
+      "path": ".cursor/skills/aspire-deployment",
+      "versioning": "none",
+      "ide": "cursor"
+    },
+    "aspire-init": {
+      "source": "local",
+      "path": ".cursor/skills/aspire-init",
+      "versioning": "none",
+      "ide": "cursor"
+    },
+    "aspire-monitoring": {
+      "source": "local",
+      "path": ".cursor/skills/aspire-monitoring",
+      "versioning": "none",
+      "ide": "cursor"
+    },
+    "aspire-orchestration": {
+      "source": "local",
+      "path": ".cursor/skills/aspire-orchestration",
+      "versioning": "none",
+      "ide": "cursor"
+    },
+    "arcade-bootstrap": {
+      "source": "local",
+      "path": ".cursor/skills/arcade-bootstrap",
+      "versioning": "none",
+      "ide": "cursor"
+    }
+  },
+  "rules": {
+    "plan-mode-phase-commits": {
+      "source": "local",
+      "path": ".cursor/rules/plan-mode-phase-commits.mdc",
+      "versioning": "none",
+      "ide": "cursor"
+    },
+    "specs-documentation": {
+      "source": "local",
+      "path": ".cursor/rules/specs-documentation.mdc",
+      "versioning": "none",
+      "ide": "cursor"
+    },
+    "aspire-apphost": {
+      "source": "local",
+      "path": ".cursor/rules/aspire-apphost.mdc",
+      "versioning": "none",
+      "ide": "cursor"
+    }
+  },
+  "agents": {}
+}

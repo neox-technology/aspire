@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <IsUnitTestProject>true</IsUnitTestProject>
+    <IsTestProject>true</IsTestProject>
+    <RootNamespace>Neox.Keycloak.Provisioning.Realm.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\provisioning\Neox.Keycloak.Provisioning.Realm\Neox.Keycloak.Provisioning.Realm.csproj" />
+    <ProjectReference Include="..\..\src\provisioning\Neox.Keycloak.Provisioning.Realm.Generators.Internal\Neox.Keycloak.Provisioning.Realm.Generators.Internal.csproj" />
+    <None Include="..\..\src\provisioning\Neox.Keycloak.Provisioning.Realm\generated\openapi.json" CopyToOutputDirectory="PreserveNewest" Link="openapi.json" />
+  </ItemGroup>
+</Project>

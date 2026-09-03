@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <IsUnitTestProject>true</IsUnitTestProject>
+    <IsTestProject>true</IsTestProject>
+    <RootNamespace>Neox.Aspire.Hosting.Azure.EntraId.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\hosting\Neox.Aspire.Hosting.Azure.EntraId\Neox.Aspire.Hosting.Azure.EntraId.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="aspire/**" />
+    <Compile Remove="src/**" />
+    <Content Remove="aspire/**" />
+    <Content Remove="src/**" />
+    <None Remove="aspire/**" />
+    <None Remove="src/**" />
+    <None Include="aspire/**" />
+    <None Include="src/**" />
+  </ItemGroup>
+</Project>

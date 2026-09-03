@@ -2,25 +2,80 @@
   <Folder Name="/src/">
     <Project Path="src/Neox.Aspire.EntityFrameworkCore.MigrationWorker/Neox.Aspire.EntityFrameworkCore.MigrationWorker.csproj" />
   </Folder>
+  <Folder Name="/src/provisioning/">
+    <Project Path="src/provisioning/Neox.Azure.Provisioning.Graph/Neox.Azure.Provisioning.Graph.csproj" />
+    <Project Path="src/provisioning/Neox.Azure.Provisioning.Graph.Generators.Internal/Neox.Azure.Provisioning.Graph.Generators.Internal.csproj" />
+    <Project Path="src/provisioning/Neox.Keycloak.Provisioning.Realm/Neox.Keycloak.Provisioning.Realm.csproj" />
+    <Project Path="src/provisioning/Neox.Keycloak.Provisioning.Realm.Generators.Internal/Neox.Keycloak.Provisioning.Realm.Generators.Internal.csproj" />
+  </Folder>
   <Folder Name="/src/hosting/">
-    <Project Path="src/hosting/Neox.Aspire.Hosting.Auth.Abstractions/Neox.Aspire.Hosting.Auth.Abstractions.csproj" />
-    <Project Path="src/hosting/Neox.Aspire.Hosting.Auth.EntraId/Neox.Aspire.Hosting.Auth.EntraId.csproj" />
-    <Project Path="src/hosting/Neox.Aspire.Hosting.Auth.Google/Neox.Aspire.Hosting.Auth.Google.csproj" />
-    <Project Path="src/hosting/Neox.Aspire.Hosting.Auth.EntraId.Generators.Internal/Neox.Aspire.Hosting.Auth.EntraId.Generators.Internal.csproj" />
     <Project Path="src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains/Neox.Aspire.Hosting.Azure.CustomDomains.csproj" />
     <Project Path="src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains.Generators.Internal/Neox.Aspire.Hosting.Azure.CustomDomains.Generators.Internal.csproj" />
+    <Project Path="src/hosting/Neox.Aspire.Hosting.Azure.EntraId/Neox.Aspire.Hosting.Azure.EntraId.csproj" />
+    <Project Path="src/hosting/Neox.Aspire.Hosting.Keycloak/Neox.Aspire.Hosting.Keycloak.csproj" />
+    <Project Path="src/hosting/Neox.Aspire.Hosting.Keycloak.EntraId/Neox.Aspire.Hosting.Keycloak.EntraId.csproj" />
   </Folder>
   <Folder Name="/tests/" />
-  <Folder Name="/tests/auth-providers/">
-    <Project Path="tests/auth-providers/Neox.Aspire.Hosting.Auth.Tests.csproj" />
-    <Project Path="tests/auth-providers/sample-apphost/Neox.Aspire.Hosting.Auth.Tests.SampleAppHost.csproj" />
-    <Project Path="tests/auth-providers/sample-blazor/Neox.Aspire.Hosting.Auth.Tests.SampleBlazor.csproj" />
-  </Folder>
   <Folder Name="/tests/azure-custom-domains/">
     <Project Path="tests/azure-custom-domains/Neox.Aspire.Hosting.Azure.CustomDomains.Tests.csproj" />
     <Project Path="tests/azure-custom-domains/sample-apphost/Neox.Aspire.Hosting.Azure.CustomDomains.Tests.SampleAppHost.csproj" />
   </Folder>
+  <Folder Name="/tests/azure-custom-domains/sample-apphost/" />
+  <Folder Name="/tests/azure-provisioning-graph/">
+    <Project Path="tests/azure-provisioning-graph/Neox.Azure.Provisioning.Graph.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/azure-entraid/">
+    <Project Path="tests/azure-entraid/Neox.Aspire.Hosting.Azure.EntraId.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/azure-entraid/aspire/" />
+  <Folder Name="/tests/azure-entraid/aspire/apphost/">
+    <Project Path="tests/azure-entraid/aspire/apphost/Neox.Aspire.Hosting.Azure.EntraId.Tests.AppHost.csproj" />
+  </Folder>
+  <Folder Name="/tests/azure-entraid/aspire/service-defaults/">
+    <Project Path="tests/azure-entraid/aspire/service-defaults/Neox.Aspire.Hosting.Azure.EntraId.Tests.ServiceDefaults.csproj" />
+  </Folder>
+  <Folder Name="/tests/azure-entraid/src/" />
+  <Folder Name="/tests/azure-entraid/src/apis/">
+    <Project Path="tests/azure-entraid/src/apis/Neox.Aspire.Hosting.Azure.EntraId.Tests.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/azure-entraid/src/spa/">
+    <Project Path="tests/azure-entraid/src/spa/Neox.Aspire.Hosting.Azure.EntraId.Tests.Spa.esproj">
+      <Build />
+      <Deploy />
+    </Project>
+  </Folder>
+  <Folder Name="/tests/keycloak-provisioning/">
+    <Project Path="tests/keycloak-provisioning/Neox.Keycloak.Provisioning.Realm.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/keycloak/">
+    <Project Path="tests/keycloak/Neox.Aspire.Hosting.Keycloak.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/keycloak-entraid/">
+    <Project Path="tests/keycloak-entraid/Neox.Aspire.Hosting.Keycloak.EntraId.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/keycloak/aspire/" />
+  <Folder Name="/tests/keycloak/aspire/apphost/">
+    <Project Path="tests/keycloak/aspire/apphost/Neox.Aspire.Hosting.Keycloak.Tests.AppHost.csproj" />
+  </Folder>
+  <Folder Name="/tests/keycloak/aspire/service-defaults/">
+    <Project Path="tests/keycloak/aspire/service-defaults/Neox.Aspire.Hosting.Keycloak.Tests.ServiceDefaults.csproj" />
+  </Folder>
+  <Folder Name="/tests/keycloak/src/" />
+  <Folder Name="/tests/keycloak/src/apis/">
+    <Project Path="tests/keycloak/src/apis/Neox.Aspire.Hosting.Keycloak.Tests.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/keycloak/src/spa/">
+    <Project Path="tests/keycloak/src/spa/Neox.Aspire.Hosting.Keycloak.Tests.Spa.esproj">
+      <Build />
+      <Deploy />
+    </Project>
+  </Folder>
   <Folder Name="/tests/efcore-migration-worker/" />
+  <Folder Name="/tests/efcore-migration-worker/postgresql/apphost/" />
+  <Folder Name="/tests/efcore-migration-worker/postgresql/data/" />
+  <Folder Name="/tests/efcore-migration-worker/postgresql/migration-service/" />
+  <Folder Name="/tests/efcore-migration-worker/postgresql/service-defaults/" />
+  <Folder Name="/tests/efcore-migration-worker/postgresql/tests/" />
   <Folder Name="/tests/efcore-migration-worker/sqlserver/">
     <Project Path="tests/efcore-migration-worker/sqlserver/apphost/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.SqlServer.AppHost.csproj" />
     <Project Path="tests/efcore-migration-worker/sqlserver/migration-service/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.SqlServer.MigrationService.csproj" />
@@ -28,6 +83,11 @@
     <Project Path="tests/efcore-migration-worker/sqlserver/data/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.SqlServer.Data.csproj" />
     <Project Path="tests/efcore-migration-worker/sqlserver/tests/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.SqlServer.csproj" />
   </Folder>
+  <Folder Name="/tests/efcore-migration-worker/oracle/apphost/" />
+  <Folder Name="/tests/efcore-migration-worker/oracle/data/" />
+  <Folder Name="/tests/efcore-migration-worker/oracle/migration-service/" />
+  <Folder Name="/tests/efcore-migration-worker/oracle/service-defaults/" />
+  <Folder Name="/tests/efcore-migration-worker/oracle/tests/" />
   <Folder Name="/tests/efcore-migration-worker/postgresql/">
     <Project Path="tests/efcore-migration-worker/postgresql/apphost/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.PostgreSql.AppHost.csproj" />
     <Project Path="tests/efcore-migration-worker/postgresql/migration-service/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.PostgreSql.MigrationService.csproj" />
@@ -42,6 +102,11 @@
     <Project Path="tests/efcore-migration-worker/mysql/data/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.MySql.Data.csproj" />
     <Project Path="tests/efcore-migration-worker/mysql/tests/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.MySql.csproj" />
   </Folder>
+  <Folder Name="/tests/efcore-migration-worker/mysql/apphost/" />
+  <Folder Name="/tests/efcore-migration-worker/mysql/data/" />
+  <Folder Name="/tests/efcore-migration-worker/mysql/migration-service/" />
+  <Folder Name="/tests/efcore-migration-worker/mysql/service-defaults/" />
+  <Folder Name="/tests/efcore-migration-worker/mysql/tests/" />
   <Folder Name="/tests/efcore-migration-worker/oracle/">
     <Project Path="tests/efcore-migration-worker/oracle/apphost/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.Oracle.AppHost.csproj" />
     <Project Path="tests/efcore-migration-worker/oracle/migration-service/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.Oracle.MigrationService.csproj" />
@@ -49,8 +114,14 @@
     <Project Path="tests/efcore-migration-worker/oracle/data/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.Oracle.Data.csproj" />
     <Project Path="tests/efcore-migration-worker/oracle/tests/Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.Oracle.csproj" />
   </Folder>
+  <Folder Name="/tests/efcore-migration-worker/sqlserver/apphost/" />
+  <Folder Name="/tests/efcore-migration-worker/sqlserver/data/" />
+  <Folder Name="/tests/efcore-migration-worker/sqlserver/migration-service/" />
+  <Folder Name="/tests/efcore-migration-worker/sqlserver/service-defaults/" />
+  <Folder Name="/tests/efcore-migration-worker/sqlserver/tests/" />
   <Folder Name="/tools/">
     <Project Path="tools/octodns-provider-catalog/octodns-provider-catalog.csproj" />
-    <Project Path="tools/microsoft-graph-permissions-catalog/microsoft-graph-permissions-catalog.csproj" />
+    <Project Path="tools/msgraph-bicep-types-catalog/msgraph-bicep-types-catalog.csproj" />
+    <Project Path="tools/keycloak-realm-openapi-catalog/keycloak-realm-openapi-catalog.csproj" />
   </Folder>
 </Solution>

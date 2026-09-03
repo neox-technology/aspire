@@ -1,0 +1,85 @@
+---
+description: Sample/test AppHost file layout and Aspire resource naming (tests harnesses)
+globs: tests/**
+alwaysApply: false
+---
+
+# Aspire AppHost layout and resource names
+
+Lire `.cursor/rules/neox-rules.json` pour `{rootNamespace}`, `{solutionSlug}`.
+
+This repository ships **Neox Aspire packages**. It is not a product runtime. Aspire AppHosts here are **isolated sample/test harnesses** under `tests/` (for example `tests/efcore-migration-worker/*/apphost`, `tests/auth-providers/sample-apphost`, `tests/azure-custom-domains/sample-apphost`). They are not the saas **test AppHost** (`saas/tests/aspire`) and not the Events delivery AppHost.
+
+There is no single `{paths.appHost}` / `{paths.serviceDefaults}` for the repo. Layout is **relative to each harness**: `apphost/` and `service-defaults/` beside that harness’s tests.
+
+## ServiceNames
+
+Un fichier `service-defaults/ServiceNames.cs` **par harness**. Classes imbriquées = segment kebab après `{Prefix}`. Interpolated strings : `Prefix` + préfixe de groupe privé.
+
+`Prefix` is **per harness** (for example `neox-efmw-sql`), not `{solutionSlug}`.
+
+```csharp
+public static class ServiceNames
+{
+    public const string Prefix = "neox-efmw-sql";
+
+    public static class Services
+    {
+        public const string Gateway = $"{ServicesPrefix}-gateway";
+        public const string Migrations = $"{ServicesPrefix}-migrations";
+        public const string {PascalSlug} = $"{ServicesPrefix}-{slug}";
+        private const string ServicesPrefix = $"{Prefix}-services";
+    }
+}
+```
+
+| Groupe | Pattern |
+|--------|---------|
+| `Infrastructure` | `{Prefix}-infra-{slug}` or `{Prefix}-infrastructure-{slug}` |
+| `Databases` | `{Prefix}-databases-{slug}` |
+| `Services` | `{Prefix}-services-{slug}` (`gateway`, `migrations`, métier de test) |
+| `Workers` | `{Prefix}-{slug}` when the harness uses a workers group (migration services) |
+| `Web` | `{Prefix}-web-{slug}` |
+
+Tout `{Prefix}-services-*` vit dans `Services` — pas de classes `Gateway` / `MigrationServices`. Do not add a repo-wide `{aspire.resources}` map; each harness owns its ids.
+
+Do not add resource constants until a resource exists.
+
+```csharp
+// ❌ BAD — product solutionSlug or Events AppHost ids
+builder.AddProject<...>("aspire-web-app");
+public const string App = "events-web-app";
+```
+
+```csharp
+// ✅ GOOD — harness Prefix
+builder.AddProject<...>(ServiceNames.Workers.Migration);
+```
+
+## AppHost — un fichier par groupe
+
+`apphost/Program.cs` : `CreateBuilder` → `X.Configure(builder)` → `Build().Run()` uniquement.
+
+Fichiers seulement si le groupe a des resources : `Infrastructure.cs`, `Databases.cs`, `Migrations.cs`, `Auth.cs`, `Services.cs`, `Gateway.cs`, `Web.cs`.
+
+Empty graph: no group files and no `Configure` calls.
+
+**Configure order:** Infrastructure → Databases → Migrations → Auth → Services → Gateway → Web.
+
+Chaque groupe : `public static class {Group}` + une propriété `IResourceBuilder<T>` par resource (`get; private set; = null!`) + `Configure(...)`.
+
+```csharp
+public static class Databases
+{
+    public static IResourceBuilder<SqlServerDatabaseResource> Application { get; private set; } = null!;
+
+    public static void Configure(IDistributedApplicationBuilder builder)
+    {
+        Application = Infrastructure.SqlServer.AddDatabase(ServiceNames.Databases.Application, "application");
+    }
+}
+```
+
+Cross-groupe : `Infrastructure.SqlServer`, `Databases.Application`. Ids : `ServiceNames.*`.
+
+**Interdit :** `apphost.cs` à la racine du repo ; resources en propriétés de `Program` ; câbler ces harnesses dans l’AppHost Events ou le test AppHost saas (`saas/tests/aspire`).

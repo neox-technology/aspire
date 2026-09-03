@@ -1,0 +1,49 @@
+---
+description: Demander les commits par phase à la définition du plan (mode Plan), puis les exécuter si acceptés
+alwaysApply: true
+---
+
+# Commits par phase — mode Plan
+
+S'applique à tout plan rédigé en **mode Plan**, découpé en phases numérotées (`PHASE 1`, `PHASE 2`, …). Voir `BOOTSTRAP.md` comme exemple canonique.
+
+Le consentement donné à la définition du plan autorise les commits de frontière ; sans ce consentement, ne pas committer.
+
+## À la définition du plan
+
+Avant de soumettre le plan à l'approbation, poser via `AskQuestion` :
+
+- **Plan multi-phases** : *« Souhaitez-vous que je crée un commit git en fin de chaque phase du plan ? »*
+- **Plan mono-phase** : *« Souhaitez-vous que je crée un commit git en fin du plan ? »*
+
+Noter explicitement le choix dans le plan (section dédiée ou métadonnée), par ex. `Commits : oui, un commit par phase` ou `Commits : non`.
+
+## À l'exécution — si oui
+
+En fin de chaque phase (ou en fin de plan si mono-phase) :
+
+1. `git status` — si aucun changement (phase lecture seule), passer sans commit.
+2. Sinon : `git diff`, message impératif concis (ex. `Add financial forecast section`), `git add` + `git commit` via HEREDOC.
+3. Pas de re-demande à chaque phase — le consentement initial suffit.
+4. Pas de `git push` sans demande explicite.
+
+## À l'exécution — si non
+
+Ne pas proposer ni créer de commits ; l'utilisateur gère git lui-même.
+
+## Exemples
+
+```markdown
+// ✅ BON — définition du plan (2 phases)
+AskQuestion : « Souhaitez-vous que je crée un commit git en fin de chaque phase ? »
+→ Plan inclut : « Commits : oui, un commit par phase à l'exécution »
+
+// ✅ BON — plan mono-phase, utilisateur a dit oui
+Fin d'exécution → git commit -m "Add neox-rules.json for consumer repo"
+
+// ❌ MAUVAIS — pas de question à la définition
+Plan soumis sans avoir demandé la préférence commit
+
+// ❌ MAUVAIS — commit malgré refus initial
+Utilisateur a dit non à la définition → git commit en fin de phase quand même
+```

@@ -28,7 +28,7 @@ public sealed class MigrationWorkerTests
             KnownResourceStates.Finished,
             cts.Token);
 
-        await AssertMigrationsAppliedAsync(ServiceNames.Databases.Application, cts.Token);
+        await AssertMigrationsAppliedAsync<TestDbContext>(ServiceNames.Databases.Application, cts.Token);
     }
 
     [Fact]
@@ -45,20 +45,32 @@ public sealed class MigrationWorkerTests
             KnownResourceStates.Finished,
             cts.Token);
 
-        await AssertMigrationsAppliedAsync(ServiceNames.Databases.Application, cts.Token);
-        await AssertMigrationsAppliedAsync(ServiceNames.Databases.Application2, cts.Token);
+        await AssertMigrationsAppliedAsync<TestDbContext>(ServiceNames.Databases.Application, cts.Token);
+        await AssertMigrationsAppliedAsync<TestDbContext>(ServiceNames.Databases.Application2, cts.Token);
     }
 
-    private async Task AssertMigrationsAppliedAsync(string databaseResourceName, CancellationToken cancellationToken)
+    [Fact]
+    public async Task SameProcess_MultipleDbContexts_ApplyMigrations()
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(3));
+
+        await _app.ResourceNotifications.WaitForResourceAsync(
+            ServiceNames.Workers.MigrationMulti,
+            KnownResourceStates.Finished,
+            cts.Token);
+
+        await AssertMigrationsAppliedAsync<TestDbContext>(ServiceNames.Databases.ApplicationMulti, cts.Token);
+        await AssertMigrationsAppliedAsync<SecondaryDbContext>(ServiceNames.Databases.ApplicationMulti2, cts.Token);
+    }
+
+    private async Task AssertMigrationsAppliedAsync<TContext>(string databaseResourceName, CancellationToken cancellationToken)
+        where TContext : DbContext
     {
         var connectionString = await _app.GetConnectionStringAsync(databaseResourceName, cancellationToken);
         Assert.False(string.IsNullOrWhiteSpace(connectionString), $"Missing connection string for '{databaseResourceName}'.");
 
-        var options = new DbContextOptionsBuilder<TestDbContext>()
-            .UseSqlServer(connectionString)
-            .Options;
-
-        await using var db = new TestDbContext(options);
+        var optionsBuilder = new DbContextOptionsBuilder<TContext>().UseSqlServer(connectionString);
+        await using var db = (TContext)Activator.CreateInstance(typeof(TContext), optionsBuilder.Options)!;
         var applied = await db.Database.GetAppliedMigrationsAsync(cancellationToken);
         var pending = await db.Database.GetPendingMigrationsAsync(cancellationToken);
 

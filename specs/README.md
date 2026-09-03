@@ -2,44 +2,81 @@
 
 Feature index for this public repository of shared `Neox.Aspire.*` NuGet packages (hosting and other libraries). Each spec lives in `specs/features/<slug>.md`.
 
-**Terminology authority:** [`domain-glossary.md`](features/domain-glossary.md) (`glossaryOwner` in `neox-rules.json`).
+This repository is not the Events product, **Site overlay**, **Planner**, Events AppHost, or **Neox SaaS**. Sample/test AppHosts live under `tests/`. Terminology: [`features/domain-glossary.md`](features/domain-glossary.md) (`glossaryOwner` in `neox-rules.json`).
 
-## Feature template
+## Conventions
 
-Each `specs/features/<slug>.md` file follows this skeleton:
+- **Slug**: kebab-case. Filename: `specs/features/<slug>.md`.
+- **Language**: English.
+- **Status values**: `draft` → `defined` → `implemented`.
+- **Terminology**: [`features/domain-glossary.md`](features/domain-glossary.md).
+
+## Mandatory feature template
+
+Every **new** file in `specs/features/` must follow this structure:
 
 ```markdown
-# {Title}
+# Feature name
 
 | Field | Value |
 |-------|-------|
-| Slug | `{slug}` |
-| Status | draft |
-| Last code review | 2026-07-28 |
+| Slug | `kebab-case-slug` |
+| Status | draft \| defined \| implemented |
+| Last code review | YYYY-MM-DD |
 
 ## Summary
+
+One-paragraph description.
+
 ## User scenarios
-## Routes (if UI)
+
+1. **Actor does X** — outcome.
+
+## Business rules
+
+1. **Rule name** — invariant (omit this section for pure platform/vision specs if unused).
+
 ## Dependencies
+
+- Links to other feature slugs (bidirectional where applicable)
+
 ## Out of scope
+
+What this feature explicitly does NOT cover.
+
 ## Acceptance criteria
+
+- [ ] Testable checklist item
+
 ## Terminology
+
+See [`domain-glossary.md`](domain-glossary.md).
+
 ## Implementation notes
+
+| Item | Path / note |
+|------|-------------|
+| … | … |
 ```
 
-- **Status**: `draft` → `defined` → `implemented` (Neox workflow).
+After creating or updating a feature, refresh the index below **and** the status table in the root [README.md](../README.md).
+
 - **Acceptance criteria**: expected behavior in the present tense; `[x]` if already in code, `[ ]` for known gaps. The glossary (`domain-glossary`) has no acceptance-criteria section by design.
 - **Terminology**: point to `domain-glossary`; do not redefine shared terms.
 
-## Feature index
+## Index
 
 | Slug | Status | Description |
 |------|--------|-------------|
-| [`domain-glossary`](features/domain-glossary.md) | defined | Neox Aspire terminology (seed) |
-| [`gitflow-ci`](features/gitflow-ci.md) | defined | GitFlow Actions (tag-bump start-release, Versions.props align, version guard CI) |
-| [`nuget-org`](features/nuget-org.md) | defined | Arcade pack/publish to nuget.org (Trusted Publishing; DotNetFinalVersionKind) |
+| [`domain-glossary`](features/domain-glossary.md) | defined | Neox Aspire terms (repo, development host, sample AppHost, package vocabulary) |
+| [`aspire-bootstrap`](features/aspire-bootstrap.md) | defined | Public repo identity, local specs, sample AppHosts, manual release Actions |
+| [`arcade-bootstrap`](features/arcade-bootstrap.md) | implemented | Arcade clone-and-build on .NET 10; `Neox.Aspire.slnx`; MIT |
+| [`gitflow-ci`](features/gitflow-ci.md) | implemented | GitFlow branches + manual release-start / private-publish / finalize Actions |
+| [`nuget-org`](features/nuget-org.md) | implemented | Arcade pack; GitHub Packages daily from `release/*`; nuget.org Trusted Publishing |
 | [`efcore-migration-worker`](features/efcore-migration-worker.md) | implemented | EF Core migration worker + Aspire xUnit harnesses (SqlServer/Postgres/MySQL/Oracle) |
 | [`azure-custom-domains`](features/azure-custom-domains.md) | implemented | ACA custom domain ops (OctoDNS-in-Docker, managed certs, `aspire do`) |
-| [`auth-providers`](features/auth-providers.md) | implemented | AuthOps — Entra dashboard Waiting/Healthy status + provision command; `WithAuth` → `AzureAd__*`; samples WebAPI/Blazor/Ops |
-| [`auth-provider-google`](features/auth-provider-google.md) | implemented | AuthOps Google — `GoogleAuthAppRegistrationResource` + provider `WithAuth` → `AUTH_GOOGLE_*` |
-| [`auth-entra-graph-permissions`](features/auth-entra-graph-permissions.md) | implemented | EntraId source-generated Microsoft Graph delegated/application `WithApiPermission` binds |
+| [`azure-entra-id`](features/azure-entra-id.md) | implemented | Shipping `AddAzureAppRegistration` + `WithSupportedAccountType` + `AddScope` + `AddAppRole` + `AddWebApplication` + `AddSpaApplication` + `WithPermission` + `AddCertificate` / `WithKeyCredential` + `WithSecret` (`EntraIdPasswordCredentialResource`) + `EntraIdInstance` + `WithMicrosoftIdentityWebApplication` + `WithEntraIdSpaApplication` |
+| [`keycloak-hosting`](features/keycloak-hosting.md) | implemented | Shipping `AddRealm` + `AddJwtClient` / `AddOidcClient` + `AddIdentityProvider` + `WithLocalRedirectUri` / `WithRedirectUrl` + `WithKeycloakJwtBearer` / `WithKeycloakSpa` on upstream `AddKeycloak`; harness under `tests/keycloak/` |
+| [`keycloak-entraid`](features/keycloak-entraid.md) | implemented | Shipping bridge `AddEntraIdIdentityProvider` — Entra app registration as Keycloak OIDC identity provider (email claim mappers) |
+| [`azure-provisioning-graph`](features/azure-provisioning-graph.md) | implemented | Shipping `Neox.Azure.Provisioning.Graph` — source-generated Graph Bicep constructs from msgraph-bicep-types v1.0/1.0.0 |
+| [`keycloak-provisioning-realm`](features/keycloak-provisioning-realm.md) | implemented | Shipping `Neox.Keycloak.Provisioning.Realm` — source-generated realm POCOs from Keycloak Admin REST OpenAPI 26.2.5 |

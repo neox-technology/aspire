@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Neox.Azure.Provisioning.Graph</RootNamespace>
+    <IsPackable>true</IsPackable>
+    <SuppressFinalPackageVersion>true</SuppressFinalPackageVersion>
+    <Description>Azure.Provisioning constructs for Microsoft Graph Bicep resources (source-generated from msgraph-bicep-types).</Description>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>azure;provisioning;entra;graph;bicep</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <AdditionalFiles Include="generated\types.json" />
+    <None Include="generated\index.json" Pack="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Azure.Provisioning" Version="$(AzureProvisioningVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Neox.Azure.Provisioning.Graph.Generators.Internal\Neox.Azure.Provisioning.Graph.Generators.Internal.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Neox.Azure.Provisioning.Graph.Tests" />
+  </ItemGroup>
+</Project>

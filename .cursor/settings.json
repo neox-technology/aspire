@@ -1,7 +1,0 @@
-{
-  "plugins": {
-    "neox-ide/neox-guidelines": {
-      "enabled": true
-    }
-  }
-}
