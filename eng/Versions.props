@@ -1,6 +1,6 @@
 <Project>
   <PropertyGroup>
-    <VersionPrefix>1.0.0</VersionPrefix>
+    <VersionPrefix>1.0.1</VersionPrefix>
     <PreReleaseVersionLabel>preview</PreReleaseVersionLabel>
     <!-- Set to true for repo-wide GA (stable versions). Leave false while preview. -->
     <!-- Packages with SuppressFinalPackageVersion stay prerelease after stabilize. -->
