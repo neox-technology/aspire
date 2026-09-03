@@ -22,5 +22,7 @@
     <AzureProvisioningVersion>1.5.0</AzureProvisioningVersion>
     <MicrosoftIdentityWebVersion>4.13.2</MicrosoftIdentityWebVersion>
     <SwashbuckleAspNetCoreVersion>10.2.3</SwashbuckleAspNetCoreVersion>
+    <!-- No .resx localization in this repo; skip Arcade XliffTasks on Shipping projects. -->
+    <UsingToolXliff>false</UsingToolXliff>
   </PropertyGroup>
 </Project>

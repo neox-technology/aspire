@@ -185,7 +185,7 @@ Validation checklist: [references/checklist.md](references/checklist.md).
 | Nested `Directory.Build.props` without parent import | Drops Arcade for that subtree; always `GetPathOfFileAbove` the parent |
 | `.esproj` under `tests/` | JavaScript.Sdk has no Arcade `Test`/`Pack` and fights TFM (`NU1012`); use a Vite folder + `AddViteApp` |
 | `IsTestProject=true` on fixtures | Arcade looks for an xUnit runner on AppHost/API; use `IsTestUtilityProject` instead |
-| Symbols not on the feed | `IncludeSymbols` produces `.snupkg`; publish template pushes `*.nupkg` only — push symbols explicitly if needed |
+| Symbols not on the feed | Arcade `IncludeSymbols` produces `.symbols.nupkg` (not `.snupkg`; Arcade rejects `snupkg`). Publish templates that only glob `*.snupkg` skip them. `NU5026` means pack expected a portable PDB on disk — copy from `IntermediateOutputPath` or skip `IncludeSymbols` for that project |
 | Missing `RepositoryType` / README in package | Set `RepositoryType=git`; consider `PackageReadmeFile` |
 | CI on `develop` | Out of scope for this skill’s publish model (`main` only) |
 | Signing | Keep `/p:Sign=false` in GHA; MicroBuild signing is out of scope |

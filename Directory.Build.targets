@@ -13,4 +13,25 @@
     <DebugSymbols>true</DebugSymbols>
     <CopyOutputSymbolsToOutputDirectory>true</CopyOutputSymbolsToOutputDirectory>
   </PropertyGroup>
+
+  <!--
+    IncludeSymbols requires a portable PDB next to the dll (NU5026 otherwise).
+    Official Linux solution packs can miss that copy after tests rebuild a P2P
+    reference; restore from IntermediateOutputPath, or skip the symbols package.
+  -->
+  <Target Name="EnsurePortablePdbForPack"
+          BeforeTargets="GenerateNuspec"
+          Condition="'$(IsPackable)' == 'true' and '$(IncludeSymbols)' == 'true' and '$(DebugType)' != 'embedded' and '$(DebugType)' != 'none' and '$(TargetPath)' != ''">
+    <PropertyGroup>
+      <_PackPdbPath>$([System.IO.Path]::ChangeExtension('$(TargetPath)', '.pdb'))</_PackPdbPath>
+      <_ObjPdbPath>$(IntermediateOutputPath)$(TargetName).pdb</_ObjPdbPath>
+    </PropertyGroup>
+    <Copy SourceFiles="$(_ObjPdbPath)"
+          DestinationFiles="$(_PackPdbPath)"
+          SkipUnchangedFiles="true"
+          Condition="!Exists('$(_PackPdbPath)') and Exists('$(_ObjPdbPath)')" />
+    <PropertyGroup Condition="!Exists('$(_PackPdbPath)')">
+      <IncludeSymbols>false</IncludeSymbols>
+    </PropertyGroup>
+  </Target>
 </Project>
