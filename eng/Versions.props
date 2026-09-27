@@ -7,16 +7,16 @@
     <StabilizePackageVersion>false</StabilizePackageVersion>
     <DotNetFinalVersionKind Condition="'$(StabilizePackageVersion)' == 'true'">release</DotNetFinalVersionKind>
 
-    <!-- Align with Aspire 13.4.6 net10.0 dependency graph -->
-    <AspireVersion>13.4.6</AspireVersion>
-    <!-- Aspire.Hosting.Keycloak is preview-only on nuget.org (no stable 13.4.6) -->
-    <AspireHostingKeycloakVersion>13.4.6-preview.1.26319.6</AspireHostingKeycloakVersion>
-    <AspireKeycloakAuthenticationVersion>13.4.6-preview.1.26319.6</AspireKeycloakAuthenticationVersion>
-    <MicrosoftEntityFrameworkCoreVersion>10.0.8</MicrosoftEntityFrameworkCoreVersion>
+    <!-- Align with Aspire 13.5.4 net10.0 dependency graph -->
+    <AspireVersion>13.5.4</AspireVersion>
+    <!-- Aspire.Hosting.Keycloak is preview-only on nuget.org (no stable 13.5.4) -->
+    <AspireHostingKeycloakVersion>13.5.4-preview.1.26464.4</AspireHostingKeycloakVersion>
+    <AspireKeycloakAuthenticationVersion>13.5.4-preview.1.26464.4</AspireKeycloakAuthenticationVersion>
+    <MicrosoftEntityFrameworkCoreVersion>10.0.11</MicrosoftEntityFrameworkCoreVersion>
     <NpgsqlEntityFrameworkCorePostgreSQLVersion>10.0.0</NpgsqlEntityFrameworkCorePostgreSQLVersion>
     <MySqlEntityFrameworkCoreVersion>10.0.1</MySqlEntityFrameworkCoreVersion>
     <OracleEntityFrameworkCoreVersion>10.23.26300</OracleEntityFrameworkCoreVersion>
-    <MicrosoftExtensionsHostingAbstractionsVersion>10.0.8</MicrosoftExtensionsHostingAbstractionsVersion>
+    <MicrosoftExtensionsHostingAbstractionsVersion>10.0.11</MicrosoftExtensionsHostingAbstractionsVersion>
     <!-- Arcade property (XUnitVersion); pins xunit.core / assert / runners -->
     <XUnitVersion>2.9.3</XUnitVersion>
     <AzureProvisioningVersion>1.5.0</AzureProvisioningVersion>
