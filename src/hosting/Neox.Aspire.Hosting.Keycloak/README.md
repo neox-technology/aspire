@@ -58,6 +58,8 @@ builder.Services.AddAuthentication()
 
 `AddOidcClient` registers a public OIDC client on the realm (realm JSON + child `KeycloakOidcClientResource`) for browser/SPA auth code + PKCE flows. No client secret or audience mapper.
 
+`AddUser(username, password, configure?)` registers a `KeycloakUserResource` child of the Keycloak server (username, secret parameter, optional `UserRepresentation` callback). `WithUser(user)` on a realm of the same server upserts that user into realm JSON with a non-temporary password credential.
+
 `AddIdentityProvider(alias, providerId, configure?)` registers a Keycloak identity provider in realm JSON (`identityProviders`) and a child `KeycloakIdentityProviderResource`. Upserts by alias. Optional `configure` mutates `IdentityProviderRepresentation` (including `config`).
 
 `WithRedirectUrl(Uri)` on JWT or OIDC clients accumulates exact OAuth2 redirect URIs and matching `webOrigins` (production or fixed-port dev URLs).

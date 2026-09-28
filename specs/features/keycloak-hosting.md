@@ -4,11 +4,11 @@
 |-------|-------|
 | Slug | `keycloak-hosting` |
 | Status | implemented |
-| Last code review | 2026-08-20 |
+| Last code review | 2026-09-28 |
 
 ## Summary
 
-Shipping hosting package `Neox.Aspire.Hosting.Keycloak` extends upstream [`Aspire.Hosting.Keycloak`](https://aspire.dev/fr/integrations/security/keycloak/) with **`AddRealm`** on the Keycloak container resource: optional `RealmRepresentation` callback, JSON file generation under `.aspire/keycloak-realms/{keycloakName}/`, and a single upstream `WithRealmImport` mount per container. Post-`AddRealm` builders **`WithOrganizations`** and **`WithOrganization(name, domain)`** mutate the realm JSON idempotently (organizations feature flag + org/domain entries). **`AddIdentityProvider(alias, providerId, configure?)`** registers a **Keycloak identity provider** in realm JSON (`IdentityProviderRepresentation`) and a child **`KeycloakIdentityProviderResource`**.
+Shipping hosting package `Neox.Aspire.Hosting.Keycloak` extends upstream [`Aspire.Hosting.Keycloak`](https://aspire.dev/fr/integrations/security/keycloak/) with **`AddRealm`** on the Keycloak container resource: optional `RealmRepresentation` callback, JSON file generation under `.aspire/keycloak-realms/{keycloakName}/`, and a single upstream `WithRealmImport` mount per container. Post-`AddRealm` builders **`WithOrganizations`** and **`WithOrganization(name, domain)`** mutate the realm JSON idempotently (organizations feature flag + org/domain entries). **`AddUser(username, password, configure?)`** registers a **Keycloak user** child of the Keycloak server. **`WithUser`** on a realm copies that user into realm JSON. **`AddIdentityProvider(alias, providerId, configure?)`** registers a **Keycloak identity provider** in realm JSON (`IdentityProviderRepresentation`) and a child **`KeycloakIdentityProviderResource`**.
 
 `KeycloakRealmResource` is a child resource of `KeycloakResource` (realm name + import directory). **`AddJwtClient`** on a realm registers a confidential JWT client in realm JSON (including an **`oidc-audience-mapper`** for JWT validation) and creates a child **`KeycloakJwtClientResource`**. **`AddOidcClient`** registers a public OIDC/SPA client in realm JSON and creates a child **`KeycloakOidcClientResource`**. **`WithRedirectUrl`** and **`WithLocalRedirectUri`** on JWT or OIDC clients accumulate redirect URIs and web origins. **`WithLocalRedirectUri`** (Development only) registers HTTP loopback redirect URIs without port and `webOrigins: *` for Aspire ephemeral ports. **`WithKeycloakJwtBearer`** projects `Keycloak__*` environment variables from the Keycloak HTTPS endpoint (fallback HTTP) and `WaitFor`s Keycloak and the realm. **`WithKeycloakSpa`** projects `KEYCLOAK_URL`, `KEYCLOAK_REALM`, and `KEYCLOAK_CLIENT_ID` for Vite/SPA consumers and `WaitFor`s Keycloak and the realm. The sample harness under `tests/keycloak/` uses upstream `AddKeycloak` for the server, Neox `AddRealm` / `AddJwtClient` / `AddOidcClient` / `WithLocalRedirectUri` for realm import, `Aspire.Keycloak.Authentication` in the sample API with an explicit `Keycloak:Authority` override, and a Vite SPA stub wired via `WithKeycloakSpa`. Entra-specific IdP wiring lives in [`keycloak-entraid`](keycloak-entraid.md).
 
@@ -23,11 +23,12 @@ Shipping hosting package `Neox.Aspire.Hosting.Keycloak` extends upstream [`Aspir
 7. **AppHost author registers Swagger OAuth redirect** — `WithLocalRedirectUri` in Development or `WithRedirectUrl(Uri)` for exact redirect URIs; both enable standard flow in realm JSON.
 8. **AppHost author wires SPA OIDC client** — `AddRealm(...).AddOidcClient(...).WithLocalRedirectUri("/")` (dev) or `WithRedirectUrl(uri)` then `AddViteApp(...).WithReference(keycloak).WithKeycloakSpa(oidcClient)`; SPA reads `KEYCLOAK_*` env vars (Vite `envPrefix`).
 9. **AppHost author adds an identity provider** — `AddRealm(...).AddIdentityProvider(alias, providerId, configure?)` upserts `identityProviders` in realm JSON by alias and registers a child **Keycloak identity provider** resource.
+10. **AppHost author imports a user** — `AddKeycloak(...).AddUser(username, password, configure?)` registers a **Keycloak user**; `AddRealm(...).WithUser(user)` upserts that user in `{realm}-realm.json` with a non-temporary password credential. The Aspire parent stays the Keycloak server.
 
 ## Business rules
 
 1. **One Shipping package** — `Neox.Aspire.Hosting.Keycloak` is packable and targets `net10.0`.
-2. **Child resources** — `KeycloakRealmResource` implements `IResourceWithParent<KeycloakResource>`, is excluded from manifest, and is named `{keycloakName}-{realm}`. `KeycloakJwtClientResource`, `KeycloakOidcClientResource`, and `KeycloakIdentityProviderResource` implement `IResourceWithParent<KeycloakRealmResource>` and are excluded from manifest.
+2. **Child resources** — `KeycloakRealmResource` implements `IResourceWithParent<KeycloakResource>`, is excluded from manifest, and is named `{keycloakName}-{realm}`. `KeycloakUserResource` implements `IResourceWithParent<KeycloakResource>`, is excluded from manifest, and is named `{keycloakName}-user-{username}`. `KeycloakJwtClientResource`, `KeycloakOidcClientResource`, and `KeycloakIdentityProviderResource` implement `IResourceWithParent<KeycloakRealmResource>` and are excluded from manifest.
 3. **Import directory** — `.aspire/keycloak-realms/{keycloakName}/` resolved relative to AppHost directory; gitignored locally.
 4. **Realm parameter wins** — callback may set `Realm`; the `realm` parameter is forced after the callback.
 5. **Single import mount** — `KeycloakRealmImportAnnotation` ensures `WithRealmImport` runs once per `KeycloakResource`.
@@ -39,8 +40,9 @@ Shipping hosting package `Neox.Aspire.Hosting.Keycloak` extends upstream [`Aspir
 11. **Consumer Authority contract** — `Aspire.Keycloak.Authentication.AddKeycloakJwtBearer` defaults to `https+http://{serviceName}/realms/{realm}`; consumers must set `options.Authority` from `Keycloak:Authority` projected by `WithKeycloakJwtBearer` so JWT `iss` matches Keycloak.
 12. **Harness isolation** — sample AppHost projects under `tests/keycloak/` are harness-only and not product runtimes.
 13. **Upstream vs Neox** — container lifecycle and `WithRealmImport` delegation use upstream `Aspire.Hosting.Keycloak`; Neox owns realm JSON generation and the child resource model.
-14. **Post-AddRealm mutation** — organization / JWT / OIDC client / identity provider / redirect builders re-read, mutate, and rewrite `{realm}-realm.json`; `ConcurrentBagExtensions.GetOrAdd` prevents duplicate entries.
+14. **Post-AddRealm mutation** — organization / JWT / OIDC client / identity provider / user / redirect builders re-read, mutate, and rewrite `{realm}-realm.json`; `ConcurrentBagExtensions.GetOrAdd` prevents duplicate entries.
 15. **Identity providers** — `AddIdentityProvider(alias, providerId, configure?)` returns `IResourceBuilder<KeycloakIdentityProviderResource>`. Defaults: `Enabled = true`, `Alias`, `ProviderId`. Upserts by `Alias`. Optional `configure` mutates `IdentityProviderRepresentation` (including `Config`). Aspire resource name is `{realmResource.Name}-idp-{alias}`.
+16. **Users** — `AddUser(username, password, configure?)` returns `IResourceBuilder<KeycloakUserResource>`. Parent is the Keycloak server. Defaults: `Enabled = true`, `EmailVerified = true`, `Username` forced after `configure`. A second call with the same username returns the existing resource and applies `configure` again. `WithUser` copies username, enabled, email, emailVerified, firstName, and lastName into realm `users`, upserts a `password` credential (`temporary` false) from the parameter default, and throws when the user belongs to another Keycloak server. Password plaintext is written only into the gitignored realm import file.
 
 ## Dependencies
 
@@ -64,6 +66,7 @@ Shipping hosting package `Neox.Aspire.Hosting.Keycloak` extends upstream [`Aspir
 - [x] Package `Neox.Aspire.Hosting.Keycloak` exists under `src/hosting/Neox.Aspire.Hosting.Keycloak/`.
 - [x] Public API exposes `AddRealm`, `WithOrganizations` / `WithOrganization`, `AddJwtClient`, `AddOidcClient`, `WithRedirectUrl`, `WithLocalRedirectUri`, `WithKeycloakJwtBearer`, and `WithKeycloakSpa`.
 - [x] Public API exposes `AddIdentityProvider`; registers `KeycloakIdentityProviderResource` and upserts `identityProviders` in realm JSON by alias.
+- [x] Public API exposes `AddUser` and `WithUser`; registers `KeycloakUserResource` on the Keycloak server and upserts `users` in realm JSON.
 - [x] Tests assert IdP JSON, child resource wiring, and alias idempotence.
 - [x] `AddRealm` writes `{realm}-realm.json`, registers child `KeycloakRealmResource`, and calls upstream `WithRealmImport` once per container.
 - [x] `AddJwtClient` writes client entry to realm JSON and registers child `KeycloakJwtClientResource`.
@@ -86,7 +89,7 @@ See [`domain-glossary.md`](domain-glossary.md).
 | Shipping package | `src/hosting/Neox.Aspire.Hosting.Keycloak/` |
 | Package id | `Neox.Aspire.Hosting.Keycloak` |
 | Namespace | `Neox.Aspire.Hosting.Keycloak` |
-| Core types | `KeycloakRealmResource`, `KeycloakJwtClientResource`, `KeycloakOidcClientResource`, `KeycloakIdentityProviderResource`, `KeycloakRealmImportAnnotation`, `KeycloakHostingExtensions` |
+| Core types | `KeycloakRealmResource`, `KeycloakUserResource`, `KeycloakJwtClientResource`, `KeycloakOidcClientResource`, `KeycloakIdentityProviderResource`, `KeycloakRealmImportAnnotation`, `KeycloakHostingExtensions` |
 | Provisioning dependency | `Neox.Keycloak.Provisioning.Realm` (ProjectReference) |
 | Upstream package | `Aspire.Hosting.Keycloak` $(AspireHostingKeycloakVersion) (preview; no stable $(AspireVersion) on nuget.org) |
 | Client package (harness) | `Aspire.Keycloak.Authentication` $(AspireKeycloakAuthenticationVersion) |

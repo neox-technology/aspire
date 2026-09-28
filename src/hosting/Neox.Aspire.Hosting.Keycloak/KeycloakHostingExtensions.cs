@@ -81,6 +81,81 @@ public static class KeycloakHostingExtensions
         return builder;
     }
 
+    public static IResourceBuilder<KeycloakUserResource> AddUser(
+        this IResourceBuilder<KeycloakResource> builder,
+        string username,
+        IResourceBuilder<ParameterResource> password,
+        Action<UserRepresentation>? configure = null)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentException.ThrowIfNullOrWhiteSpace(username);
+        ArgumentNullException.ThrowIfNull(password);
+
+        var resourceName = $"{builder.Resource.Name}-user-{username}";
+        var existing = builder.ApplicationBuilder.Resources
+            .OfType<KeycloakUserResource>()
+            .FirstOrDefault(user =>
+                string.Equals(user.Name, resourceName, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
+        {
+            configure?.Invoke(existing.Representation);
+            existing.Representation.Username = existing.Username;
+            return builder.ApplicationBuilder.CreateResourceBuilder(existing);
+        }
+
+        var user = new KeycloakUserResource(resourceName, builder.Resource, username, password.Resource);
+        configure?.Invoke(user.Representation);
+        user.Representation.Username = username;
+        return builder.ApplicationBuilder.AddResource(user)
+            .ExcludeFromManifest();
+    }
+
+    public static IResourceBuilder<KeycloakRealmResource> WithUser(
+        this IResourceBuilder<KeycloakRealmResource> builder,
+        IResourceBuilder<KeycloakUserResource> user)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(user);
+        if (!ReferenceEquals(user.Resource.Parent, builder.Resource.Parent))
+        {
+            throw new InvalidOperationException(
+                $"User '{user.Resource.Username}' does not belong to Keycloak '{builder.Resource.Parent.Name}'.");
+        }
+
+        var passwordValue = ResolveParameterDefault(user.Resource.Password);
+        var source = user.Resource.Representation;
+        MutateRealmJson(builder.Resource, representation =>
+        {
+            representation.Users ??= [];
+            var imported = representation.Users.GetOrAdd(
+                existing => existing.Username == user.Resource.Username,
+                new UserRepresentation
+                {
+                    Username = user.Resource.Username,
+                    Enabled = true,
+                });
+            imported.Username = user.Resource.Username;
+            imported.Enabled = source.Enabled ?? true;
+            imported.Email = source.Email;
+            imported.EmailVerified = source.EmailVerified;
+            imported.FirstName = source.FirstName;
+            imported.LastName = source.LastName;
+            imported.Credentials ??= [];
+            var credential = imported.Credentials.GetOrAdd(
+                existing => existing.Type == "password",
+                new CredentialRepresentation
+                {
+                    Type = "password",
+                    Temporary = false,
+                });
+            credential.Type = "password";
+            credential.Value = passwordValue;
+            credential.Temporary = false;
+        });
+
+        return builder;
+    }
+
     public static IResourceBuilder<KeycloakJwtClientResource> AddJwtClient(
         this IResourceBuilder<KeycloakRealmResource> builder,
         string name,
