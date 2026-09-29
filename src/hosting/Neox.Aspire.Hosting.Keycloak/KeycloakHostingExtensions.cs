@@ -148,6 +148,8 @@ public static class KeycloakHostingExtensions
             imported.EmailVerified = source.EmailVerified;
             imported.FirstName = source.FirstName;
             imported.LastName = source.LastName;
+            imported.RealmRoles = source.RealmRoles;
+            imported.ClientRoles = source.ClientRoles;
             imported.Credentials ??= [];
             var credential = imported.Credentials.GetOrAdd(
                 existing => existing.Type == "password",
