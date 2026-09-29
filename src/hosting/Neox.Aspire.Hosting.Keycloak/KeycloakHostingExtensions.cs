@@ -26,6 +26,14 @@ public static class KeycloakHostingExtensions
             builder.ApplicationBuilder.AppHostDirectory);
         Directory.CreateDirectory(importDirectory);
 
+        if (!builder.Resource.Annotations.OfType<KeycloakRealmImportAnnotation>().Any())
+        {
+            foreach (var stale in Directory.EnumerateFiles(importDirectory, "*-realm.json"))
+            {
+                File.Delete(stale);
+            }
+        }
+
         var representation = new RealmRepresentation
         {
             Realm = realm,

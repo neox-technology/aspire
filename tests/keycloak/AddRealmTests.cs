@@ -54,6 +54,26 @@ public sealed class AddRealmTests
     }
 
     [Fact]
+    public void AddRealm_removes_stale_realm_json_and_keeps_realms_from_the_same_run()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var keycloak = CreateKeycloak(builder, "auth-stale");
+        var importDirectory = Path.GetFullPath(
+            Path.Combine(".aspire", "keycloak-realms", "auth-stale"),
+            builder.AppHostDirectory);
+        Directory.CreateDirectory(importDirectory);
+        var stalePath = Path.Combine(importDirectory, "master-realm.json");
+        File.WriteAllText(stalePath, "{}");
+
+        keycloak.AddRealm(realm: "hub");
+        keycloak.AddRealm(realm: "other");
+
+        Assert.False(File.Exists(stalePath));
+        Assert.True(File.Exists(Path.Combine(importDirectory, "hub-realm.json")));
+        Assert.True(File.Exists(Path.Combine(importDirectory, "other-realm.json")));
+    }
+
+    [Fact]
     public void AddRealm_default_realm_is_master()
     {
         var builder = DistributedApplication.CreateBuilder();
