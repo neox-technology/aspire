@@ -381,8 +381,10 @@ public static class KeycloakHostingExtensions
                 return;
             }
 
+            EnsureUserProfileScopes(representation);
+
             client.DefaultClientScopes ??= [];
-            foreach (var scope in new[] { "access_as_user", "profile", "openid" })
+            foreach (var scope in new[] { "access_as_user", "profile", "email", "openid" })
             {
                 client.DefaultClientScopes.GetOrAdd(existing => existing == scope, scope);
             }
@@ -633,6 +635,83 @@ public static class KeycloakHostingExtensions
                     ["userinfo.token.claim"] = "true",
                 },
             });
+    }
+
+    private static void EnsureUserProfileScopes(RealmRepresentation representation)
+    {
+        ArgumentNullException.ThrowIfNull(representation);
+        representation.ClientScopes ??= [];
+        EnsureUserAttributeScope(
+            representation,
+            "profile",
+            "OpenID Connect profile claims.",
+            ("given name", "firstName", "given_name", "String"),
+            ("family name", "lastName", "family_name", "String"));
+        EnsureUserAttributeScope(
+            representation,
+            "email",
+            "OpenID Connect email claims.",
+            ("email", "email", "email", "String"),
+            ("email verified", "emailVerified", "email_verified", "boolean"));
+
+        var profile = representation.ClientScopes.First(scope => scope.Name == "profile");
+        profile.ProtocolMappers ??= [];
+        profile.ProtocolMappers.GetOrAdd(
+            mapper => mapper.Name == "full name",
+            new ProtocolMapperRepresentation
+            {
+                Name = "full name",
+                Protocol = "openid-connect",
+                ProtocolMapper = "oidc-full-name-mapper",
+                Config = new ConcurrentDictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["access.token.claim"] = "true",
+                    ["id.token.claim"] = "true",
+                    ["userinfo.token.claim"] = "true",
+                },
+            });
+    }
+
+    private static void EnsureUserAttributeScope(
+        RealmRepresentation representation,
+        string name,
+        string description,
+        params (string MapperName, string Attribute, string Claim, string JsonType)[] mappers)
+    {
+        var scope = representation.ClientScopes!.GetOrAdd(
+            existing => existing.Name == name,
+            new ClientScopeRepresentation
+            {
+                Name = name,
+                Description = description,
+                Protocol = "openid-connect",
+            });
+        scope.Attributes = new ConcurrentDictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["include.in.token.scope"] = "true",
+            ["display.on.consent.screen"] = "true",
+        };
+        scope.ProtocolMappers ??= [];
+        foreach (var (mapperName, attribute, claim, jsonType) in mappers)
+        {
+            scope.ProtocolMappers.GetOrAdd(
+                mapper => mapper.Name == mapperName,
+                new ProtocolMapperRepresentation
+                {
+                    Name = mapperName,
+                    Protocol = "openid-connect",
+                    ProtocolMapper = "oidc-usermodel-property-mapper",
+                    Config = new ConcurrentDictionary<string, string>(StringComparer.Ordinal)
+                    {
+                        ["user.attribute"] = attribute,
+                        ["claim.name"] = claim,
+                        ["jsonType.label"] = jsonType,
+                        ["access.token.claim"] = "true",
+                        ["id.token.claim"] = "true",
+                        ["userinfo.token.claim"] = "true",
+                    },
+                });
+        }
     }
 
     private static IEnumerable<Uri> CreateLocalLoopbackRedirectUris(string path)

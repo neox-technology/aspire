@@ -336,8 +336,9 @@ public sealed class AddRealmTests
             .WithApiAudience("neox-api");
 
         using var document = ReadRealmJson(builder, "auth-oidc-audience", "neox");
-        var scope = document.RootElement.GetProperty("clientScopes")[0];
-        Assert.Equal("access_as_user", scope.GetProperty("name").GetString());
+        var scope = document.RootElement.GetProperty("clientScopes")
+            .EnumerateArray()
+            .Single(element => element.GetProperty("name").GetString() == "access_as_user");
         var mappers = scope.GetProperty("protocolMappers").EnumerateArray().ToArray();
         Assert.Contains(
             mappers,
@@ -353,6 +354,15 @@ public sealed class AddRealmTests
             .Select(element => element.GetString())
             .ToArray();
         Assert.Contains("access_as_user", defaultScopes);
+        Assert.Contains("profile", defaultScopes);
+        Assert.Contains("email", defaultScopes);
+
+        var scopeNames = document.RootElement.GetProperty("clientScopes")
+            .EnumerateArray()
+            .Select(element => element.GetProperty("name").GetString())
+            .ToArray();
+        Assert.Contains("profile", scopeNames);
+        Assert.Contains("email", scopeNames);
     }
 
     [Fact]
