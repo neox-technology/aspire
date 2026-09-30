@@ -384,6 +384,8 @@ public static class KeycloakHostingExtensions
             }
 
             EnsureUserProfileScopes(representation);
+            if (representation.OrganizationsEnabled == true)
+                EnsureOrganizationMembershipScope(representation, client);
 
             client.DefaultClientScopes ??= [];
             foreach (var scope in new[] { "access_as_user", "profile", "email", "openid" })
@@ -637,6 +639,42 @@ public static class KeycloakHostingExtensions
                     ["userinfo.token.claim"] = "true",
                 },
             });
+    }
+
+    private static void EnsureOrganizationMembershipScope(
+        RealmRepresentation representation,
+        ClientRepresentation client)
+    {
+        representation.ClientScopes ??= [];
+        var scope = representation.ClientScopes.GetOrAdd(
+            existing => existing.Name == "organization",
+            new ClientScopeRepresentation
+            {
+                Name = "organization",
+                Description = "Organizations the signed-in user belongs to.",
+                Protocol = "openid-connect",
+            });
+        scope.ProtocolMappers ??= [];
+        scope.ProtocolMappers.GetOrAdd(
+            mapper => mapper.Name == "organization",
+            new ProtocolMapperRepresentation
+            {
+                Name = "organization",
+                Protocol = "openid-connect",
+                ProtocolMapper = "oidc-organization-membership-mapper",
+                Config = new ConcurrentDictionary<string, string>(StringComparer.Ordinal)
+                {
+                    ["claim.name"] = "organization",
+                    ["jsonType.label"] = "JSON",
+                    ["multivalued"] = "true",
+                    ["addOrganizationId"] = "true",
+                    ["access.token.claim"] = "true",
+                    ["id.token.claim"] = "true",
+                    ["userinfo.token.claim"] = "true",
+                },
+            });
+        client.OptionalClientScopes ??= [];
+        client.OptionalClientScopes.GetOrAdd(existing => existing == "organization", "organization");
     }
 
     private static void EnsureUserProfileScopes(RealmRepresentation representation)
