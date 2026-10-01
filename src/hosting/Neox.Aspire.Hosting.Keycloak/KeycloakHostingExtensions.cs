@@ -85,6 +85,43 @@ public static class KeycloakHostingExtensions
         return builder;
     }
 
+    /// <summary>
+    /// Marks each role in <paramref name="inheritedBy"/> as a composite realm role that includes <paramref name="roleName"/>.
+    /// </summary>
+    public static IResourceBuilder<KeycloakRealmResource> WithRealmRoleInheritance(
+        this IResourceBuilder<KeycloakRealmResource> builder,
+        string roleName,
+        IReadOnlyList<string> inheritedBy)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentException.ThrowIfNullOrWhiteSpace(roleName);
+        ArgumentNullException.ThrowIfNull(inheritedBy);
+
+        if (inheritedBy.Count == 0)
+        {
+            return builder;
+        }
+
+        MutateRealmJson(builder.Resource, representation =>
+        {
+            representation.Roles ??= new RolesRepresentation();
+            representation.Roles.Realm ??= [];
+            foreach (var parentName in inheritedBy)
+            {
+                ArgumentException.ThrowIfNullOrWhiteSpace(parentName);
+                var parent = representation.Roles.Realm.GetOrAdd(
+                    role => role.Name == parentName,
+                    new RoleRepresentation { Name = parentName });
+                parent.Composite = true;
+                parent.Composites ??= new Composites();
+                parent.Composites.Realm ??= [];
+                parent.Composites.Realm.GetOrAdd(name => name == roleName, roleName);
+            }
+        });
+
+        return builder;
+    }
+
     public static IResourceBuilder<KeycloakRealmResource> WithOrganization(
         this IResourceBuilder<KeycloakRealmResource> builder,
         string name,
