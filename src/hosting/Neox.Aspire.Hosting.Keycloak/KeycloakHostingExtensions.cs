@@ -63,6 +63,28 @@ public static class KeycloakHostingExtensions
         return builder;
     }
 
+    /// <summary>
+    /// Upserts a realm role on the imported realm JSON. Realm roles live under <c>roles.realm</c>.
+    /// </summary>
+    public static IResourceBuilder<KeycloakRealmResource> WithRealmRole(
+        this IResourceBuilder<KeycloakRealmResource> builder,
+        string roleName)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentException.ThrowIfNullOrWhiteSpace(roleName);
+
+        MutateRealmJson(builder.Resource, representation =>
+        {
+            representation.Roles ??= new RolesRepresentation();
+            representation.Roles.Realm ??= [];
+            representation.Roles.Realm.GetOrAdd(
+                role => role.Name == roleName,
+                new RoleRepresentation { Name = roleName });
+        });
+
+        return builder;
+    }
+
     public static IResourceBuilder<KeycloakRealmResource> WithOrganization(
         this IResourceBuilder<KeycloakRealmResource> builder,
         string name,
