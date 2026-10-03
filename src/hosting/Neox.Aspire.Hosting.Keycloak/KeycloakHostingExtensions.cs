@@ -177,6 +177,20 @@ public static class KeycloakHostingExtensions
             .ExcludeFromManifest();
     }
 
+    /// <summary>
+    /// Adds a realm role name on the user representation. Call this before <see cref="WithUser"/>.
+    /// </summary>
+    public static IResourceBuilder<KeycloakUserResource> WithRealmRole(
+        this IResourceBuilder<KeycloakUserResource> user,
+        string roleName)
+    {
+        ArgumentNullException.ThrowIfNull(user);
+        ArgumentException.ThrowIfNullOrWhiteSpace(roleName);
+        user.Resource.Representation.RealmRoles ??= [];
+        user.Resource.Representation.RealmRoles.GetOrAdd(existing => existing == roleName, roleName);
+        return user;
+    }
+
     public static IResourceBuilder<KeycloakRealmResource> WithUser(
         this IResourceBuilder<KeycloakRealmResource> builder,
         IResourceBuilder<KeycloakUserResource> user)

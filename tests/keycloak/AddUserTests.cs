@@ -70,6 +70,24 @@ public sealed class AddUserTests
     }
 
     [Fact]
+    public void WithRealmRole_writes_realm_role_and_is_idempotent()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+        var keycloak = CreateKeycloak(builder, "auth-user-realm-role");
+        var password = builder.AddParameter("root-password", "root", secret: true);
+        var user = keycloak.AddUser("root", password);
+        user.WithRealmRole("RootAdministrator");
+        user.WithRealmRole("RootAdministrator");
+        keycloak.AddRealm(realm: "hub").WithUser(user);
+
+        using var document = ReadRealmJson(builder, "auth-user-realm-role", "hub");
+
+        var roles = document.RootElement.GetProperty("users")[0].GetProperty("realmRoles");
+        Assert.Equal(1, roles.GetArrayLength());
+        Assert.Equal("RootAdministrator", roles[0].GetString());
+    }
+
+    [Fact]
     public void WithUser_is_idempotent_for_duplicate_calls()
     {
         var builder = DistributedApplication.CreateBuilder();
