@@ -25,12 +25,15 @@ public sealed class ArmAzureContainerAppClientTests
     {
         var previous = Environment.GetEnvironmentVariable("Azure__SubscriptionId");
         var previousAlt = Environment.GetEnvironmentVariable("AZURE_SUBSCRIPTION_ID");
+
         try
         {
             Environment.SetEnvironmentVariable("Azure__SubscriptionId", null);
             Environment.SetEnvironmentVariable("AZURE_SUBSCRIPTION_ID", null);
+
             var services = new ServiceCollection().BuildServiceProvider();
             var ex = Assert.Throws<InvalidOperationException>(() => ArmAzureContainerAppClient.Create(services));
+
             Assert.Contains("Subscription id", ex.Message, StringComparison.OrdinalIgnoreCase);
         }
         finally

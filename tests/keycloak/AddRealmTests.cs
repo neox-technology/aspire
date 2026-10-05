@@ -26,6 +26,7 @@ public sealed class AddRealmTests
     {
         var builder = DistributedApplication.CreateBuilder();
         var keycloak = CreateKeycloak(builder, "auth");
+
         keycloak.AddRealm(realm: "neox");
 
         var importDirectory = Path.GetFullPath(
@@ -41,6 +42,7 @@ public sealed class AddRealmTests
     {
         var builder = DistributedApplication.CreateBuilder();
         var keycloak = CreateKeycloak(builder, "auth");
+
         keycloak.AddRealm(r => r.DisplayName = "Neox Test", realm: "neox");
 
         var importDirectory = Path.GetFullPath(
@@ -61,8 +63,11 @@ public sealed class AddRealmTests
         var importDirectory = Path.GetFullPath(
             Path.Combine(".aspire", "keycloak-realms", "auth-stale"),
             builder.AppHostDirectory);
+
         Directory.CreateDirectory(importDirectory);
+
         var stalePath = Path.Combine(importDirectory, "master-realm.json");
+
         File.WriteAllText(stalePath, "{}");
 
         keycloak.AddRealm(realm: "hub");
@@ -109,10 +114,12 @@ public sealed class AddRealmTests
         var keycloak = CreateKeycloak(builder, "auth-jwt");
         var realm = keycloak.AddRealm(realm: "neox");
         var secret = builder.AddParameter("api-secret", "secret", secret: true);
+
         realm.AddJwtClient("api-client", "neox-api", secret);
 
         using var document = ReadRealmJson(builder, "auth-jwt", "neox");
         var clients = document.RootElement.GetProperty("clients");
+
         Assert.Equal(1, clients.GetArrayLength());
         Assert.Equal("neox-api", clients[0].GetProperty("clientId").GetString());
         Assert.Equal("client-secret", clients[0].GetProperty("clientAuthenticatorType").GetString());
@@ -130,6 +137,7 @@ public sealed class AddRealmTests
         var api = builder.AddContainer("api", "nginx").WithKeycloakJwtBearer(jwtClient);
 
         var env = await ResolveEnvironmentAsync(builder, api.Resource);
+
         Assert.Equal("neox", env["Keycloak__Realm"]);
         Assert.Equal("neox-api", env["Keycloak__ClientId"]);
         Assert.Equal("neox-api", env["Keycloak__Audience"]);
@@ -164,14 +172,17 @@ public sealed class AddRealmTests
         var keycloak = CreateKeycloak(builder, "auth-mapper");
         var realm = keycloak.AddRealm(realm: "neox");
         var secret = builder.AddParameter("api-secret", "secret", secret: true);
+
         realm.AddJwtClient("api-client", "neox-api", secret);
 
         using var document = ReadRealmJson(builder, "auth-mapper", "neox");
         var client = document.RootElement.GetProperty("clients")[0];
         var mappers = client.GetProperty("protocolMappers");
+
         Assert.Equal(1, mappers.GetArrayLength());
 
         var audienceMapper = mappers[0];
+
         Assert.Equal("audience", audienceMapper.GetProperty("name").GetString());
         Assert.Equal("oidc-audience-mapper", audienceMapper.GetProperty("protocolMapper").GetString());
         Assert.Equal(
@@ -187,11 +198,13 @@ public sealed class AddRealmTests
         var realm = keycloak.AddRealm(realm: "neox");
         var secret = builder.AddParameter("api-secret", "secret", secret: true);
         var redirectUri = new Uri("https://localhost/swagger/oauth2-redirect.html");
+
         realm.AddJwtClient("api-client", "neox-api", secret)
             .WithRedirectUrl(redirectUri);
 
         using var document = ReadRealmJson(builder, "auth-redirect", "neox");
         var client = document.RootElement.GetProperty("clients")[0];
+
         Assert.True(client.GetProperty("standardFlowEnabled").GetBoolean());
         Assert.Contains(
             redirectUri.AbsoluteUri,
@@ -205,11 +218,13 @@ public sealed class AddRealmTests
         var keycloak = CreateKeycloak(builder, "auth-origin");
         var realm = keycloak.AddRealm(realm: "neox");
         var secret = builder.AddParameter("api-secret", "secret", secret: true);
+
         realm.AddJwtClient("api-client", "neox-api", secret)
             .WithRedirectUrl(new Uri("https://localhost/swagger/oauth2-redirect.html"));
 
         using var document = ReadRealmJson(builder, "auth-origin", "neox");
         var client = document.RootElement.GetProperty("clients")[0];
+
         Assert.Contains(
             "https://localhost",
             client.GetProperty("webOrigins").EnumerateArray().Select(element => element.GetString()));
@@ -224,13 +239,17 @@ public sealed class AddRealmTests
         var secret = builder.AddParameter("api-secret", "secret", secret: true);
         var redirectUri = new Uri("https://localhost/swagger/oauth2-redirect.html");
         var jwtClient = realm.AddJwtClient("api-client", "neox-api", secret);
+
         jwtClient.WithRedirectUrl(redirectUri);
         jwtClient.WithRedirectUrl(redirectUri);
 
         using var document = ReadRealmJson(builder, "auth-redirect-idempotent", "neox");
         var client = document.RootElement.GetProperty("clients")[0];
+
         Assert.Equal(1, client.GetProperty("redirectUris").GetArrayLength());
+
         var webOrigins = client.GetProperty("webOrigins").EnumerateArray().Select(element => element.GetString()).ToArray();
+
         Assert.Contains("https://localhost", webOrigins);
         Assert.Equal(webOrigins.Length, webOrigins.Distinct(StringComparer.Ordinal).Count());
     }
@@ -239,10 +258,13 @@ public sealed class AddRealmTests
     public void WithRedirectUrl_does_not_add_dev_web_origin_wildcard()
     {
         var builder = DistributedApplication.CreateBuilder();
+
         builder.Environment.EnvironmentName = Environments.Development;
+
         var keycloak = CreateKeycloak(builder, "auth-dev-no-wildcard");
         var realm = keycloak.AddRealm(realm: "neox");
         var secret = builder.AddParameter("api-secret", "secret", secret: true);
+
         realm.AddJwtClient("api-client", "neox-api", secret)
             .WithRedirectUrl(new Uri("http://localhost/swagger/oauth2-redirect.html"));
 
@@ -252,6 +274,7 @@ public sealed class AddRealmTests
             .EnumerateArray()
             .Select(element => element.GetString())
             .ToArray();
+
         Assert.Contains("http://localhost", webOrigins);
         Assert.DoesNotContain("*", webOrigins);
     }
@@ -260,21 +283,26 @@ public sealed class AddRealmTests
     public void WithLocalRedirectUri_writes_loopback_redirects_in_development()
     {
         var builder = DistributedApplication.CreateBuilder();
+
         builder.Environment.EnvironmentName = Environments.Development;
+
         var keycloak = CreateKeycloak(builder, "auth-local-redirect");
         var realm = keycloak.AddRealm(realm: "neox");
         var secret = builder.AddParameter("api-secret", "secret", secret: true);
+
         realm.AddJwtClient("api-client", "neox-api", secret)
             .WithLocalRedirectUri("/swagger/oauth2-redirect.html");
 
         using var document = ReadRealmJson(builder, "auth-local-redirect", "neox");
         var client = document.RootElement.GetProperty("clients")[0];
         var redirectUris = client.GetProperty("redirectUris").EnumerateArray().Select(element => element.GetString()).ToArray();
+
         Assert.Contains("http://127.0.0.1/swagger/oauth2-redirect.html", redirectUris);
         Assert.Contains("http://localhost/swagger/oauth2-redirect.html", redirectUris);
         Assert.Contains("http://[::1]/swagger/oauth2-redirect.html", redirectUris);
 
         var webOrigins = client.GetProperty("webOrigins").EnumerateArray().Select(element => element.GetString()).ToArray();
+
         Assert.Contains("*", webOrigins);
         Assert.True(client.GetProperty("standardFlowEnabled").GetBoolean());
     }
@@ -283,15 +311,19 @@ public sealed class AddRealmTests
     public void WithLocalRedirectUri_is_noop_outside_development()
     {
         var builder = DistributedApplication.CreateBuilder();
+
         builder.Environment.EnvironmentName = Environments.Production;
+
         var keycloak = CreateKeycloak(builder, "auth-local-prod");
         var realm = keycloak.AddRealm(realm: "neox");
         var secret = builder.AddParameter("api-secret", "secret", secret: true);
+
         realm.AddJwtClient("api-client", "neox-api", secret)
             .WithLocalRedirectUri("/swagger/oauth2-redirect.html");
 
         using var document = ReadRealmJson(builder, "auth-local-prod", "neox");
         var client = document.RootElement.GetProperty("clients")[0];
+
         Assert.False(client.TryGetProperty("redirectUris", out _));
         Assert.False(client.GetProperty("standardFlowEnabled").GetBoolean());
     }
@@ -316,10 +348,12 @@ public sealed class AddRealmTests
         var builder = DistributedApplication.CreateBuilder();
         var keycloak = CreateKeycloak(builder, "auth-oidc-json");
         var realm = keycloak.AddRealm(realm: "neox");
+
         realm.AddOidcClient("spa-client", "neox-spa");
 
         using var document = ReadRealmJson(builder, "auth-oidc-json", "neox");
         var client = document.RootElement.GetProperty("clients")[0];
+
         Assert.Equal("neox-spa", client.GetProperty("clientId").GetString());
         Assert.True(client.GetProperty("publicClient").GetBoolean());
         Assert.Equal("openid-connect", client.GetProperty("protocol").GetString());
@@ -332,6 +366,7 @@ public sealed class AddRealmTests
         var builder = DistributedApplication.CreateBuilder();
         var keycloak = CreateKeycloak(builder, "auth-oidc-audience");
         var realm = keycloak.AddRealm(realm: "neox");
+
         realm.AddOidcClient("spa-client", "neox-spa")
             .WithApiAudience("neox-api");
 
@@ -340,6 +375,7 @@ public sealed class AddRealmTests
             .EnumerateArray()
             .Single(element => element.GetProperty("name").GetString() == "access_as_user");
         var mappers = scope.GetProperty("protocolMappers").EnumerateArray().ToArray();
+
         Assert.Contains(
             mappers,
             mapper => mapper.GetProperty("name").GetString() == "audience"
@@ -353,6 +389,7 @@ public sealed class AddRealmTests
             .EnumerateArray()
             .Select(element => element.GetString())
             .ToArray();
+
         Assert.Contains("access_as_user", defaultScopes);
         Assert.Contains("profile", defaultScopes);
         Assert.Contains("email", defaultScopes);
@@ -361,6 +398,7 @@ public sealed class AddRealmTests
             .EnumerateArray()
             .Select(element => element.GetProperty("name").GetString())
             .ToArray();
+
         Assert.Contains("profile", scopeNames);
         Assert.Contains("email", scopeNames);
     }
@@ -372,11 +410,13 @@ public sealed class AddRealmTests
         var keycloak = CreateKeycloak(builder, "auth-oidc-redirect");
         var realm = keycloak.AddRealm(realm: "neox");
         var redirectUri = new Uri("http://localhost/");
+
         realm.AddOidcClient("spa-client", "neox-spa")
             .WithRedirectUrl(redirectUri);
 
         using var document = ReadRealmJson(builder, "auth-oidc-redirect", "neox");
         var client = document.RootElement.GetProperty("clients")[0];
+
         Assert.True(client.GetProperty("standardFlowEnabled").GetBoolean());
         Assert.Contains(
             redirectUri.AbsoluteUri,
@@ -390,19 +430,24 @@ public sealed class AddRealmTests
     public void WithLocalRedirectUri_on_oidc_client_writes_loopback_in_development()
     {
         var builder = DistributedApplication.CreateBuilder();
+
         builder.Environment.EnvironmentName = Environments.Development;
+
         var keycloak = CreateKeycloak(builder, "auth-oidc-local");
         var realm = keycloak.AddRealm(realm: "neox");
+
         realm.AddOidcClient("spa-client", "neox-spa")
             .WithLocalRedirectUri("/");
 
         using var document = ReadRealmJson(builder, "auth-oidc-local", "neox");
         var client = document.RootElement.GetProperty("clients")[0];
         var redirectUris = client.GetProperty("redirectUris").EnumerateArray().Select(element => element.GetString()).ToArray();
+
         Assert.Contains("http://127.0.0.1/", redirectUris);
         Assert.Contains("http://localhost/", redirectUris);
 
         var webOrigins = client.GetProperty("webOrigins").EnumerateArray().Select(element => element.GetString()).ToArray();
+
         Assert.Contains("*", webOrigins);
         Assert.True(client.GetProperty("standardFlowEnabled").GetBoolean());
     }
@@ -411,14 +456,18 @@ public sealed class AddRealmTests
     public void WithLocalRedirectUri_on_oidc_client_is_noop_outside_development()
     {
         var builder = DistributedApplication.CreateBuilder();
+
         builder.Environment.EnvironmentName = Environments.Production;
+
         var keycloak = CreateKeycloak(builder, "auth-oidc-prod");
         var realm = keycloak.AddRealm(realm: "neox");
+
         realm.AddOidcClient("spa-client", "neox-spa")
             .WithLocalRedirectUri("/");
 
         using var document = ReadRealmJson(builder, "auth-oidc-prod", "neox");
         var client = document.RootElement.GetProperty("clients")[0];
+
         Assert.False(client.TryGetProperty("redirectUris", out _));
         Assert.False(client.GetProperty("standardFlowEnabled").GetBoolean());
     }
@@ -433,6 +482,7 @@ public sealed class AddRealmTests
         var spa = builder.AddContainer("spa", "nginx").WithKeycloakSpa(oidcClient);
 
         var env = await ResolveEnvironmentAsync(builder, spa.Resource);
+
         Assert.Equal("neox", env["KEYCLOAK_REALM"]);
         Assert.Equal("neox-spa", env["KEYCLOAK_CLIENT_ID"]);
         Assert.True(env.ContainsKey("KEYCLOAK_URL"));
@@ -464,6 +514,7 @@ public sealed class AddRealmTests
             Path.Combine(".aspire", "keycloak-realms", keycloakName),
             builder.AppHostDirectory);
         var json = File.ReadAllText(Path.Combine(importDirectory, $"{realm}-realm.json"));
+
         return JsonDocument.Parse(json);
     }
 
@@ -472,6 +523,7 @@ public sealed class AddRealmTests
         string name)
     {
         var password = builder.AddParameter($"{name}-password", "admin", secret: true);
+
         return builder.AddKeycloak(name, adminPassword: password);
     }
 
@@ -480,10 +532,13 @@ public sealed class AddRealmTests
         IResource resource)
     {
         var values = new Dictionary<string, string>(StringComparer.Ordinal);
+
         foreach (var annotation in resource.Annotations.OfType<EnvironmentCallbackAnnotation>())
         {
             var context = new EnvironmentCallbackContext(builder.ExecutionContext, resource);
+
             await annotation.Callback(context).ConfigureAwait(false);
+
             foreach (var pair in context.EnvironmentVariables)
             {
                 values[pair.Key] = pair.Value switch

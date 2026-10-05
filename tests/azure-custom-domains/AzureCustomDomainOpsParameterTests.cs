@@ -17,6 +17,7 @@ public sealed class AzureCustomDomainOpsParameterTests
 
         var builder = DistributedApplication.CreateBuilder();
         var domain = builder.AddParameter("api-domain", "www.example.com");
+
         Assert.Equal(
             "api-domain-certificate",
             AzureCustomDomainOpsExtensions.GetCertificateParameterName(domain.Resource));
@@ -70,7 +71,9 @@ public sealed class AzureCustomDomainOpsParameterTests
         var cert = AzureCustomDomainOpsExtensions.EnsureAzureCustomDomainCertificateParameter(builder, domain);
 
         Assert.Equal("custom-apex-domain-certificate", cert.Resource.Name);
+
         var again = AzureCustomDomainOpsExtensions.EnsureAzureCustomDomainCertificateParameter(builder, domain);
+
         Assert.Same(cert.Resource, again.Resource);
         Assert.Equal(1, builder.Resources.OfType<ParameterResource>().Count(p => p.Name == "custom-apex-domain-certificate"));
     }
@@ -85,6 +88,7 @@ public sealed class AzureCustomDomainOpsParameterTests
 
         var domain = builder.AddParameter("api-apex-domain", "example.com");
         var dns = builder.AddDomainOpsProvider("dns").Ovh();
+
         builder.AddAzureContainerAppEnvironment("aca-env");
 
         builder.AddContainer("api", "mcr.microsoft.com/dotnet/samples:aspnetapp")
@@ -98,10 +102,12 @@ public sealed class AzureCustomDomainOpsParameterTests
 
         var annotation = Assert.Single(
             builder.Resources.Single(r => r.Name == "api").Annotations.OfType<AzureCustomDomainOpsAnnotation>());
+
         Assert.Equal("api-apex-domain", annotation.CustomDomain.Resource.Name);
         Assert.Equal("api-apex-domain-certificate", annotation.CertificateName.Resource.Name);
 
         var steps = await CollectDomainOpsStepsAsync(builder);
+
         Assert.Contains(steps, s => s.Name == "plan-api-domain-example-com");
         Assert.Contains(steps, s => s.Name == "deploy-api-domain-example-com");
     }
@@ -115,6 +121,7 @@ public sealed class AzureCustomDomainOpsParameterTests
         });
 
         var dns = builder.AddDomainOpsProvider("dns").Cloudflare();
+
         builder.AddAzureContainerAppEnvironment("aca-env");
 
         builder.AddContainer("api", "mcr.microsoft.com/dotnet/samples:aspnetapp")
@@ -127,6 +134,7 @@ public sealed class AzureCustomDomainOpsParameterTests
 
         var annotation = Assert.Single(
             builder.Resources.Single(r => r.Name == "api").Annotations.OfType<AzureCustomDomainOpsAnnotation>());
+
         Assert.Equal("api-domain", annotation.CustomDomain.Resource.Name);
         Assert.Equal("api-certificate", annotation.CertificateName.Resource.Name);
         Assert.Equal(
@@ -134,6 +142,7 @@ public sealed class AzureCustomDomainOpsParameterTests
             AzureCustomDomainOpsExtensions.TryPeekHostname(builder, annotation.CustomDomain.Resource));
 
         var steps = await CollectDomainOpsStepsAsync(builder);
+
         Assert.Contains(steps, s => s.Name == "plan-api-domain-www-example-com");
         Assert.Contains(steps, s => s.Name == "provision-api-domain-www-example-com");
         Assert.Contains(steps, s => s.Name == "deploy-api-domain-www-example-com");
@@ -151,7 +160,9 @@ public sealed class AzureCustomDomainOpsParameterTests
             builder,
             "api",
             "www.example.com");
+
         var dns = builder.AddDomainOpsProvider("dns").Ovh();
+
         builder.AddAzureContainerAppEnvironment("aca-env");
 
         builder.AddContainer("api", "mcr.microsoft.com/dotnet/samples:aspnetapp")
@@ -164,6 +175,7 @@ public sealed class AzureCustomDomainOpsParameterTests
 
         var annotation = Assert.Single(
             builder.Resources.Single(r => r.Name == "api").Annotations.OfType<AzureCustomDomainOpsAnnotation>());
+
         Assert.Same(domain.Resource, annotation.CustomDomain.Resource);
         Assert.Same(cert.Resource, annotation.CertificateName.Resource);
     }
@@ -182,6 +194,7 @@ public sealed class AzureCustomDomainOpsParameterTests
             CancellationToken.None);
 
         var steps = new List<PipelineStep>();
+
         foreach (var resource in builder.Resources.Where(static r =>
                      r is AzureCustomDomainOpsResource or DomainOpsProviderResource))
         {
@@ -193,6 +206,7 @@ public sealed class AzureCustomDomainOpsParameterTests
                     PipelineContext = pipelineContext
                 };
                 var created = await annotation.CreateStepsAsync(context);
+
                 steps.AddRange(created);
             }
         }

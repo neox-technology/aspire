@@ -10,6 +10,7 @@ public sealed class GraphApplicationCompileTests
     {
         var infrastructure = new Infrastructure();
         var app = GraphApplication.FromExisting("app", "already-registered");
+
         infrastructure.Add(app);
 
         var bicep = Compile(infrastructure);
@@ -31,6 +32,7 @@ public sealed class GraphApplicationCompileTests
             SignInAudience = "AzureADMyOrg",
             Web = new GraphWebApplication(),
         };
+
         infrastructure.Add(app);
 
         var bicep = Compile(infrastructure);
@@ -52,6 +54,7 @@ public sealed class GraphApplicationCompileTests
             DisplayName = "My API",
             Api = new GraphApiApplication()
         };
+
         app.Api.RequestedAccessTokenVersion = 2;
         app.Api.Oauth2PermissionScopes.Add(new GraphPermissionScope
         {
@@ -83,6 +86,7 @@ public sealed class GraphApplicationCompileTests
     private static string Compile(Infrastructure infrastructure)
     {
         var compilation = infrastructure.Build().Compile();
+
         return Assert.Single(compilation).Value;
     }
 }

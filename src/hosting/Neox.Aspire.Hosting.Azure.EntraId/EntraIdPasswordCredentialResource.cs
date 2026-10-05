@@ -10,8 +10,8 @@ namespace Neox.Aspire.Hosting.Azure;
 /// <see cref="ResourceNotificationService"/> (Aspire forbids <c>WaitFor</c> on a parent).
 /// </summary>
 public sealed class EntraIdPasswordCredentialResource
-    : Resource, IResourceWithParent<AzureEntraIdAppRegistrationResource>, IResourceWithWaitSupport
-{
+    : Resource, IResourceWithParent<AzureEntraIdAppRegistrationResource>, IResourceWithWaitSupport {
+
     /// <summary>
     /// Initializes a new <see cref="EntraIdPasswordCredentialResource"/>.
     /// </summary>
@@ -22,8 +22,7 @@ public sealed class EntraIdPasswordCredentialResource
         string name,
         AzureEntraIdAppRegistrationResource parent,
         ParameterResource secretParameter)
-        : base(name)
-    {
+        : base(name) {
         ArgumentNullException.ThrowIfNull(parent);
         ArgumentNullException.ThrowIfNull(secretParameter);
 

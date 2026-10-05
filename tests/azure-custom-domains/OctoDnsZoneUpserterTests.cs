@@ -95,10 +95,13 @@ public sealed class OctoDnsZoneUpserterTests
     public void UpsertToDirectory_WritesMergedZoneFile()
     {
         var dir = Path.Combine(Path.GetTempPath(), "neox-upsert-" + Guid.NewGuid().ToString("N"));
+
         try
         {
             Directory.CreateDirectory(dir);
+
             var zonePath = Path.Combine(dir, "contoso.com.yaml");
+
             File.WriteAllText(zonePath, """
                 ---
                 '':
@@ -116,7 +119,9 @@ public sealed class OctoDnsZoneUpserterTests
             var path = new OctoDnsZoneUpserter().UpsertToDirectory(plan, dir);
 
             Assert.Equal(zonePath, path);
+
             var yaml = File.ReadAllText(path);
+
             Assert.Contains("type: MX", yaml, StringComparison.Ordinal);
             Assert.Contains("type: A", yaml, StringComparison.Ordinal);
             Assert.DoesNotContain("type: CNAME", yaml, StringComparison.Ordinal);

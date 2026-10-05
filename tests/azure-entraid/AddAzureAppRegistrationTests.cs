@@ -77,7 +77,9 @@ public sealed class AddAzureAppRegistrationTests
             .RunAsExisting("already-registered", resourceGroup: null!);
 
         Assert.True(app.Resource.IsExisting());
+
         var bicep = app.Resource.GetBicepTemplateString();
+
         Assert.Contains(" existing =", bicep, StringComparison.Ordinal);
         Assert.Equal("already-registered", app.Resource.Parameters[AzureEntraIdAppRegistrationResource.UniqueNameParameter]);
     }
@@ -92,7 +94,9 @@ public sealed class AddAzureAppRegistrationTests
             .WithRedirectUri("https://localhost:7281/signout-oidc");
 
         Assert.Equal("My API", app.Resource.Parameters[AzureEntraIdAppRegistrationResource.DisplayNameParameter]);
+
         var uris = Assert.IsType<string[]>(app.Resource.Parameters[AzureEntraIdAppRegistrationResource.RedirectUrisParameter]);
+
         Assert.Equal(["https://localhost:7281/signin-oidc", "https://localhost:7281/signout-oidc"], uris);
     }
 
@@ -104,6 +108,7 @@ public sealed class AddAzureAppRegistrationTests
             .WithSupportedAccountType(SupportedAccountType.AzureADMultipleOrgs);
 
         var bicep = app.Resource.GetBicepTemplateString();
+
         Assert.Contains("signInAudience: 'AzureADMultipleOrgs'", bicep, StringComparison.Ordinal);
         Assert.DoesNotContain("signInAudience: 'AzureADMyOrg'", bicep, StringComparison.Ordinal);
         Assert.DoesNotContain("requestedAccessTokenVersion:", bicep, StringComparison.Ordinal);
@@ -121,6 +126,7 @@ public sealed class AddAzureAppRegistrationTests
             .WithSupportedAccountType(accountType);
 
         var bicep = app.Resource.GetBicepTemplateString();
+
         Assert.Contains($"signInAudience: '{signInAudience}'", bicep, StringComparison.Ordinal);
         Assert.Contains("requestedAccessTokenVersion: 2", bicep, StringComparison.Ordinal);
         Assert.DoesNotContain("requestedAccessTokenVersion: 0", bicep, StringComparison.Ordinal);
@@ -135,6 +141,7 @@ public sealed class AddAzureAppRegistrationTests
             .RunAsExisting("already-registered", resourceGroup: null!);
 
         var bicep = app.Resource.GetBicepTemplateString();
+
         Assert.DoesNotContain("signInAudience:", bicep, StringComparison.Ordinal);
         Assert.DoesNotContain("requestedAccessTokenVersion:", bicep, StringComparison.Ordinal);
     }
@@ -148,6 +155,7 @@ public sealed class AddAzureAppRegistrationTests
             .WithDefaultIdentifierUri();
 
         var bicep = app.Resource.GetBicepTemplateString();
+
         Assert.Contains("resource appIdentifierUris 'Microsoft.Graph/applications@v1.0' = {", bicep, StringComparison.Ordinal);
         Assert.Contains("signInAudience: 'AzureADandPersonalMicrosoftAccount'", bicep, StringComparison.Ordinal);
         Assert.Contains("requestedAccessTokenVersion: 2", bicep, StringComparison.Ordinal);
@@ -162,9 +170,11 @@ public sealed class AddAzureAppRegistrationTests
             .WithIdentifierUri(new Uri("https://api.contoso.com"));
 
         var uris = Assert.IsType<string[]>(app.Resource.Parameters[AzureEntraIdAppRegistrationResource.IdentifierUrisParameter]);
+
         Assert.Equal(["https://api.contoso.com"], uris);
 
         var bicep = app.Resource.GetBicepTemplateString();
+
         Assert.Contains("identifierUris: identifierUris", bicep, StringComparison.Ordinal);
         Assert.Contains("param identifierUris array", bicep, StringComparison.Ordinal);
     }
@@ -177,6 +187,7 @@ public sealed class AddAzureAppRegistrationTests
             .WithDefaultIdentifierUri();
 
         var bicep = app.Resource.GetBicepTemplateString();
+
         Assert.Contains("resource appIdentifierUris 'Microsoft.Graph/applications@v1.0' = {", bicep, StringComparison.Ordinal);
         Assert.Contains("identifierUris:", bicep, StringComparison.Ordinal);
         Assert.Contains("api://${app.appId}", bicep, StringComparison.Ordinal);
@@ -194,6 +205,7 @@ public sealed class AddAzureAppRegistrationTests
             .RunAsExisting("already-registered", resourceGroup: null!);
 
         var bicep = app.Resource.GetBicepTemplateString();
+
         Assert.DoesNotContain("identifierUris:", bicep, StringComparison.Ordinal);
         Assert.DoesNotContain("param identifierUris", bicep, StringComparison.Ordinal);
     }
@@ -212,7 +224,9 @@ public sealed class AddAzureAppRegistrationTests
 
             Assert.True(File.Exists(template.Path));
             Assert.True(File.Exists(configPath));
+
             var config = File.ReadAllText(configPath);
+
             Assert.Contains("microsoftgraph/v1.0:1.0.0", config, StringComparison.Ordinal);
             Assert.Contains("extensibility", config, StringComparison.Ordinal);
             Assert.Equal(File.ReadAllText(template.Path), app.Resource.GetBicepTemplateString());
@@ -231,6 +245,7 @@ public sealed class AddAzureAppRegistrationTests
             .ConfigureInfrastructure(infra =>
             {
                 var graphApp = infra.GetProvisionableResources().OfType<GraphApplication>().Single();
+
                 graphApp.SignInAudience = "AzureADMultipleOrgs";
             });
 
@@ -277,10 +292,12 @@ public sealed class AddAzureAppRegistrationTests
     {
         var builder = DistributedApplication.CreateBuilder();
         var app = builder.AddAzureAppRegistration("web");
+
         app.AddScope("access", "access_as_user", "Access API", "Allows the app to access the API");
 
         var ex = Assert.Throws<ArgumentException>(() =>
             app.AddScope("access-again", "access_as_user", "Access API", "Allows the app to access the API"));
+
         Assert.Equal("value", ex.ParamName);
     }
 
@@ -290,6 +307,7 @@ public sealed class AddAzureAppRegistrationTests
         var builder = DistributedApplication.CreateBuilder();
         var app = builder.AddAzureAppRegistration("web");
         var admin = app.AddScope("access", "access_as_user", "Access API", "Allows the app to access the API");
+
         app.AddScope(
             "read",
             "api.read",
@@ -323,9 +341,11 @@ public sealed class AddAzureAppRegistrationTests
         var builder = DistributedApplication.CreateBuilder();
         var app = builder.AddAzureAppRegistration("web")
             .RunAsExisting("already-registered", resourceGroup: null!);
+
         app.AddScope("access", "access_as_user", "Access API", "Allows the app to access the API");
 
         var bicep = app.Resource.GetBicepTemplateString();
+
         Assert.DoesNotContain("oauth2PermissionScopes:", bicep, StringComparison.Ordinal);
         Assert.DoesNotContain("access_as_user", bicep, StringComparison.Ordinal);
     }
@@ -391,6 +411,7 @@ public sealed class AddAzureAppRegistrationTests
 
         var ex = Assert.Throws<ArgumentException>(() =>
             app.AddAppRole("writer", (AllowedMemberTypes)0, "Writer", "Writer", "Can write data"));
+
         Assert.Equal("allowedMemberTypes", ex.ParamName);
     }
 
@@ -399,10 +420,12 @@ public sealed class AddAzureAppRegistrationTests
     {
         var builder = DistributedApplication.CreateBuilder();
         var app = builder.AddAzureAppRegistration("web");
+
         app.AddAppRole("writer", AllowedMemberTypes.User, "Writer", "Writer", "Can write data");
 
         var ex = Assert.Throws<ArgumentException>(() =>
             app.AddAppRole("writer-again", AllowedMemberTypes.User, "Writer", "Writer", "Can write data"));
+
         Assert.Equal("value", ex.ParamName);
     }
 
@@ -412,6 +435,7 @@ public sealed class AddAzureAppRegistrationTests
         var builder = DistributedApplication.CreateBuilder();
         var app = builder.AddAzureAppRegistration("web");
         var writer = app.AddAppRole("writer", AllowedMemberTypes.User, "Writer", "Writer", "Can write data");
+
         app.AddAppRole(
             "daemon",
             AllowedMemberTypes.Application,
@@ -447,9 +471,11 @@ public sealed class AddAzureAppRegistrationTests
         var builder = DistributedApplication.CreateBuilder();
         var app = builder.AddAzureAppRegistration("web")
             .RunAsExisting("already-registered", resourceGroup: null!);
+
         app.AddAppRole("writer", AllowedMemberTypes.User, "Writer", "Writer", "Can write data");
 
         var bicep = app.Resource.GetBicepTemplateString();
+
         Assert.DoesNotContain("appRoles:", bicep, StringComparison.Ordinal);
         Assert.DoesNotContain("Writer", bicep, StringComparison.Ordinal);
     }
@@ -500,8 +526,10 @@ public sealed class AddAzureAppRegistrationTests
             .WithPermission(scope);
 
         Assert.Single(spa.Resource.RequiredPermissions, scope.Resource);
+
         var stored = Assert.IsType<BicepOutputReference>(
             spa.Resource.Parameters[AzureEntraIdAppRegistrationResource.ResourceAppIdParameterName("api")]);
+
         Assert.Equal(api.Resource.ClientId.ValueExpression, stored.ValueExpression);
         Assert.Contains(
             spa.Resource.Annotations.OfType<WaitAnnotation>(),
@@ -518,6 +546,7 @@ public sealed class AddAzureAppRegistrationTests
             .WithPermission(scope);
 
         var ex = Assert.Throws<ArgumentException>(() => spa.WithPermission(scope));
+
         Assert.Equal("permission", ex.ParamName);
     }
 
@@ -527,6 +556,7 @@ public sealed class AddAzureAppRegistrationTests
         var builder = DistributedApplication.CreateBuilder();
         var api = builder.AddAzureAppRegistration("api");
         var scope = api.AddScope("access", "access_as_user", "Access API", "Allows the app to access the API");
+
         api.WithPermission(scope);
 
         Assert.DoesNotContain(
@@ -567,6 +597,7 @@ public sealed class AddAzureAppRegistrationTests
         var builder = DistributedApplication.CreateBuilder();
         var api = builder.AddAzureAppRegistration("api");
         var scope = api.AddScope("access", "access_as_user", "Access API", "Allows the app to access the API");
+
         api.WithPermission(scope);
 
         var bicep = api.Resource.GetBicepTemplateString();
@@ -587,6 +618,7 @@ public sealed class AddAzureAppRegistrationTests
             .RunAsExisting("already-registered", resourceGroup: null!);
 
         var bicep = spa.Resource.GetBicepTemplateString();
+
         Assert.DoesNotContain("requiredResourceAccess:", bicep, StringComparison.Ordinal);
         Assert.DoesNotContain("resourceAccess:", bicep, StringComparison.Ordinal);
     }
@@ -613,7 +645,9 @@ public sealed class AddAzureAppRegistrationTests
             .WithKeyCredential(cert);
 
         Assert.Single(app.Resource.KeyCredentials, cert.Resource);
+
         var parameterName = AsymmetricX509CertResource.KeyCredentialParameterName("api-cert");
+
         Assert.True(app.Resource.Parameters.ContainsKey(parameterName));
         Assert.Contains(
             app.Resource.Annotations.OfType<WaitAnnotation>(),
@@ -629,6 +663,7 @@ public sealed class AddAzureAppRegistrationTests
             .WithKeyCredential(cert);
 
         var ex = Assert.Throws<ArgumentException>(() => app.WithKeyCredential(cert));
+
         Assert.Equal("certificate", ex.ParamName);
     }
 
@@ -662,6 +697,7 @@ public sealed class AddAzureAppRegistrationTests
             .RunAsExisting("already-registered", resourceGroup: null!);
 
         var bicep = app.Resource.GetBicepTemplateString();
+
         Assert.DoesNotContain("keyCredentials:", bicep, StringComparison.Ordinal);
         Assert.DoesNotContain("AsymmetricX509Cert", bicep, StringComparison.Ordinal);
     }
@@ -690,6 +726,7 @@ public sealed class AddAzureAppRegistrationTests
             .WithRedirectUri(new Uri("https://localhost/swagger/oauth2-redirect.html"));
 
         var uris = Assert.IsType<string[]>(app.Resource.Parameters[AzureEntraIdAppRegistrationResource.RedirectUrisParameter]);
+
         Assert.Equal(
             ["https://localhost/signin-oidc", "https://localhost/swagger/oauth2-redirect.html"],
             uris);
@@ -701,6 +738,7 @@ public sealed class AddAzureAppRegistrationTests
     {
         var builder = DistributedApplication.CreateBuilder();
         var app = builder.AddAzureAppRegistration("api");
+
         app.AddWebApplication("swagger")
             .WithRedirectUri(new Uri("https://localhost/swagger/oauth2-redirect.html"));
 
@@ -719,6 +757,7 @@ public sealed class AddAzureAppRegistrationTests
         var app = builder.AddAzureAppRegistration("api");
 
         var bicep = app.Resource.GetBicepTemplateString();
+
         Assert.Contains("redirectUris: redirectUris", bicep, StringComparison.Ordinal);
         Assert.DoesNotContain("implicitGrantSettings:", bicep, StringComparison.Ordinal);
     }
@@ -728,11 +767,13 @@ public sealed class AddAzureAppRegistrationTests
     {
         var builder = DistributedApplication.CreateBuilder();
         var app = builder.AddAzureAppRegistration("api");
+
         app.AddWebApplication("swagger")
             .WithRedirectUri(new Uri("https://localhost/swagger/oauth2-redirect.html"));
         app.RunAsExisting("already-registered", resourceGroup: null!);
 
         var bicep = app.Resource.GetBicepTemplateString();
+
         Assert.DoesNotContain("implicitGrantSettings:", bicep, StringComparison.Ordinal);
         Assert.DoesNotContain("redirectUris:", bicep, StringComparison.Ordinal);
     }
@@ -741,7 +782,9 @@ public sealed class AddAzureAppRegistrationTests
     public async Task WithMicrosoftIdentityWebApplication_sets_environment_and_waits()
     {
         var builder = DistributedApplication.CreateBuilder();
+
         builder.Configuration["Azure:TenantId"] = "11111111-1111-1111-1111-111111111111";
+
         var cert = AddTestCertificate(builder, "api-cert", "aabbcc");
         var secret = builder.AddParameter("api-client-secret", secret: true);
         var app = builder.AddAzureAppRegistration("api")
@@ -754,6 +797,7 @@ public sealed class AddAzureAppRegistrationTests
             .WithMicrosoftIdentityWebApplication(EntraIdInstance.Workforce, web);
 
         var credential = Assert.Single(app.Resource.PasswordCredentials);
+
         Assert.Contains(
             container.Resource.Annotations.OfType<WaitAnnotation>(),
             wait => ReferenceEquals(wait.Resource, app.Resource));
@@ -765,6 +809,7 @@ public sealed class AddAzureAppRegistrationTests
             wait => ReferenceEquals(wait.Resource, credential));
 
         var env = await ResolveEnvironmentAsync(builder, container.Resource);
+
         Assert.Equal("https://login.microsoftonline.com/", env["AzureAd__Instance"]);
         Assert.Equal("11111111-1111-1111-1111-111111111111", env["AzureAd__TenantId"]);
         Assert.Equal("StoreWithThumbprint", env["AzureAd__ClientCredentials__0__SourceType"]);
@@ -798,6 +843,7 @@ public sealed class AddAzureAppRegistrationTests
             .WithRedirectUri(new Uri("http://localhost/"));
 
         var uris = Assert.IsType<string[]>(app.Resource.Parameters[AzureEntraIdAppRegistrationResource.SpaRedirectUrisParameter]);
+
         Assert.Equal(["http://localhost/"], uris);
         Assert.Equal(2, spa.Resource.RedirectUris.Count);
     }
@@ -807,6 +853,7 @@ public sealed class AddAzureAppRegistrationTests
     {
         var builder = DistributedApplication.CreateBuilder();
         var app = builder.AddAzureAppRegistration("spa");
+
         app.AddSpaApplication("spa-app")
             .WithRedirectUri(new Uri("http://localhost/"));
 
@@ -824,6 +871,7 @@ public sealed class AddAzureAppRegistrationTests
         var app = builder.AddAzureAppRegistration("spa");
 
         var bicep = app.Resource.GetBicepTemplateString();
+
         Assert.DoesNotContain("spa:", bicep, StringComparison.Ordinal);
         Assert.DoesNotContain("spaRedirectUris", bicep, StringComparison.Ordinal);
     }
@@ -833,11 +881,13 @@ public sealed class AddAzureAppRegistrationTests
     {
         var builder = DistributedApplication.CreateBuilder();
         var app = builder.AddAzureAppRegistration("spa");
+
         app.AddSpaApplication("spa-app")
             .WithRedirectUri(new Uri("http://localhost/"));
         app.RunAsExisting("already-registered", resourceGroup: null!);
 
         var bicep = app.Resource.GetBicepTemplateString();
+
         Assert.DoesNotContain("spa:", bicep, StringComparison.Ordinal);
         Assert.DoesNotContain("spaRedirectUris", bicep, StringComparison.Ordinal);
         Assert.DoesNotContain("redirectUris:", bicep, StringComparison.Ordinal);
@@ -847,7 +897,9 @@ public sealed class AddAzureAppRegistrationTests
     public async Task WithEntraIdSpaApplication_sets_environment_and_waits()
     {
         var builder = DistributedApplication.CreateBuilder();
+
         builder.Configuration["Azure:TenantId"] = "11111111-1111-1111-1111-111111111111";
+
         var cert = AddTestCertificate(builder, "api-cert", "aabbcc");
         var api = builder.AddAzureAppRegistration("api")
             .WithDefaultIdentifierUri()
@@ -868,6 +920,7 @@ public sealed class AddAzureAppRegistrationTests
             .WithEntraIdSpaApplication(EntraIdInstance.Workforce, spaApp);
 
         var credential = Assert.Single(spa.Resource.PasswordCredentials);
+
         Assert.Contains(
             container.Resource.Annotations.OfType<WaitAnnotation>(),
             wait => ReferenceEquals(wait.Resource, spa.Resource));
@@ -879,6 +932,7 @@ public sealed class AddAzureAppRegistrationTests
             wait => ReferenceEquals(wait.Resource, cert.Resource));
 
         var env = await ResolveEnvironmentAsync(builder, container.Resource);
+
         Assert.Equal("https://login.microsoftonline.com/", env["ENTRA_Instance"]);
         Assert.Equal("11111111-1111-1111-1111-111111111111", env["ENTRA_TenantId"]);
         Assert.True(env.ContainsKey("ENTRA_ClientId"));
@@ -899,6 +953,7 @@ public sealed class AddAzureAppRegistrationTests
             .WithEntraIdSpaApplication(EntraIdInstance.Ciam("contoso"), spaApp);
 
         var env = await ResolveEnvironmentAsync(builder, container.Resource);
+
         Assert.Equal("https://contoso.ciamlogin.com/", env["ENTRA_Instance"]);
         Assert.Equal(AzureEntraIdHostingExtensions.SpaLoginScopes, env["ENTRA_LoginScopes"]);
     }
@@ -914,6 +969,7 @@ public sealed class AddAzureAppRegistrationTests
             .WithMicrosoftIdentityWebApplication(EntraIdInstance.Ciam(" contoso "), web);
 
         var env = await ResolveEnvironmentAsync(builder, container.Resource);
+
         Assert.Equal("https://contoso.ciamlogin.com/", env["AzureAd__Instance"]);
     }
 
@@ -929,6 +985,7 @@ public sealed class AddAzureAppRegistrationTests
             .WithEntraIdSpaApplication(EntraIdInstance.Ciam(subdomain), spaApp);
 
         var env = await ResolveEnvironmentAsync(builder, container.Resource);
+
         Assert.Contains("ciamlogin.com", env["ENTRA_Instance"], StringComparison.Ordinal);
         Assert.Contains("ciam-subdomain", env["ENTRA_Instance"], StringComparison.Ordinal);
         Assert.DoesNotContain("contoso", env["ENTRA_Instance"], StringComparison.Ordinal);
@@ -971,11 +1028,14 @@ public sealed class AddAzureAppRegistrationTests
     {
         using var created = CreateEphemeralCertificate();
         using var store = new X509Store(StoreName.My, StoreLocation.CurrentUser);
+
         store.Open(OpenFlags.ReadWrite);
         store.Add(created);
+
         try
         {
             Assert.True(AsymmetricX509CertResource.TryFind(created.Thumbprint, StoreLocation.CurrentUser, out var found));
+
             using (found)
             {
                 Assert.NotNull(found);
@@ -993,10 +1053,13 @@ public sealed class AddAzureAppRegistrationTests
         IResource resource)
     {
         var values = new Dictionary<string, string>(StringComparer.Ordinal);
+
         foreach (var annotation in resource.Annotations.OfType<EnvironmentCallbackAnnotation>())
         {
             var context = new EnvironmentCallbackContext(builder.ExecutionContext, resource);
+
             await annotation.Callback(context).ConfigureAwait(false);
+
             foreach (var pair in context.EnvironmentVariables)
             {
                 values[pair.Key] = pair.Value switch
@@ -1019,6 +1082,7 @@ public sealed class AddAzureAppRegistrationTests
             HashAlgorithmName.SHA256,
             RSASignaturePadding.Pkcs1);
         var cert = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1));
+
         return X509CertificateLoader.LoadPkcs12(
             cert.Export(X509ContentType.Pfx),
             password: null,
@@ -1031,6 +1095,7 @@ public sealed class AddAzureAppRegistrationTests
         string thumbprint)
     {
         var parameter = builder.AddParameter($"{name}-thumbprint", thumbprint, secret: true);
+
         return builder.AddCertificate(name, parameter, StoreLocation.CurrentUser);
     }
 
@@ -1038,6 +1103,7 @@ public sealed class AddAzureAppRegistrationTests
     {
         var count = 0;
         var index = 0;
+
         while ((index = value.IndexOf(substring, index, StringComparison.Ordinal)) >= 0)
         {
             count++;

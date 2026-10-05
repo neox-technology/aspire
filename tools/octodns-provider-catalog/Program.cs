@@ -31,8 +31,10 @@ var providers = new List<ProviderEntry>();
 foreach (var flavor in flavors.Where(f => !excluded.Contains(f.Slug)).OrderBy(f => f.Slug, StringComparer.Ordinal))
 {
     Console.WriteLine($"Refreshing {flavor.Slug} ({flavor.Module})...");
+
     var readmeUrl = $"https://raw.githubusercontent.com/octodns/octodns-{flavor.Slug}/main/README.md";
     string? readme = null;
+
     try
     {
         readme = await http.GetStringAsync(readmeUrl).ConfigureAwait(false);
@@ -44,6 +46,7 @@ foreach (var flavor in flavors.Where(f => !excluded.Contains(f.Slug)).OrderBy(f 
     }
 
     var settings = ParseConfigurationSettings(readme, out var providerClass);
+
     if (string.IsNullOrWhiteSpace(providerClass))
     {
         providerClass = InferProviderClass(flavor.Module, flavor.Slug);
@@ -82,6 +85,7 @@ return 0;
 static string FindRepoRoot()
 {
     var dir = new DirectoryInfo(AppContext.BaseDirectory);
+
     while (dir is not null)
     {
         if (File.Exists(Path.Combine(dir.FullName, "Neox.Aspire.slnx")))
@@ -98,15 +102,18 @@ static string FindRepoRoot()
 static List<DockerFlavor> ParseDockerFlavors(string readme)
 {
     var flavors = new List<DockerFlavor>();
+
     foreach (var rawLine in readme.Split('\n'))
     {
         var line = rawLine.TrimEnd('\r');
+
         if (!line.StartsWith('|') || line.Contains("---", StringComparison.Ordinal) || line.Contains("Flavor", StringComparison.Ordinal))
         {
             continue;
         }
 
         var cells = line.Split('|', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
         if (cells.Length < 2)
         {
             continue;
@@ -117,10 +124,12 @@ static List<DockerFlavor> ParseDockerFlavors(string readme)
 
         // "octodns (all)" → skip via slug "octodns"
         var slugMatch = Regex.Match(flavorCell, @"^`?([a-z0-9]+)(?:\s|\(|$)");
+
         if (!slugMatch.Success)
         {
             // plain text flavor name
             var plain = Regex.Match(flavorCell, @"^([a-z0-9]+)");
+
             if (!plain.Success)
             {
                 continue;
@@ -132,6 +141,7 @@ static List<DockerFlavor> ParseDockerFlavors(string readme)
         var slug = slugMatch.Groups[1].Value;
         var moduleMatch = Regex.Match(moduleCell, @"octodns_[a-z0-9]+|octodns");
         var module = moduleMatch.Success ? moduleMatch.Value : $"octodns_{slug}";
+
         flavors.Add(new DockerFlavor(slug, module));
     }
 
@@ -141,18 +151,22 @@ static List<DockerFlavor> ParseDockerFlavors(string readme)
 static List<SettingEntry> ParseConfigurationSettings(string readme, out string? providerClass)
 {
     providerClass = null;
+
     var settings = new List<SettingEntry>();
     var yaml = ExtractConfigurationYaml(readme);
+
     if (yaml is null)
     {
         return settings;
     }
 
     var pendingComments = new List<string>();
+
     foreach (var rawLine in yaml.Split('\n'))
     {
         var line = rawLine.TrimEnd('\r');
         var trimmed = line.TrimStart();
+
         if (string.IsNullOrWhiteSpace(trimmed) || trimmed.StartsWith("providers:", StringComparison.Ordinal))
         {
             pendingComments.Clear();
@@ -177,9 +191,11 @@ static List<SettingEntry> ParseConfigurationSettings(string readme, out string? 
         var content = commented ? trimmed.TrimStart('#').TrimStart() : trimmed;
 
         var classMatch = Regex.Match(content, @"^class:\s*(\S+)");
+
         if (classMatch.Success)
         {
             var cls = classMatch.Groups[1].Value.Trim('\'', '"');
+
             // Prefer *Provider over *Source when multiple class lines appear.
             if (providerClass is null ||
                 (cls.EndsWith("Provider", StringComparison.Ordinal) &&
@@ -193,6 +209,7 @@ static List<SettingEntry> ParseConfigurationSettings(string readme, out string? 
         }
 
         var settingMatch = Regex.Match(content, @"^([a-zA-Z0-9_]+):\s*(.+)$");
+
         if (!settingMatch.Success)
         {
             pendingComments.Clear();
@@ -204,6 +221,7 @@ static List<SettingEntry> ParseConfigurationSettings(string readme, out string? 
         var hintOptional = pendingComments.Any(c =>
             c.Contains("Optional", StringComparison.OrdinalIgnoreCase) ||
             c.Contains("not needed", StringComparison.OrdinalIgnoreCase));
+
         pendingComments.Clear();
 
         // Skip nested / unsupported structures
@@ -256,9 +274,11 @@ static string? ExtractConfigurationYaml(string readme)
 
     string? bestProvider = null;
     string? fallback = null;
+
     foreach (Match fence in fences)
     {
         var body = fence.Groups[1].Value;
+
         if (!body.Contains("class:", StringComparison.Ordinal) ||
             !body.Contains("octodns", StringComparison.OrdinalIgnoreCase))
         {
@@ -266,10 +286,12 @@ static string? ExtractConfigurationYaml(string readme)
         }
 
         fallback ??= body;
+
         if (Regex.IsMatch(body, @"class:\s*\S*Provider\b"))
         {
             // Prefer BindProvider/Rfc2136Provider style over first Source-only block.
             bestProvider ??= body;
+
             if (body.Contains("BindProvider", StringComparison.Ordinal) ||
                 body.Contains("Rfc2136Provider", StringComparison.Ordinal))
             {
@@ -284,6 +306,7 @@ static string? ExtractConfigurationYaml(string readme)
 static string InferProviderClass(string module, string slug)
 {
     var typeName = ToMethodName(slug) + "Provider";
+
     return $"{module}.{typeName}";
 }
 
@@ -292,6 +315,7 @@ static string ToMethodName(string slug)
     var sb = new StringBuilder();
     var upper = true;
     char? prev = null;
+
     foreach (var c in slug)
     {
         if (!char.IsLetterOrDigit(c))
@@ -325,6 +349,7 @@ static string ToPropertyName(string yamlName)
 {
     var sb = new StringBuilder();
     var upper = true;
+
     foreach (var c in yamlName)
     {
         if (c is '_' or '-')

@@ -112,6 +112,7 @@ public class EntraAuthProvisionConfirmationTests
     private static EntraAuthAppRegistrationResource CreateApp(string name, string displayName)
     {
         var provider = new EntraAuthOpsResource("entra", new AuthOpsResource("auth-ops"));
+
         return new EntraAuthAppRegistrationResource(name, provider, displayName);
     }
 }

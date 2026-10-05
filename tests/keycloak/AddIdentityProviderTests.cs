@@ -29,6 +29,7 @@ public sealed class AddIdentityProviderTests
     {
         var builder = DistributedApplication.CreateBuilder();
         var keycloak = CreateKeycloak(builder, "auth-idp-json");
+
         keycloak.AddRealm(realm: "neox")
             .AddIdentityProvider("microsoft", "oidc", idp =>
             {
@@ -42,8 +43,11 @@ public sealed class AddIdentityProviderTests
         using var document = ReadRealmJson(builder, "auth-idp-json", "neox");
 
         var providers = document.RootElement.GetProperty("identityProviders");
+
         Assert.Equal(1, providers.GetArrayLength());
+
         var provider = providers[0];
+
         Assert.Equal("microsoft", provider.GetProperty("alias").GetString());
         Assert.Equal("oidc", provider.GetProperty("providerId").GetString());
         Assert.True(provider.GetProperty("enabled").GetBoolean());
@@ -65,6 +69,7 @@ public sealed class AddIdentityProviderTests
         using var document = ReadRealmJson(builder, "auth-idp-idempotent", "neox");
 
         var providers = document.RootElement.GetProperty("identityProviders");
+
         Assert.Equal(1, providers.GetArrayLength());
         Assert.Equal("Second", providers[0].GetProperty("displayName").GetString());
     }
@@ -74,6 +79,7 @@ public sealed class AddIdentityProviderTests
         string name)
     {
         var password = builder.AddParameter($"{name}-password", "admin", secret: true);
+
         return builder.AddKeycloak(name, adminPassword: password);
     }
 
@@ -86,6 +92,7 @@ public sealed class AddIdentityProviderTests
             Path.Combine(".aspire", "keycloak-realms", keycloakName),
             builder.AppHostDirectory);
         var json = File.ReadAllText(Path.Combine(importDirectory, $"{realm}-realm.json"));
+
         return JsonDocument.Parse(json);
     }
 }

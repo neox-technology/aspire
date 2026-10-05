@@ -18,6 +18,7 @@ public static class KeycloakRealmProvisioningCodeGen
     {
         using var document = JsonDocument.Parse(openApiJson);
         var root = document.RootElement;
+
         if (!root.TryGetProperty("components", out var components) ||
             !components.TryGetProperty("schemas", out var schemasElement) ||
             schemasElement.ValueKind != JsonValueKind.Object)
@@ -26,6 +27,7 @@ public static class KeycloakRealmProvisioningCodeGen
         }
 
         var schemas = ParseSchemas(schemasElement);
+
         if (!schemas.ContainsKey(RootSchemaName))
         {
             throw new InvalidOperationException($"components.schemas must contain {RootSchemaName}.");
@@ -39,6 +41,7 @@ public static class KeycloakRealmProvisioningCodeGen
             StringComparer.Ordinal);
 
         var files = new List<(string HintName, string Source)>();
+
         files.Add(("KeycloakRealmInfrastructure.g.cs", GenerateInfrastructure()));
         files.Add(("KeycloakRealmJsonOptions.g.cs", GenerateJsonOptions(unions)));
 
@@ -51,6 +54,7 @@ public static class KeycloakRealmProvisioningCodeGen
         foreach (var schemaName in closure.OrderBy(static n => n, StringComparer.Ordinal))
         {
             var schema = schemas[schemaName];
+
             if (IsEnumSchema(schema))
             {
                 files.Add(($"{schemaName}.g.cs", GenerateEnum(schemaName, schema)));
@@ -81,6 +85,7 @@ public static class KeycloakRealmProvisioningCodeGen
     private static Dictionary<string, JsonElement> ParseSchemas(JsonElement schemasElement)
     {
         var schemas = new Dictionary<string, JsonElement>(StringComparer.Ordinal);
+
         foreach (var property in schemasElement.EnumerateObject())
         {
             schemas[property.Name] = property.Value;
@@ -95,11 +100,13 @@ public static class KeycloakRealmProvisioningCodeGen
     {
         var closure = new HashSet<string>(StringComparer.Ordinal);
         var queue = new Queue<string>();
+
         queue.Enqueue(rootSchemaName);
 
         while (queue.Count > 0)
         {
             var name = queue.Dequeue();
+
             if (!closure.Add(name) || !schemas.TryGetValue(name, out var schema))
             {
                 continue;
@@ -131,6 +138,7 @@ public static class KeycloakRealmProvisioningCodeGen
             }
 
             RegisterUnion(unions, schemaName, schema, schemas, closure, schemaName);
+
             if (!schema.TryGetProperty("properties", out var properties) ||
                 properties.ValueKind != JsonValueKind.Object)
             {
@@ -175,12 +183,14 @@ public static class KeycloakRealmProvisioningCodeGen
             .Distinct(StringComparer.Ordinal)
             .OrderBy(static n => n, StringComparer.Ordinal)
             .ToList();
+
         if (implementations.Count <= 1)
         {
             return;
         }
 
         var interfaceName = $"I{unionKey}";
+
         if (!unions.TryGetValue(interfaceName, out var union))
         {
             union = new PolymorphicUnion(interfaceName, contextSchemaName, propertyJsonName);
@@ -196,6 +206,7 @@ public static class KeycloakRealmProvisioningCodeGen
     private static bool TryGetUnionBranches(JsonElement schema, out List<string> branches)
     {
         branches = [];
+
         foreach (var keyword in new[] { "oneOf", "anyOf" })
         {
             if (!schema.TryGetProperty(keyword, out var unionElement) ||
@@ -239,6 +250,7 @@ public static class KeycloakRealmProvisioningCodeGen
     private static string GenerateInfrastructure()
     {
         var sb = new StringBuilder();
+
         AppendFileHeader(sb);
         sb.AppendLine("internal static class KeycloakRealmInfrastructure");
         sb.AppendLine("{");
@@ -314,6 +326,7 @@ public static class KeycloakRealmProvisioningCodeGen
     private static string GenerateJsonOptions(IReadOnlyList<PolymorphicUnion> unions)
     {
         var sb = new StringBuilder();
+
         AppendFileHeader(sb);
         sb.AppendLine("/// <summary>Default <see cref=\"JsonSerializerOptions\"/> for Keycloak realm documents.</summary>");
         sb.AppendLine("public static class KeycloakRealmJsonOptions");
@@ -332,6 +345,7 @@ public static class KeycloakRealmProvisioningCodeGen
         sb.AppendLine("        };");
         sb.AppendLine("        options.Converters.Add(new ConcurrentBagJsonConverterFactory());");
         sb.AppendLine("        options.Converters.Add(new ConcurrentDictionaryJsonConverterFactory());");
+
         foreach (var union in unions)
         {
             sb.Append("        options.Converters.Add(new ").Append(union.InterfaceName)
@@ -347,8 +361,10 @@ public static class KeycloakRealmProvisioningCodeGen
     private static string GenerateInterface(PolymorphicUnion union)
     {
         var sb = new StringBuilder();
+
         AppendFileHeader(sb);
         sb.Append("/// <summary>Polymorphic union for ").Append(EscapeXml(union.ContextSchemaName ?? string.Empty));
+
         if (!string.IsNullOrEmpty(union.PropertyJsonName))
         {
             sb.Append('.').Append(EscapeXml(union.PropertyJsonName ?? string.Empty));
@@ -366,6 +382,7 @@ public static class KeycloakRealmProvisioningCodeGen
     private static string GeneratePolymorphicConverter(PolymorphicUnion union)
     {
         var sb = new StringBuilder();
+
         AppendFileHeader(sb);
         sb.Append("internal sealed class ").Append(union.InterfaceName).Append("JsonConverter : JsonConverter<")
             .Append(union.InterfaceName).AppendLine(">");
@@ -382,6 +399,7 @@ public static class KeycloakRealmProvisioningCodeGen
         sb.AppendLine("        var root = document.RootElement;");
         sb.AppendLine("        var discriminator = TryReadDiscriminator(root);");
         sb.AppendLine();
+
         foreach (var implementation in union.Implementations.OrderBy(static n => n, StringComparer.Ordinal))
         {
             sb.Append("        if (discriminator is null || string.Equals(discriminator, \"")
@@ -433,15 +451,19 @@ public static class KeycloakRealmProvisioningCodeGen
     private static string GenerateEnum(string schemaName, JsonElement schema)
     {
         var sb = new StringBuilder();
+
         AppendFileHeader(sb);
         sb.Append("public enum ").Append(schemaName).AppendLine();
         sb.AppendLine("{");
+
         var values = schema.GetProperty("enum");
         var index = 0;
+
         foreach (var value in values.EnumerateArray())
         {
             var literal = value.GetString() ?? $"Value{index}";
             var memberName = ToEnumMemberName(literal);
+
             if (index > 0)
             {
                 sb.AppendLine(",");
@@ -472,8 +494,10 @@ public static class KeycloakRealmProvisioningCodeGen
 
         var mergedSchema = MergeAllOf(schema, schemas);
         var sb = new StringBuilder();
+
         AppendFileHeader(sb);
         sb.Append("public partial class ").Append(schemaName);
+
         if (implementedInterfaces.Count > 0)
         {
             sb.Append(" : ").Append(string.Join(", ", implementedInterfaces));
@@ -504,6 +528,7 @@ public static class KeycloakRealmProvisioningCodeGen
                 var propertyType = ResolveType(property.Value, schemas, schemaName, property.Name, implementingTypes);
                 var obsolete = property.Value.TryGetProperty("deprecated", out var deprecated) &&
                                deprecated.ValueKind == JsonValueKind.True;
+
                 if (obsolete)
                 {
                     sb.AppendLine("    [Obsolete]");
@@ -530,9 +555,11 @@ public static class KeycloakRealmProvisioningCodeGen
         }
 
         var properties = new Dictionary<string, JsonElement>(StringComparer.Ordinal);
+
         foreach (var branch in allOf.EnumerateArray())
         {
             JsonElement branchSchema = branch;
+
             if (TryGetRefName(branch, out var refName) && schemas.TryGetValue(refName, out var resolved))
             {
                 branchSchema = resolved;
@@ -558,10 +585,12 @@ public static class KeycloakRealmProvisioningCodeGen
         }
 
         using var stream = new MemoryStream();
+
         using (var writer = new Utf8JsonWriter(stream))
         {
             writer.WriteStartObject();
             writer.WriteStartObject("properties");
+
             foreach (var property in properties.OrderBy(static p => p.Key, StringComparer.Ordinal))
             {
                 writer.WritePropertyName(property.Key);
@@ -573,6 +602,7 @@ public static class KeycloakRealmProvisioningCodeGen
         }
 
         using var document = JsonDocument.Parse(stream.ToArray());
+
         return document.RootElement.Clone();
     }
 
@@ -633,6 +663,7 @@ public static class KeycloakRealmProvisioningCodeGen
                     if (schema.TryGetProperty("items", out var items))
                     {
                         var itemType = ResolveItemsType(items, schemas);
+
                         return $"ConcurrentBag<{itemType}>?";
                     }
 
@@ -641,6 +672,7 @@ public static class KeycloakRealmProvisioningCodeGen
                     if (schema.TryGetProperty("additionalProperties", out var additionalProperties))
                     {
                         var valueType = ResolveAdditionalPropertyType(additionalProperties, schemas);
+
                         return $"ConcurrentDictionary<string, {valueType}>?";
                     }
 
@@ -772,18 +804,21 @@ public static class KeycloakRealmProvisioningCodeGen
     private static bool TryGetRefName(JsonElement schema, out string refName)
     {
         refName = string.Empty;
+
         if (!schema.TryGetProperty("$ref", out var refElement))
         {
             return false;
         }
 
         var value = refElement.GetString();
+
         if (string.IsNullOrEmpty(value))
         {
             return false;
         }
 
         const string prefix = "#/components/schemas/";
+
         if (value is null || !value.StartsWith(prefix, StringComparison.Ordinal))
         {
             return false;
@@ -796,6 +831,7 @@ public static class KeycloakRealmProvisioningCodeGen
     private static string ToEnumMemberName(string literal)
     {
         var sanitized = new StringBuilder();
+
         foreach (var character in literal)
         {
             if (char.IsLetterOrDigit(character))
@@ -809,6 +845,7 @@ public static class KeycloakRealmProvisioningCodeGen
         }
 
         var name = sanitized.ToString().Trim('_');
+
         if (string.IsNullOrEmpty(name))
         {
             return "Unknown";

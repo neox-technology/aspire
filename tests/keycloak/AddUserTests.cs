@@ -50,19 +50,24 @@ public sealed class AddUserTests
             representation.Email = "root@root.com";
             representation.EmailVerified = true;
         });
+
         keycloak.AddRealm(realm: "hub").WithUser(user);
 
         using var document = ReadRealmJson(builder, "auth-user-json", "hub");
 
         var users = document.RootElement.GetProperty("users");
+
         Assert.Equal(1, users.GetArrayLength());
+
         var imported = users[0];
+
         Assert.Equal("root", imported.GetProperty("username").GetString());
         Assert.True(imported.GetProperty("enabled").GetBoolean());
         Assert.Equal("root@root.com", imported.GetProperty("email").GetString());
         Assert.True(imported.GetProperty("emailVerified").GetBoolean());
 
         var credentials = imported.GetProperty("credentials");
+
         Assert.Equal(1, credentials.GetArrayLength());
         Assert.Equal("password", credentials[0].GetProperty("type").GetString());
         Assert.Equal("root", credentials[0].GetProperty("value").GetString());
@@ -76,6 +81,7 @@ public sealed class AddUserTests
         var keycloak = CreateKeycloak(builder, "auth-user-realm-role");
         var password = builder.AddParameter("root-password", "root", secret: true);
         var user = keycloak.AddUser("root", password);
+
         user.WithRealmRole("RootAdministrator");
         user.WithRealmRole("RootAdministrator");
         keycloak.AddRealm(realm: "hub").WithUser(user);
@@ -83,6 +89,7 @@ public sealed class AddUserTests
         using var document = ReadRealmJson(builder, "auth-user-realm-role", "hub");
 
         var roles = document.RootElement.GetProperty("users")[0].GetProperty("realmRoles");
+
         Assert.Equal(1, roles.GetArrayLength());
         Assert.Equal("RootAdministrator", roles[0].GetString());
     }
@@ -95,12 +102,14 @@ public sealed class AddUserTests
         var password = builder.AddParameter("root-password", "root", secret: true);
         var user = keycloak.AddUser("root", password);
         var realm = keycloak.AddRealm(realm: "hub");
+
         realm.WithUser(user);
         realm.WithUser(user);
 
         using var document = ReadRealmJson(builder, "auth-user-json-idempotent", "hub");
 
         var users = document.RootElement.GetProperty("users");
+
         Assert.Equal(1, users.GetArrayLength());
         Assert.Equal(1, users[0].GetProperty("credentials").GetArrayLength());
     }
@@ -125,6 +134,7 @@ public sealed class AddUserTests
         string name)
     {
         var password = builder.AddParameter($"{name}-password", "admin", secret: true);
+
         return builder.AddKeycloak(name, adminPassword: password);
     }
 
@@ -137,6 +147,7 @@ public sealed class AddUserTests
             Path.Combine(".aspire", "keycloak-realms", keycloakName),
             builder.AppHostDirectory);
         var json = File.ReadAllText(Path.Combine(importDirectory, $"{realm}-realm.json"));
+
         return JsonDocument.Parse(json);
     }
 }

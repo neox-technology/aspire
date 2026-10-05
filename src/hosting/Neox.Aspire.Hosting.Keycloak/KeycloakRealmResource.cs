@@ -7,9 +7,8 @@ public sealed class KeycloakRealmResource(
     KeycloakResource parent,
     string realm,
     string importDirectory)
-    : Resource(name), IResourceWithParent<KeycloakResource>
-{
+    : Resource(name), IResourceWithParent<KeycloakResource> {
+    public string ImportDirectory { get; } = importDirectory;
     public KeycloakResource Parent { get; } = parent;
     public string Realm { get; } = realm;
-    public string ImportDirectory { get; } = importDirectory;
 }

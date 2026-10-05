@@ -34,6 +34,7 @@ public sealed class GraphProvisioningCodeGenTests
         Assert.Contains("GraphUser.g.cs", byHint.Keys);
 
         var application = byHint["GraphApplication.g.cs"];
+
         Assert.Contains("public partial class GraphApplication : ProvisionableResource", application, StringComparison.Ordinal);
         Assert.Contains("public BicepValue<string> UniqueName", application, StringComparison.Ordinal);
         Assert.DoesNotContain("public BicepValue<string> Name", application, StringComparison.Ordinal);
@@ -42,6 +43,7 @@ public sealed class GraphProvisioningCodeGenTests
         Assert.Contains("resource.IsExistingResource = true;", application, StringComparison.Ordinal);
 
         var web = byHint["GraphWebApplication.g.cs"];
+
         Assert.Contains("public BicepList<string> RedirectUris", web, StringComparison.Ordinal);
     }
 }

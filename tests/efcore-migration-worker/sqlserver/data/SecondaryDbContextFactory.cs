@@ -10,6 +10,7 @@ public sealed class SecondaryDbContextFactory : IDesignTimeDbContextFactory<Seco
         var options = new DbContextOptionsBuilder<SecondaryDbContext>()
             .UseSqlServer("Server=(localdb)\\mssqllocaldb;Database=NeoxEfmwSqlSecondaryDesign;Trusted_Connection=True;")
             .Options;
+
         return new SecondaryDbContext(options);
     }
 }

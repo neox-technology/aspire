@@ -7,11 +7,10 @@ namespace Neox.Aspire.Hosting.Keycloak.EntraId;
 /// Non-parented gate that writes Entra OIDC IdP config into realm JSON after Entra outputs are ready.
 /// Keycloak <c>WaitFor</c>s this resource (not the parented IdP child).
 /// </summary>
-internal sealed class KeycloakEntraIdConfigResource : Resource, IResourceWithWaitSupport
-{
+internal sealed class KeycloakEntraIdConfigResource : Resource, IResourceWithWaitSupport {
+
     public KeycloakEntraIdConfigResource(string name, KeycloakIdentityProviderResource identityProvider)
-        : base(name)
-    {
+        : base(name) {
         ArgumentNullException.ThrowIfNull(identityProvider);
         IdentityProvider = identityProvider;
     }

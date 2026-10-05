@@ -25,13 +25,16 @@ Console.WriteLine($"Wrote Graph Bicep types {ApiVersion}/{TypesVersion} to {outp
 static async Task DownloadAsync(HttpClient http, string url, string path)
 {
     Console.WriteLine($"Fetching {url}...");
+
     var bytes = await http.GetByteArrayAsync(url).ConfigureAwait(false);
+
     await File.WriteAllBytesAsync(path, bytes).ConfigureAwait(false);
 }
 
 static string FindRepoRoot()
 {
     var dir = new DirectoryInfo(AppContext.BaseDirectory);
+
     while (dir is not null)
     {
         if (File.Exists(Path.Combine(dir.FullName, "Neox.Aspire.slnx")))

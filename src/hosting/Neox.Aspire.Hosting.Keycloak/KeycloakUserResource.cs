@@ -11,16 +11,13 @@ public sealed class KeycloakUserResource(
     KeycloakResource parent,
     string username,
     ParameterResource password)
-    : Resource(name), IResourceWithParent<KeycloakResource>
-{
+    : Resource(name), IResourceWithParent<KeycloakResource> {
     public KeycloakResource Parent { get; } = parent;
 
+    public ParameterResource Password { get; } = password;
     public string Username { get; } = username;
 
-    public ParameterResource Password { get; } = password;
-
-    internal UserRepresentation Representation { get; } = new()
-    {
+    internal UserRepresentation Representation { get; } = new() {
         Username = username,
         Enabled = true,
         EmailVerified = true,

@@ -22,6 +22,7 @@ public sealed class WithSecretTests
             .WithSecret(secret);
 
         var credential = Assert.Single(app.Resource.PasswordCredentials);
+
         Assert.Same(secret.Resource, credential.SecretParameter);
         Assert.Same(app.Resource, credential.Parent);
         Assert.Equal("api-api-client-secret", credential.Name);
@@ -42,6 +43,7 @@ public sealed class WithSecretTests
             .WithSecret(secret);
 
         var ex = Assert.Throws<ArgumentException>(() => app.WithSecret(secret));
+
         Assert.Equal("secret", ex.ParamName);
     }
 
@@ -53,6 +55,7 @@ public sealed class WithSecretTests
         var app = builder.AddAzureAppRegistration("api");
 
         var ex = Assert.Throws<ArgumentException>(() => app.WithSecret(notSecret));
+
         Assert.Equal("secret", ex.ParamName);
     }
 
@@ -88,6 +91,7 @@ public sealed class WithSecretTests
             .WithSecret(secret);
 
         var bicep = app.Resource.GetBicepTemplateString();
+
         Assert.DoesNotContain("passwordCredentials", bicep, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("secretText", bicep, StringComparison.OrdinalIgnoreCase);
     }
@@ -102,6 +106,7 @@ public sealed class WithSecretTests
             .RunAsExisting("already-registered", resourceGroup: null!);
 
         var bicep = app.Resource.GetBicepTemplateString();
+
         Assert.DoesNotContain("passwordCredentials", bicep, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -114,16 +119,20 @@ public sealed class WithSecretTests
             .WithSecret(secret);
 
         var credential = Assert.Single(app.Resource.PasswordCredentials);
+
         app.Resource.Outputs[AzureEntraIdAppRegistrationResource.ObjectIdOutputName] = "obj-123";
 
         var fakeGraph = new FakePasswordClient("generated-secret-text");
+
         credential.Annotations.Add(new EntraIdAppPasswordClientAnnotation(fakeGraph));
 
         var userSecrets = new FakeUserSecretsManager();
         var services = new ServiceCollection();
+
         services.AddSingleton(new DistributedApplicationExecutionContext(DistributedApplicationOperation.Run));
         services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
         services.AddSingleton<IUserSecretsManager>(userSecrets);
+
         var sp = services.BuildServiceProvider();
 
         await EntraIdClientSecretLifecycle.EnsureSecretAsync(
@@ -139,6 +148,7 @@ public sealed class WithSecretTests
         Assert.Equal("generated-secret-text", stored);
 
         var value = await secret.Resource.GetValueAsync(CancellationToken.None);
+
         Assert.Equal("generated-secret-text", value);
     }
 
@@ -151,9 +161,11 @@ public sealed class WithSecretTests
             .WithSecret(secret);
 
         var credential = Assert.Single(app.Resource.PasswordCredentials);
+
         app.Resource.Outputs[AzureEntraIdAppRegistrationResource.ObjectIdOutputName] = "obj-123";
 
         var fakeGraph = new FakePasswordClient("should-not-be-used");
+
         credential.Annotations.Add(new EntraIdAppPasswordClientAnnotation(fakeGraph));
 
         var config = new ConfigurationBuilder()
@@ -165,9 +177,11 @@ public sealed class WithSecretTests
 
         var userSecrets = new FakeUserSecretsManager();
         var services = new ServiceCollection();
+
         services.AddSingleton(new DistributedApplicationExecutionContext(DistributedApplicationOperation.Run));
         services.AddSingleton<IConfiguration>(config);
         services.AddSingleton<IUserSecretsManager>(userSecrets);
+
         var sp = services.BuildServiceProvider();
 
         await EntraIdClientSecretLifecycle.EnsureSecretAsync(
@@ -180,6 +194,7 @@ public sealed class WithSecretTests
         Assert.Empty(userSecrets.SetCalls);
 
         var value = await secret.Resource.GetValueAsync(CancellationToken.None);
+
         Assert.Equal("existing-from-user-secrets", value);
     }
 
@@ -192,14 +207,18 @@ public sealed class WithSecretTests
             .WithSecret(secret);
 
         var credential = Assert.Single(app.Resource.PasswordCredentials);
+
         app.Resource.Outputs[AzureEntraIdAppRegistrationResource.ObjectIdOutputName] = "obj-123";
 
         var fakeGraph = new FakePasswordClient("should-not-be-used");
+
         credential.Annotations.Add(new EntraIdAppPasswordClientAnnotation(fakeGraph));
 
         var services = new ServiceCollection();
+
         services.AddSingleton(new DistributedApplicationExecutionContext(DistributedApplicationOperation.Publish));
         services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
+
         var sp = services.BuildServiceProvider();
 
         await EntraIdClientSecretLifecycle.EnsureSecretAsync(

@@ -13,6 +13,7 @@ public sealed class DomainOpsGeneratedProviderSmokeTests
         {
             Args = ["--publisher", "manifest"]
         });
+
         builder.AddAzureContainerAppEnvironment("aca-env");
 
         var dns = builder.AddDomainOpsProvider("dns").Route53();
@@ -31,6 +32,7 @@ public sealed class DomainOpsGeneratedProviderSmokeTests
         {
             Args = ["--publisher", "manifest"]
         });
+
         builder.AddAzureContainerAppEnvironment("aca-env");
 
         var dns = builder.AddDomainOpsProvider("dns").Cloudflare();
