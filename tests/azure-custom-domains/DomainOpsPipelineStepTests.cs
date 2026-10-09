@@ -61,18 +61,23 @@ public sealed class DomainOpsPipelineStepTests
         var steps = await CollectDomainOpsStepsAsync(builder);
 
         var prereqDomain = Assert.Single(steps, s => s.Name == "prereq-domain");
+
         Assert.Contains("provision-aca-env", prereqDomain.DependsOnSteps);
 
         var prereqOvh = Assert.Single(steps, s => s.Name == "prereq-domain-ovh");
+
         Assert.Contains("prereq-domain", prereqOvh.DependsOnSteps);
 
         var planProvider = Assert.Single(steps, s => s.Name == "plan-domain-ovh");
+
         Assert.Contains("prereq-domain-ovh", planProvider.DependsOnSteps);
 
         var planZone = Assert.Single(steps, s => s.Name == "plan-domain-example-com");
+
         Assert.Contains("plan-domain-ovh", planZone.DependsOnSteps);
 
         var provisionZone = Assert.Single(steps, s => s.Name == "provision-domain-example-com");
+
         Assert.Contains("plan-domain-example-com", provisionZone.DependsOnSteps);
 
         Assert.Contains(steps, s => s.Name == "plan-aca-env-certificates");
@@ -82,16 +87,19 @@ public sealed class DomainOpsPipelineStepTests
         Assert.Contains(steps, s => s.Name == "deploy-domains");
 
         var provisionDomain = Assert.Single(steps, s => s.Name == "provision-api-domain-www-example-com");
+
         Assert.Contains("plan-api-domain-www-example-com", provisionDomain.DependsOnSteps);
         Assert.Contains("provision-domain-example-com", provisionDomain.DependsOnSteps);
         Assert.DoesNotContain("provision-aca-env-certificates", provisionDomain.DependsOnSteps);
 
         var deployDomain = Assert.Single(steps, s => s.Name == "deploy-api-domain-www-example-com");
+
         Assert.Contains("provision-aca-env-certificates", deployDomain.DependsOnSteps);
         Assert.Contains("deploy-domains", deployDomain.RequiredBySteps);
         Assert.DoesNotContain("provision-api-containerapp", deployDomain.DependsOnSteps);
 
         var deployDomains = Assert.Single(steps, s => s.Name == "deploy-domains");
+
         Assert.Contains(WellKnownPipelineSteps.Deploy, deployDomains.RequiredBySteps);
 
         Assert.DoesNotContain(steps, s => s.Name == "domain-verify");
@@ -99,6 +107,7 @@ public sealed class DomainOpsPipelineStepTests
         Assert.DoesNotContain(steps, s => s.Name == "domain-provision");
 
         var domainOps = Assert.Single(builder.Resources.OfType<AzureCustomDomainOpsResource>());
+
         Assert.Contains(domainOps.Annotations.OfType<PipelineConfigurationAnnotation>(), _ => true);
     }
 
@@ -115,6 +124,7 @@ public sealed class DomainOpsPipelineStepTests
         var cert1 = builder.AddParameter("certificateName1");
         var cert2 = builder.AddParameter("certificateName2");
         var dns = builder.AddDomainOpsProvider("dns").Cloudflare();
+
         builder.AddAzureContainerAppEnvironment("aca-env");
 
         builder.AddContainer("api", "mcr.microsoft.com/dotnet/samples:aspnetapp")
@@ -155,6 +165,7 @@ public sealed class DomainOpsPipelineStepTests
         var wwwCert = builder.AddParameter("certificateName");
         var apexCert = builder.AddParameter("certificateApexName");
         var dns = builder.AddDomainOpsProvider("dns").Ovh();
+
         builder.AddAzureContainerAppEnvironment("aca-env");
 
         builder.AddContainer("api", "mcr.microsoft.com/dotnet/samples:aspnetapp")
@@ -178,10 +189,12 @@ public sealed class DomainOpsPipelineStepTests
 
         // Ordinal: example-com before www-example-com — later sibling DependsOn earlier.
         AzureCustomDomainOpsExtensions.SerializeSameResourceDomainArmSteps(steps, "api");
+
         var provisionWww = Assert.Single(steps, s => s.Name == "provision-api-domain-www-example-com");
         var provisionApex = Assert.Single(steps, s => s.Name == "provision-api-domain-example-com");
         var deployWww = Assert.Single(steps, s => s.Name == "deploy-api-domain-www-example-com");
         var deployApex = Assert.Single(steps, s => s.Name == "deploy-api-domain-example-com");
+
         Assert.Contains("provision-api-domain-example-com", provisionWww.DependsOnSteps);
         Assert.DoesNotContain("provision-api-domain-www-example-com", provisionApex.DependsOnSteps);
         Assert.Contains("deploy-api-domain-example-com", deployWww.DependsOnSteps);
@@ -195,6 +208,7 @@ public sealed class DomainOpsPipelineStepTests
         {
             Args = ["--publisher", "manifest"]
         });
+
         builder.AddAzureContainerAppEnvironment("aca-env");
         builder.AddDomainOpsProvider("dns1").Cloudflare();
         builder.AddDomainOpsProvider("dns2").Cloudflare();
@@ -217,6 +231,7 @@ public sealed class DomainOpsPipelineStepTests
             CancellationToken.None);
 
         var command = Assert.Single(runner.Commands);
+
         Assert.Equal("docker", command.FileName);
         Assert.Equal(["pull", "octodns/ovh"], command.Arguments);
     }
@@ -250,6 +265,7 @@ public sealed class DomainOpsPipelineStepTests
             CancellationToken.None);
 
         var steps = new List<PipelineStep>();
+
         foreach (var resource in builder.Resources.Where(static r =>
                      r is AzureCustomDomainOpsResource or DomainOpsProviderResource))
         {
@@ -261,6 +277,7 @@ public sealed class DomainOpsPipelineStepTests
                     PipelineContext = pipelineContext
                 };
                 var created = await annotation.CreateStepsAsync(context);
+
                 steps.AddRange(created);
             }
         }
@@ -281,6 +298,7 @@ public sealed class DomainOpsPipelineStepTests
             IReadOnlyDictionary<string, string>? environment = null)
         {
             Commands.Add((fileName, arguments.ToArray()));
+
             if (handler is not null)
             {
                 return Task.FromResult(handler(fileName, arguments));

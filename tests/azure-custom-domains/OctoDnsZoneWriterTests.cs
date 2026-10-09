@@ -35,9 +35,11 @@ public sealed class OctoDnsZoneWriterTests
             "asuid-value"));
 
         var dir = Path.Combine(Path.GetTempPath(), "neox-octodns-" + Guid.NewGuid().ToString("N"));
+
         try
         {
             var path = new OctoDnsZoneWriter().WriteToDirectory(plan, dir);
+
             Assert.True(File.Exists(path));
             Assert.Equal("contoso.com.yaml", Path.GetFileName(path));
         }

@@ -12,21 +12,52 @@ using Neox.Aspire.Hosting.Azure.Provisioning;
 
 namespace Neox.Aspire.Hosting.Azure;
 
-public static partial class AzureCustomDomainOpsExtensions
-{
+public static partial class AzureCustomDomainOpsExtensions {
+
+    private static async Task<IReadOnlyList<DomainBindingAnnotation>> CollectZoneBindingsAsync(
+        IDistributedApplicationBuilder applicationBuilder,
+        DomainOpsProviderResource provider,
+        string zoneName,
+        CancellationToken cancellationToken) {
+        var results = new List<DomainBindingAnnotation>();
+
+        foreach (var (resource, annotation) in EnumerateBindings(applicationBuilder, provider)) {
+            var hostname = await annotation.CustomDomain.Resource.GetValueAsync(cancellationToken).ConfigureAwait(false);
+            string resolvedZone;
+
+            if (!string.IsNullOrWhiteSpace(hostname)) {
+                resolvedZone = DnsRecordPlanner.GetZoneName(hostname);
+            }
+            else if (!string.IsNullOrWhiteSpace(annotation.Options.DnsZoneName)) {
+                resolvedZone = DnsRecordPlanner.NormalizeHostname(annotation.Options.DnsZoneName);
+            }
+            else {
+                continue;
+            }
+
+            if (string.Equals(resolvedZone, zoneName, StringComparison.OrdinalIgnoreCase)) {
+                results.Add(new DomainBindingAnnotation(
+                    resource,
+                    annotation.CustomDomain.Resource,
+                    annotation.CertificateName.Resource,
+                    annotation.Options));
+            }
+        }
+
+        return results;
+    }
+
     private static void EnsureZoneSteps(
-        IResourceBuilder<AzureCustomDomainOpsResource> domainOps,
+            IResourceBuilder<AzureCustomDomainOpsResource> domainOps,
         IDistributedApplicationBuilder applicationBuilder,
         DomainOpsProviderResource provider,
         AzureCustomDomainOpsOptions options,
-        string zoneName)
-    {
+        string zoneName) {
         var planStepName = GetDomainPlanZoneStepName(zoneName);
         var provisionStepName = GetDomainProvisionZoneStepName(zoneName);
 
         if (domainOps.Resource.Annotations.OfType<DomainOpsNamedStepAnnotation>()
-            .Any(a => string.Equals(a.StepName, planStepName, StringComparison.Ordinal)))
-        {
+            .Any(a => string.Equals(a.StepName, planStepName, StringComparison.Ordinal))) {
             return;
         }
 
@@ -37,15 +68,13 @@ public static partial class AzureCustomDomainOpsExtensions
         var capturedOptions = options;
         var capturedZone = zoneName;
 
-        domainOps.WithPipelineStepFactory(_ => new PipelineStep
-        {
+        domainOps.WithPipelineStepFactory(_ => new PipelineStep {
             Name = planStepName,
             Description = $"Write/upsert OctoDNS zone YAML for '{zoneName}'.",
             Tags = ["domain-ops"],
             Resource = domainOps.Resource,
             DependsOnSteps = [GetDomainPlanProviderStepName(provider.ProviderSlug)],
-            Action = async context =>
-            {
+            Action = async context => {
                 var logger = context.Services.GetRequiredService<ILoggerFactory>().CreateLogger(planStepName);
                 var runner = context.Services.GetService<IProcessRunner>() ?? new ProcessRunner();
                 var bindings = await CollectZoneBindingsAsync(
@@ -55,8 +84,7 @@ public static partial class AzureCustomDomainOpsExtensions
                         context.CancellationToken)
                     .ConfigureAwait(false);
 
-                foreach (var binding in bindings)
-                {
+                foreach (var binding in bindings) {
                     await DomainOpsParameterPrompt.EnsureReadyAsync(
                             context.Services,
                             DomainOpsParameterPrompt.CollectRequired(
@@ -70,12 +98,12 @@ public static partial class AzureCustomDomainOpsExtensions
                 }
 
                 var inputs = new List<ZoneBindingInput>();
-                foreach (var binding in bindings)
-                {
+
+                foreach (var binding in bindings) {
                     var hostname = await binding.CustomDomain.GetValueAsync(context.CancellationToken)
                         .ConfigureAwait(false);
-                    if (string.IsNullOrWhiteSpace(hostname))
-                    {
+
+                    if (string.IsNullOrWhiteSpace(hostname)) {
                         throw new InvalidOperationException(
                             $"Custom domain parameter '{binding.CustomDomain.Name}' is empty.");
                     }
@@ -86,6 +114,7 @@ public static partial class AzureCustomDomainOpsExtensions
                 }
 
                 var orchestrator = new DomainOpsOrchestrator(runner, logger, context.Services);
+
                 await orchestrator.PlanZoneAsync(
                         capturedZone,
                         inputs,
@@ -96,15 +125,13 @@ public static partial class AzureCustomDomainOpsExtensions
             }
         });
 
-        domainOps.WithPipelineStepFactory(_ => new PipelineStep
-        {
+        domainOps.WithPipelineStepFactory(_ => new PipelineStep {
             Name = provisionStepName,
             Description = $"Apply OctoDNS sync for zone '{zoneName}' (dry-run + upsert-only guard internal).",
             Tags = ["domain-ops"],
             Resource = domainOps.Resource,
             DependsOnSteps = [planStepName],
-            Action = async context =>
-            {
+            Action = async context => {
                 var logger = context.Services.GetRequiredService<ILoggerFactory>().CreateLogger(provisionStepName);
                 var runner = context.Services.GetService<IProcessRunner>() ?? new ProcessRunner();
                 var bindings = await CollectZoneBindingsAsync(
@@ -129,8 +156,8 @@ public static partial class AzureCustomDomainOpsExtensions
                     .ConfigureAwait(false);
 
                 var hostname = await first.CustomDomain.GetValueAsync(context.CancellationToken).ConfigureAwait(false);
-                if (string.IsNullOrWhiteSpace(hostname))
-                {
+
+                if (string.IsNullOrWhiteSpace(hostname)) {
                     throw new InvalidOperationException(
                         $"Custom domain parameter '{first.CustomDomain.Name}' is empty.");
                 }
@@ -152,6 +179,7 @@ public static partial class AzureCustomDomainOpsExtensions
                     capturedOptions.Ttl ?? 0));
 
                 var orchestrator = new DomainOpsOrchestrator(runner, logger, context.Services);
+
                 await orchestrator.ProvisionZoneAsync(
                         capturedZone,
                         capturedProvider,
@@ -161,42 +189,5 @@ public static partial class AzureCustomDomainOpsExtensions
                     .ConfigureAwait(false);
             }
         });
-    }
-
-    private static async Task<IReadOnlyList<DomainBindingAnnotation>> CollectZoneBindingsAsync(
-        IDistributedApplicationBuilder applicationBuilder,
-        DomainOpsProviderResource provider,
-        string zoneName,
-        CancellationToken cancellationToken)
-    {
-        var results = new List<DomainBindingAnnotation>();
-        foreach (var (resource, annotation) in EnumerateBindings(applicationBuilder, provider))
-        {
-            var hostname = await annotation.CustomDomain.Resource.GetValueAsync(cancellationToken).ConfigureAwait(false);
-            string resolvedZone;
-            if (!string.IsNullOrWhiteSpace(hostname))
-            {
-                resolvedZone = DnsRecordPlanner.GetZoneName(hostname);
-            }
-            else if (!string.IsNullOrWhiteSpace(annotation.Options.DnsZoneName))
-            {
-                resolvedZone = DnsRecordPlanner.NormalizeHostname(annotation.Options.DnsZoneName);
-            }
-            else
-            {
-                continue;
-            }
-
-            if (string.Equals(resolvedZone, zoneName, StringComparison.OrdinalIgnoreCase))
-            {
-                results.Add(new DomainBindingAnnotation(
-                    resource,
-                    annotation.CustomDomain.Resource,
-                    annotation.CertificateName.Resource,
-                    annotation.Options));
-            }
-        }
-
-        return results;
     }
 }

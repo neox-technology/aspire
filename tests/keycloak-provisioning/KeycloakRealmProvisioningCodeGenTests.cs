@@ -26,11 +26,13 @@ public sealed class KeycloakRealmProvisioningCodeGenTests
         Assert.DoesNotContain("AccessToken.g.cs", byHint.Keys);
 
         var realm = byHint["RealmRepresentation.g.cs"];
+
         Assert.Contains("public partial class RealmRepresentation", realm, StringComparison.Ordinal);
         Assert.Contains("ConcurrentBag<ClientRepresentation>", realm, StringComparison.Ordinal);
         Assert.Contains("public int? SsoSessionIdleTimeout", realm, StringComparison.Ordinal);
 
         var client = byHint["ClientRepresentation.g.cs"];
+
         Assert.Contains("ConcurrentBag<string>", client, StringComparison.Ordinal);
     }
 
@@ -73,9 +75,11 @@ public sealed class KeycloakRealmProvisioningCodeGenTests
         Assert.Contains("IRealmRepresentation_PolicyJsonConverter.g.cs", byHint.Keys);
 
         var rolePolicy = byHint["RolePolicyRepresentation.g.cs"];
+
         Assert.Contains(": IRealmRepresentation_Policy", rolePolicy, StringComparison.Ordinal);
 
         var converter = byHint["IRealmRepresentation_PolicyJsonConverter.g.cs"];
+
         Assert.Contains("JsonConverter<IRealmRepresentation_Policy>", converter, StringComparison.Ordinal);
     }
 }

@@ -1,22 +1,27 @@
 name: release-start
 
 # Manual cut of a release/* branch from develop.
-# Select major/minor/patch/preview; next version is computed from the latest v* tag.
-# Updates eng/Versions.props, pushes release/<version>, opens PR → main.
+# Select major/minor/patch/none + optional preview; next version is computed from the latest v* tag.
+# Updates eng/Versions.props and pushes release/<version> (no PR).
 
 on:
   workflow_dispatch:
     inputs:
       bump:
-        description: "Semver bump from latest v* tag"
+        description: "Semver bump from latest v* tag (none keeps core; with preview off, promotes by stripping -preview.N)"
         required: true
         type: choice
         options:
           - patch
           - minor
           - major
-          - preview
+          - none
         default: patch
+      preview:
+        description: "Cut as X.Y.Z-preview.N (bump → -preview.1; none → increment preview)"
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
   group: release-start-${{ github.ref }}
@@ -29,10 +34,9 @@ jobs:
   start-release:
     if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
-    name: Cut release branch and open PR
+    name: Cut release branch
     permissions:
       contents: write
-      pull-requests: write
     steps:
       - name: Create GitHub App token
         id: app-token
@@ -51,6 +55,7 @@ jobs:
       - name: Compute next version
         env:
           BUMP: ${{ inputs.bump }}
+          PREVIEW: ${{ inputs.preview }}
         run: |
           set -euo pipefail
           git fetch --tags --force
@@ -81,30 +86,15 @@ jobs:
               MAJOR=$((MAJOR + 1))
               MINOR=0
               PATCH=0
-              VERSION="${MAJOR}.${MINOR}.${PATCH}"
-              STABILIZE="true"
               ;;
             minor)
               MINOR=$((MINOR + 1))
               PATCH=0
-              VERSION="${MAJOR}.${MINOR}.${PATCH}"
-              STABILIZE="true"
               ;;
             patch)
               PATCH=$((PATCH + 1))
-              VERSION="${MAJOR}.${MINOR}.${PATCH}"
-              STABILIZE="true"
               ;;
-            preview)
-              if [ -n "$PREVIEW_N" ]; then
-                NEXT_PREVIEW=$((PREVIEW_N + 1))
-              else
-                # After a stable tag, next preview is the following patch core.
-                PATCH=$((PATCH + 1))
-                NEXT_PREVIEW=1
-              fi
-              VERSION="${MAJOR}.${MINOR}.${PATCH}-preview.${NEXT_PREVIEW}"
-              STABILIZE="false"
+            none)
               ;;
             *)
               echo "::error::Unsupported bump '$BUMP'"
@@ -113,8 +103,26 @@ jobs:
           esac
 
           CORE="${MAJOR}.${MINOR}.${PATCH}"
+          if [ "$PREVIEW" = "true" ]; then
+            if [ "$BUMP" = "none" ]; then
+              if [ -n "$PREVIEW_N" ]; then
+                NEXT_PREVIEW=$((PREVIEW_N + 1))
+              else
+                NEXT_PREVIEW=1
+              fi
+            else
+              NEXT_PREVIEW=1
+            fi
+            VERSION="${CORE}-preview.${NEXT_PREVIEW}"
+            STABILIZE="false"
+          else
+            # none without preview promotes: strip -preview.N (core already stripped above)
+            VERSION="$CORE"
+            STABILIZE="true"
+          fi
+
           BRANCH="release/${VERSION}"
-          echo "Bump $BUMP → $VERSION (branch $BRANCH, VersionPrefix=$CORE, Stabilize=$STABILIZE)"
+          echo "Bump $BUMP preview=$PREVIEW → $VERSION (branch $BRANCH, VersionPrefix=$CORE, Stabilize=$STABILIZE)"
 
           if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
             echo "::error::Branch $BRANCH already exists on origin"
@@ -126,9 +134,7 @@ jobs:
           echo "CORE=$CORE" >> "$GITHUB_ENV"
           echo "STABILIZE=$STABILIZE" >> "$GITHUB_ENV"
 
-      - name: Create release branch and PR
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+      - name: Create and push release branch
         run: |
           set -euo pipefail
           git config user.name "neox-gitflow[bot]"
@@ -152,22 +158,9 @@ jobs:
 
             git add "$PROPS"
             git commit -m "chore: set package version ${CORE} (stabilize=${STABILIZE}) for ${BRANCH}"
-            PR_BODY="Automated release branch \`$BRANCH\` cut from \`develop\` (bump \`${{ inputs.bump }}\`). Updates \`eng/Versions.props\` (\`VersionPrefix=${CORE}\`, \`StabilizePackageVersion=${STABILIZE}\`). Validate with **release-private-publish**, then finish with **release-finalize**."
           else
             echo "No $PROPS — skipping VersionPrefix / StabilizePackageVersion update"
-            PR_BODY="Automated release branch \`$BRANCH\` cut from \`develop\` (bump \`${{ inputs.bump }}\`). Validate with **release-private-publish**, then finish with **release-finalize**."
           fi
 
           git push -u origin "$BRANCH"
-
-          EXISTING=$(gh pr list --head "$BRANCH" --base main --state open --json number --jq '.[0].number // empty')
-          if [ -n "$EXISTING" ]; then
-            echo "PR #$EXISTING already open for $BRANCH → main"
-            exit 0
-          fi
-
-          gh pr create \
-            --base main \
-            --head "$BRANCH" \
-            --title "Release: $VERSION" \
-            --body "$PR_BODY"
+          echo "Pushed $BRANCH — validate with release-private-publish, then finish with release-finalize."

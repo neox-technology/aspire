@@ -15,6 +15,7 @@ public static class Auth {
 
     public static void Configure(IDistributedApplicationBuilder builder) {
         var thumbprint = builder.AddParameter($"{ServiceNames.Auth.ApiCert}-thumbprint", secret: true);
+
         ApiCert = builder.AddCertificate(ServiceNames.Auth.ApiCert, thumbprint, StoreLocation.CurrentUser);
 
         ApiClientSecret = builder.AddParameter(ServiceNames.Auth.ApiClientSecret, secret: true);
@@ -27,6 +28,7 @@ public static class Auth {
             .WithRedirectUri(new Uri("https://localhost/swagger/oauth2-redirect.html"));
 
         var accessAsUserScope = Api.AddScope(ServiceNames.Auth.AccessAsUserScope, "access_as_user", "Allow to access to user.", "Allow to access to user.", "Allow to access to user.", "Allow to access to user.");
+
         Api.AddAppRole("daemon", AllowedMemberTypes.Application, "Daemon.Access", "Daemon access", "App-only access");
 
         Spa = builder.AddAzureAppRegistration(ServiceNames.Auth.Spa)

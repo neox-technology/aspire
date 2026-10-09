@@ -10,6 +10,7 @@ public sealed class TestDbContextFactory : IDesignTimeDbContextFactory<TestDbCon
         var options = new DbContextOptionsBuilder<TestDbContext>()
             .UseMySQL("Server=localhost;Database=neox_efmw_mysql_design;User=root;Password=root;")
             .Options;
+
         return new TestDbContext(options);
     }
 }

@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="\" />
+    <AdditionalFiles Include="Graph\microsoft-graph-permissions.json" />
   </ItemGroup>
 
   <ItemGroup>
@@ -22,6 +23,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\provisioning\Neox.Azure.Provisioning.Graph\Neox.Azure.Provisioning.Graph.csproj" />
+    <ProjectReference Include="..\Neox.Aspire.Hosting.Azure.EntraId.Generators.Internal\Neox.Aspire.Hosting.Azure.EntraId.Generators.Internal.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
   </ItemGroup>
 
   <ItemGroup>

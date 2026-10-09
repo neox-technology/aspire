@@ -16,6 +16,7 @@ public sealed class DomainProvisionerTests
         var workDir = Path.Combine(Path.GetTempPath(), "neox-provision-" + Guid.NewGuid().ToString("N"));
         var zoneDir = Path.Combine(workDir, "zones");
         var configPath = Path.Combine(workDir, "octodns.yaml");
+
         Directory.CreateDirectory(zoneDir);
 
         try
@@ -96,6 +97,7 @@ public sealed class DomainProvisionerTests
                 CancellationToken.None);
 
             var dockerCommands = runner.Commands.Where(c => c.FileName == "docker").ToList();
+
             Assert.Equal(3, dockerCommands.Count);
             Assert.Contains("octodns-dump", dockerCommands[0].Arguments);
             Assert.Contains("--lenient", dockerCommands[0].Arguments);
@@ -110,6 +112,7 @@ public sealed class DomainProvisionerTests
             Assert.DoesNotContain(runner.Commands, c => c.FileName == "gh");
 
             var zoneYaml = await File.ReadAllTextAsync(Path.Combine(zoneDir, "contoso.com.yaml"));
+
             Assert.Contains("type: MX", zoneYaml, StringComparison.Ordinal);
             Assert.Contains("keep-me", zoneYaml, StringComparison.Ordinal);
             Assert.Contains("type: A", zoneYaml, StringComparison.Ordinal);
@@ -117,6 +120,7 @@ public sealed class DomainProvisionerTests
             Assert.Matches(@"(?s)- ttl: 0\s+type: A\s+value:", zoneYaml);
 
             var configYaml = await File.ReadAllTextAsync(configPath);
+
             Assert.Contains("env/DNS_TOKEN", configYaml, StringComparison.Ordinal);
             Assert.DoesNotContain("cf-token-secret", configYaml, StringComparison.Ordinal);
         }
@@ -160,6 +164,7 @@ public sealed class DomainProvisionerTests
         Assert.Equal("www-contoso-com", azure.Created[0].Name);
 
         var certs = await azure.ListManagedCertificatesAsync(azure.Targets, CancellationToken.None);
+
         await provisioner.BindResourceDomainAsync(azure.Targets, plan, certs, CancellationToken.None);
 
         Assert.Single(azure.Binds);
@@ -289,6 +294,7 @@ public sealed class DomainProvisionerTests
         var workDir = Path.Combine(Path.GetTempPath(), "neox-provision-deletes-" + Guid.NewGuid().ToString("N"));
         var zoneDir = Path.Combine(workDir, "zones");
         var configPath = Path.Combine(workDir, "octodns.yaml");
+
         Directory.CreateDirectory(zoneDir);
 
         try
@@ -356,6 +362,7 @@ public sealed class DomainProvisionerTests
         var workDir = Path.Combine(Path.GetTempPath(), "neox-mount-" + Guid.NewGuid().ToString("N"));
         var zoneDir = Path.Combine(workDir, "zones");
         var configPath = Path.Combine(workDir, "octodns.yaml");
+
         Directory.CreateDirectory(zoneDir);
         File.WriteAllText(configPath, "providers: {}");
 
@@ -403,6 +410,7 @@ public sealed class DomainProvisionerTests
     {
         var provider = new CloudflareDomainOpsProviderResource(name);
         var parameter = new ParameterResource(provider.GetParameterName("token"), _ => tokenValue, secret: true);
+
         provider.BindAuthParameter("token", parameter);
         return provider;
     }
@@ -445,6 +453,7 @@ public sealed class DomainProvisionerTests
             }
 
             var info = new AzureManagedCertificateInfo(certificateName, hostname, $"/subscriptions/x/certs/{certificateName}");
+
             _created.Add(info);
             return info;
         }
@@ -488,6 +497,7 @@ public sealed class DomainProvisionerTests
             IReadOnlyDictionary<string, string>? environment = null)
         {
             Commands.Add((fileName, arguments.ToArray(), environment));
+
             if (handler is not null)
             {
                 return Task.FromResult(handler(fileName, arguments));

@@ -1,5 +1,5 @@
-using System.Text;
 using Aspire.Hosting.ApplicationModel;
+using System.Text;
 
 namespace Neox.Aspire.Hosting.Azure;
 
@@ -8,10 +8,9 @@ namespace Neox.Aspire.Hosting.Azure;
 /// <see cref="AzureEntraIdAppRegistrationResource"/>. Not a provisioning resource;
 /// Graph <c>appRoles</c> is emitted by the parent module.
 /// </summary>
-public sealed class AzureEntraIdAppRoleResource : Resource, IResourceWithParent<AzureEntraIdAppRegistrationResource>, IAzureEntraIdPermissibleResource
-{
-    internal const string GraphUserMemberType = "User";
+public sealed class AzureEntraIdAppRoleResource : Resource, IResourceWithParent<AzureEntraIdAppRegistrationResource>, IAzureEntraIdPermissibleResource {
     internal const string GraphApplicationMemberType = "Application";
+    internal const string GraphUserMemberType = "User";
 
     /// <summary>
     /// RFC 4122 OID namespace used to derive a stable Graph app-role <c>id</c>
@@ -38,8 +37,7 @@ public sealed class AzureEntraIdAppRoleResource : Resource, IResourceWithParent<
         string value,
         string displayName,
         string description)
-        : base(name)
-    {
+        : base(name) {
         ArgumentNullException.ThrowIfNull(parent);
         ThrowIfInvalidMemberTypes(allowedMemberTypes);
         ArgumentException.ThrowIfNullOrEmpty(value);
@@ -54,18 +52,15 @@ public sealed class AzureEntraIdAppRoleResource : Resource, IResourceWithParent<
         Id = CreateAppRoleId(parent.Name, value);
     }
 
-    /// <inheritdoc />
-    public AzureEntraIdAppRegistrationResource Parent { get; }
-
     /// <summary>
     /// Graph <c>allowedMemberTypes</c> flags.
     /// </summary>
     public AllowedMemberTypes AllowedMemberTypes { get; }
 
     /// <summary>
-    /// Graph <c>appRoles[].value</c> (roles claim).
+    /// Graph <c>description</c>.
     /// </summary>
-    public string Value { get; }
+    public string Description { get; }
 
     /// <summary>
     /// Graph <c>displayName</c>.
@@ -73,58 +68,57 @@ public sealed class AzureEntraIdAppRoleResource : Resource, IResourceWithParent<
     public string DisplayName { get; }
 
     /// <summary>
-    /// Graph <c>description</c>.
+    /// Stable Graph <c>appRoles[].id</c> derived from parent name and <see cref="Value"/>.
     /// </summary>
-    public string Description { get; }
+    public Guid Id { get; }
+
+    /// <inheritdoc />
+    public AzureEntraIdAppRegistrationResource Parent { get; }
 
     /// <inheritdoc />
     public AzureEntraIdPermissionType Type => AzureEntraIdPermissionType.Role;
 
     /// <summary>
-    /// Stable Graph <c>appRoles[].id</c> derived from parent name and <see cref="Value"/>.
+    /// Graph <c>appRoles[].value</c> (roles claim).
     /// </summary>
-    public Guid Id { get; }
+    public string Value { get; }
 
-    internal IEnumerable<string> GraphAllowedMemberTypes
-    {
-        get
-        {
-            if (AllowedMemberTypes.HasFlag(AllowedMemberTypes.User))
-            {
+    internal IEnumerable<string> GraphAllowedMemberTypes {
+        get {
+            if (AllowedMemberTypes.HasFlag(AllowedMemberTypes.User)) {
                 yield return GraphUserMemberType;
             }
 
-            if (AllowedMemberTypes.HasFlag(AllowedMemberTypes.Application))
-            {
+            if (AllowedMemberTypes.HasFlag(AllowedMemberTypes.Application)) {
                 yield return GraphApplicationMemberType;
             }
         }
     }
 
-    internal static void ThrowIfInvalidMemberTypes(AllowedMemberTypes allowedMemberTypes)
-    {
-        if (allowedMemberTypes == 0 || (allowedMemberTypes & ~ValidMemberTypes) != 0)
-        {
-            throw new ArgumentException(
-                "allowedMemberTypes must include User, Application, or both.",
-                nameof(allowedMemberTypes));
-        }
-    }
-
-    internal static Guid CreateAppRoleId(string parentName, string value)
-    {
+    internal static Guid CreateAppRoleId(string parentName, string value) {
         var nameBytes = Encoding.UTF8.GetBytes($"{parentName}:{value}");
         Span<byte> ns = stackalloc byte[16];
+
         AppRoleIdNamespace.TryWriteBytes(ns, bigEndian: true, out _);
 
         var data = new byte[16 + nameBytes.Length];
+
         ns.CopyTo(data);
         nameBytes.CopyTo(data.AsSpan(16));
 
         Span<byte> hash = stackalloc byte[20];
+
         System.Security.Cryptography.SHA1.HashData(data, hash);
         hash[6] = (byte)((hash[6] & 0x0F) | 0x50);
         hash[8] = (byte)((hash[8] & 0x3F) | 0x80);
         return new Guid(hash[..16], bigEndian: true);
+    }
+
+    internal static void ThrowIfInvalidMemberTypes(AllowedMemberTypes allowedMemberTypes) {
+        if (allowedMemberTypes == 0 || (allowedMemberTypes & ~ValidMemberTypes) != 0) {
+            throw new ArgumentException(
+                "allowedMemberTypes must include User, Application, or both.",
+                nameof(allowedMemberTypes));
+        }
     }
 }

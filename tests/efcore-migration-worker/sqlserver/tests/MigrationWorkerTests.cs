@@ -67,6 +67,7 @@ public sealed class MigrationWorkerTests
         where TContext : DbContext
     {
         var connectionString = await _app.GetConnectionStringAsync(databaseResourceName, cancellationToken);
+
         Assert.False(string.IsNullOrWhiteSpace(connectionString), $"Missing connection string for '{databaseResourceName}'.");
 
         var optionsBuilder = new DbContextOptionsBuilder<TContext>().UseSqlServer(connectionString);

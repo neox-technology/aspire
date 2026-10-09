@@ -48,14 +48,18 @@ public sealed class DomainOpsOrchestratorTests
     public void PlanProvider_WritesOctoDnsConfig()
     {
         var workDir = Path.Combine(Path.GetTempPath(), "neox-plan-provider-" + Guid.NewGuid().ToString("N"));
+
         Directory.CreateDirectory(workDir);
+
         try
         {
             var configPath = Path.Combine(workDir, "octodns.yaml");
             var zoneDir = Path.Combine(workDir, "zones");
+
             Directory.CreateDirectory(zoneDir);
 
             var provider = new CloudflareDomainOpsProviderResource("dns");
+
             provider.BindAuthParameter("token", new ParameterResource("dns-token", _ => "secret", secret: true));
 
             var orchestrator = CreateOrchestrator();

@@ -27,12 +27,14 @@ public static class GraphProvisioningCodeGen
     public static IReadOnlyList<(string HintName, string Source)> Generate(string json)
     {
         using var document = JsonDocument.Parse(json);
+
         if (document.RootElement.ValueKind != JsonValueKind.Array)
         {
             throw new InvalidOperationException("types.json root must be an array.");
         }
 
         var types = new List<JsonElement>();
+
         foreach (var element in document.RootElement.EnumerateArray())
         {
             types.Add(element);
@@ -49,12 +51,14 @@ public static class GraphProvisioningCodeGen
             }
 
             var name = GetString(types[i], "name");
+
             if (string.IsNullOrEmpty(name) || name.Contains('/') || name == "MicrosoftGraphBicepExtensionConfig")
             {
                 continue;
             }
 
             var className = ToModelClassName(name);
+
             if (!emittedModels.Add(className))
             {
                 continue;
@@ -71,6 +75,7 @@ public static class GraphProvisioningCodeGen
             }
 
             var resourceName = GetString(types[i], "name");
+
             if (string.IsNullOrEmpty(resourceName) || !TrySplitResource(resourceName, out var typeName, out var apiVersion))
             {
                 continue;
@@ -90,6 +95,7 @@ public static class GraphProvisioningCodeGen
     public static string ToModelClassName(string jsonName)
     {
         const string prefix = "MicrosoftGraph";
+
         if (jsonName.StartsWith(prefix, StringComparison.Ordinal))
         {
             return "Graph" + jsonName.Substring(prefix.Length);
@@ -112,6 +118,7 @@ public static class GraphProvisioningCodeGen
     {
         var properties = ReadProperties(types, types[index]);
         var sb = new StringBuilder();
+
         AppendFileHeader(sb);
         sb.AppendLine("/// <summary>");
         sb.Append("/// Graph construct <c>").Append(EscapeXml(jsonName)).AppendLine("</c>.");
@@ -153,6 +160,7 @@ public static class GraphProvisioningCodeGen
         var isReadOnlyResource = (resourceFlags & FlagReadOnly) != 0;
 
         var sb = new StringBuilder();
+
         AppendFileHeader(sb);
         sb.AppendLine("/// <summary>");
         sb.Append("/// Microsoft Graph resource <c>").Append(EscapeXml(typeName)).Append('@').Append(EscapeXml(apiVersion)).AppendLine("</c>.");
@@ -187,6 +195,7 @@ public static class GraphProvisioningCodeGen
         if (identifier is not null)
         {
             var param = identifier.JsonName;
+
             sb.AppendLine();
             sb.AppendLine("    /// <summary>");
             sb.Append("    /// Creates a reference to an existing resource identified by <paramref name=\"").Append(param).AppendLine("\"/>.");
@@ -235,6 +244,7 @@ public static class GraphProvisioningCodeGen
         for (var i = 0; i < properties.Count; i++)
         {
             var property = properties[i];
+
             if (i > 0)
             {
                 sb.AppendLine();
@@ -250,6 +260,7 @@ public static class GraphProvisioningCodeGen
             sb.Append("    public ").Append(property.PublicClrType).Append(' ').Append(property.PropertyName).AppendLine();
             sb.AppendLine("    {");
             sb.Append("        get { Initialize(); return ").Append(property.FieldName).AppendLine("!; }");
+
             if (!property.IsOutputOnly)
             {
                 if (property.Kind is PropKind.Model)
@@ -271,6 +282,7 @@ public static class GraphProvisioningCodeGen
         foreach (var property in properties)
         {
             sb.Append("        ").Append(property.FieldName).Append(" = ");
+
             switch (property.Kind)
             {
                 case PropKind.Model:
@@ -311,6 +323,7 @@ public static class GraphProvisioningCodeGen
     private static List<PropertyModel> ReadProperties(List<JsonElement> types, JsonElement objectType)
     {
         var list = new List<PropertyModel>();
+
         if (!objectType.TryGetProperty("properties", out var properties) || properties.ValueKind != JsonValueKind.Object)
         {
             return list;
@@ -319,6 +332,7 @@ public static class GraphProvisioningCodeGen
         foreach (var property in properties.EnumerateObject())
         {
             var flags = 0;
+
             if (property.Value.TryGetProperty("flags", out var flagsEl) && flagsEl.TryGetInt32(out var f))
             {
                 flags = f;
@@ -341,6 +355,7 @@ public static class GraphProvisioningCodeGen
             }
 
             var resolved = ResolveClr(types, typeEl);
+
             if (resolved is null)
             {
                 continue;
@@ -372,6 +387,7 @@ public static class GraphProvisioningCodeGen
     private static (PropKind Kind, string PublicClrType, string FieldClrType, string ItemClrType)? ResolveClr(List<JsonElement> types, JsonElement typeRef)
     {
         var resolved = Resolve(types, typeRef);
+
         if (!TryGetTypeKind(resolved, out var kind))
         {
             return null;
@@ -392,12 +408,14 @@ public static class GraphProvisioningCodeGen
                 return (PropKind.String, "BicepValue<string>", "BicepValue<string>", "string");
             case "ObjectType":
                 var objectName = GetString(resolved, "name");
+
                 if (string.IsNullOrEmpty(objectName) || objectName.Contains('/'))
                 {
                     return null;
                 }
 
                 var model = ToModelClassName(objectName);
+
                 return (PropKind.Model, model, model, model);
             case "ArrayType":
                 if (!resolved.TryGetProperty("itemType", out var itemType))
@@ -406,6 +424,7 @@ public static class GraphProvisioningCodeGen
                 }
 
                 var item = ResolveClr(types, itemType);
+
                 if (item is null)
                 {
                     return null;
@@ -430,6 +449,7 @@ public static class GraphProvisioningCodeGen
         {
             var reference = refEl.GetString() ?? "";
             const string prefix = "#/";
+
             if (!reference.StartsWith(prefix, StringComparison.Ordinal) ||
                 !int.TryParse(reference.Substring(prefix.Length), NumberStyles.Integer, CultureInfo.InvariantCulture, out var index) ||
                 index < 0 || index >= types.Count)
@@ -446,6 +466,7 @@ public static class GraphProvisioningCodeGen
     private static bool TryGetTypeKind(JsonElement element, out string kind)
     {
         kind = "";
+
         if (element.ValueKind != JsonValueKind.Object || !element.TryGetProperty("$type", out var typeEl) || typeEl.ValueKind != JsonValueKind.String)
         {
             return false;
@@ -459,7 +480,9 @@ public static class GraphProvisioningCodeGen
     {
         typeName = "";
         apiVersion = "";
+
         var at = resourceName.LastIndexOf('@');
+
         if (at <= 0 || at == resourceName.Length - 1)
         {
             return false;

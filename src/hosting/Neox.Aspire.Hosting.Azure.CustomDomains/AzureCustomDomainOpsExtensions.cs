@@ -12,96 +12,7 @@ namespace Neox.Aspire.Hosting.Azure;
 /// Registers Azure Container Apps custom-domain pipeline steps for <c>aspire do</c>.
 /// Binding surface uses <c>AzureCustomDomainOps*</c>; provider and step names use <c>DomainOps*</c>.
 /// </summary>
-public static partial class AzureCustomDomainOpsExtensions
-{
-    /// <summary>
-    /// Shared DomainOps prerequisite gate (<c>prereq-domain</c>), required by each provider image pull.
-    /// </summary>
-    public const string DomainPrereqStepName = "prereq-domain";
-
-    /// <summary>
-    /// Builds the provider OctoDNS config plan step name (<c>plan-domain-{providerSlug}</c>).
-    /// </summary>
-    public static string GetDomainPlanProviderStepName(string providerSlug)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(providerSlug);
-        return $"plan-domain-{providerSlug}";
-    }
-
-    /// <summary>
-    /// Builds the zone plan step name (<c>plan-domain-{zoneSlug}</c>).
-    /// </summary>
-    public static string GetDomainPlanZoneStepName(string zoneName)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(zoneName);
-        return $"plan-domain-{ToZoneSlug(zoneName)}";
-    }
-
-    /// <summary>
-    /// Builds the zone provision step name (<c>provision-domain-{zoneSlug}</c>).
-    /// </summary>
-    public static string GetDomainProvisionZoneStepName(string zoneName)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(zoneName);
-        return $"provision-domain-{ToZoneSlug(zoneName)}";
-    }
-
-    /// <summary>
-    /// Builds the env domains gate step name (<c>provision-{env}-domains</c>).
-    /// </summary>
-    public static string GetProvisionEnvDomainsStepName(string environmentName)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(environmentName);
-        return $"provision-{environmentName}-domains";
-    }
-
-    /// <summary>
-    /// Builds the env certificate inventory step name (<c>plan-{env}-certificates</c>).
-    /// </summary>
-    public static string GetPlanEnvCertificatesStepName(string environmentName)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(environmentName);
-        return $"plan-{environmentName}-certificates";
-    }
-
-    /// <summary>
-    /// Builds the env certificate provision step name (<c>provision-{env}-certificates</c>).
-    /// </summary>
-    public static string GetProvisionEnvCertificatesStepName(string environmentName)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(environmentName);
-        return $"provision-{environmentName}-certificates";
-    }
-
-    /// <summary>
-    /// Builds the per-compute domain plan step name (<c>plan-{resource}-domain-{domslug}</c>).
-    /// </summary>
-    public static string GetDomainPlanResourceStepName(string resourceName, string domainSlug)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(resourceName);
-        ArgumentException.ThrowIfNullOrWhiteSpace(domainSlug);
-        return $"plan-{resourceName}-domain-{domainSlug}";
-    }
-
-    /// <summary>
-    /// Builds the per-compute hostname-add step name (<c>provision-{resource}-domain-{domslug}</c>).
-    /// </summary>
-    public static string GetDomainProvisionStepName(string resourceName, string domainSlug)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(resourceName);
-        ArgumentException.ThrowIfNullOrWhiteSpace(domainSlug);
-        return $"provision-{resourceName}-domain-{domainSlug}";
-    }
-
-    /// <summary>
-    /// Builds the per-compute DomainOps bind step name (<c>deploy-{resource}-domain-{domslug}</c>).
-    /// </summary>
-    public static string GetDomainDeployStepName(string resourceName, string domainSlug)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(resourceName);
-        ArgumentException.ThrowIfNullOrWhiteSpace(domainSlug);
-        return $"deploy-{resourceName}-domain-{domainSlug}";
-    }
+public static partial class AzureCustomDomainOpsExtensions {
 
     /// <summary>
     /// Shared gate that aggregates all <c>deploy-{resource}-domain-{domslug}</c> steps (<c>deploy-domains</c>).
@@ -109,28 +20,105 @@ public static partial class AzureCustomDomainOpsExtensions
     public const string DeployDomainsStepName = "deploy-domains";
 
     /// <summary>
-    /// Builds the provider-specific DomainOps prereq step name (<c>prereq-domain-{providerSlug}</c>).
+    /// Shared DomainOps prerequisite gate (<c>prereq-domain</c>), required by each provider image pull.
     /// </summary>
-    public static string GetDomainPrereqProviderStepName(string providerSlug)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(providerSlug);
-        return $"prereq-domain-{providerSlug}";
-    }
+    public const string DomainPrereqStepName = "prereq-domain";
 
     /// <summary>
     /// Builds the Aspire Container App Bicep provision step name (<c>provision-{resource}-containerapp</c>).
     /// </summary>
-    public static string GetContainerAppProvisionStepName(string resourceName)
-    {
+    public static string GetContainerAppProvisionStepName(string resourceName) {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceName);
         return $"provision-{resourceName}-containerapp";
     }
 
     /// <summary>
+    /// Builds the per-compute DomainOps bind step name (<c>deploy-{resource}-domain-{domslug}</c>).
+    /// </summary>
+    public static string GetDomainDeployStepName(string resourceName, string domainSlug) {
+        ArgumentException.ThrowIfNullOrWhiteSpace(resourceName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(domainSlug);
+        return $"deploy-{resourceName}-domain-{domainSlug}";
+    }
+
+    /// <summary>
+    /// Builds the provider OctoDNS config plan step name (<c>plan-domain-{providerSlug}</c>).
+    /// </summary>
+    public static string GetDomainPlanProviderStepName(string providerSlug) {
+        ArgumentException.ThrowIfNullOrWhiteSpace(providerSlug);
+        return $"plan-domain-{providerSlug}";
+    }
+
+    /// <summary>
+    /// Builds the per-compute domain plan step name (<c>plan-{resource}-domain-{domslug}</c>).
+    /// </summary>
+    public static string GetDomainPlanResourceStepName(string resourceName, string domainSlug) {
+        ArgumentException.ThrowIfNullOrWhiteSpace(resourceName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(domainSlug);
+        return $"plan-{resourceName}-domain-{domainSlug}";
+    }
+
+    /// <summary>
+    /// Builds the zone plan step name (<c>plan-domain-{zoneSlug}</c>).
+    /// </summary>
+    public static string GetDomainPlanZoneStepName(string zoneName) {
+        ArgumentException.ThrowIfNullOrWhiteSpace(zoneName);
+        return $"plan-domain-{ToZoneSlug(zoneName)}";
+    }
+
+    /// <summary>
+    /// Builds the provider-specific DomainOps prereq step name (<c>prereq-domain-{providerSlug}</c>).
+    /// </summary>
+    public static string GetDomainPrereqProviderStepName(string providerSlug) {
+        ArgumentException.ThrowIfNullOrWhiteSpace(providerSlug);
+        return $"prereq-domain-{providerSlug}";
+    }
+
+    /// <summary>
+    /// Builds the per-compute hostname-add step name (<c>provision-{resource}-domain-{domslug}</c>).
+    /// </summary>
+    public static string GetDomainProvisionStepName(string resourceName, string domainSlug) {
+        ArgumentException.ThrowIfNullOrWhiteSpace(resourceName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(domainSlug);
+        return $"provision-{resourceName}-domain-{domainSlug}";
+    }
+
+    /// <summary>
+    /// Builds the zone provision step name (<c>provision-domain-{zoneSlug}</c>).
+    /// </summary>
+    public static string GetDomainProvisionZoneStepName(string zoneName) {
+        ArgumentException.ThrowIfNullOrWhiteSpace(zoneName);
+        return $"provision-domain-{ToZoneSlug(zoneName)}";
+    }
+
+    /// <summary>
+    /// Builds the env certificate inventory step name (<c>plan-{env}-certificates</c>).
+    /// </summary>
+    public static string GetPlanEnvCertificatesStepName(string environmentName) {
+        ArgumentException.ThrowIfNullOrWhiteSpace(environmentName);
+        return $"plan-{environmentName}-certificates";
+    }
+
+    /// <summary>
+    /// Builds the env certificate provision step name (<c>provision-{env}-certificates</c>).
+    /// </summary>
+    public static string GetProvisionEnvCertificatesStepName(string environmentName) {
+        ArgumentException.ThrowIfNullOrWhiteSpace(environmentName);
+        return $"provision-{environmentName}-certificates";
+    }
+
+    /// <summary>
+    /// Builds the env domains gate step name (<c>provision-{env}-domains</c>).
+    /// </summary>
+    public static string GetProvisionEnvDomainsStepName(string environmentName) {
+        ArgumentException.ThrowIfNullOrWhiteSpace(environmentName);
+        return $"provision-{environmentName}-domains";
+    }
+
+    /// <summary>
     /// Sanitizes a DNS zone name for use in pipeline step names (e.g. <c>contoso.com</c> → <c>contoso-com</c>).
     /// </summary>
-    public static string ToZoneSlug(string zoneName)
-    {
+    public static string ToZoneSlug(string zoneName) {
         ArgumentException.ThrowIfNullOrWhiteSpace(zoneName);
         return zoneName.Trim().TrimEnd('.').ToLowerInvariant().Replace('.', '-');
     }
@@ -146,17 +134,16 @@ public static partial class AzureCustomDomainOpsExtensions
         IResourceBuilder<TProvider> provider,
         Action<AzureCustomDomainOpsOptions>? configure = null)
         where T : IResource
-        where TProvider : DomainOpsProviderResource
-    {
+        where TProvider : DomainOpsProviderResource {
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(customDomain);
         ArgumentNullException.ThrowIfNull(certificateName);
         ArgumentNullException.ThrowIfNull(provider);
 
-        var options = new AzureCustomDomainOpsOptions
-        {
+        var options = new AzureCustomDomainOpsOptions {
             ContainerAppResourceName = builder.Resource.Name
         };
+
         configure?.Invoke(options);
 
         var zoneName = ResolveZoneName(builder.ApplicationBuilder, customDomain.Resource, options);
@@ -167,6 +154,7 @@ public static partial class AzureCustomDomainOpsExtensions
         builder.WithAnnotation(new AzureCustomDomainOpsAnnotation(customDomain, certificateName, provider.Resource, options));
 
         var domainOps = EnsureDomainOpsResource(builder.ApplicationBuilder);
+
         RegisterSharedSteps(
             domainOps,
             builder.ApplicationBuilder,
@@ -187,11 +175,10 @@ public static partial class AzureCustomDomainOpsExtensions
         var envDomainsStepName = GetProvisionEnvDomainsStepName(envName);
         var envProvisionStepName = GetProvisionEnvCertificatesStepName(envName);
 
-        domainOps.WithPipelineConfiguration(context =>
-        {
+        domainOps.WithPipelineConfiguration(context => {
             var deploymentTarget = targetResource.GetDeploymentTargetAnnotation()?.DeploymentTarget;
-            if (deploymentTarget is not null)
-            {
+
+            if (deploymentTarget is not null) {
                 var infraSteps = context.GetSteps(deploymentTarget, WellKnownPipelineTags.ProvisionInfrastructure);
 
                 context.GetSteps(domainOps.Resource)
@@ -241,8 +228,7 @@ public static partial class AzureCustomDomainOpsExtensions
         IResourceBuilder<TProvider> provider,
         Action<AzureCustomDomainOpsOptions>? configure = null)
         where T : IResource
-        where TProvider : DomainOpsProviderResource
-    {
+        where TProvider : DomainOpsProviderResource {
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(customDomain);
         ArgumentNullException.ThrowIfNull(provider);
@@ -264,8 +250,7 @@ public static partial class AzureCustomDomainOpsExtensions
         IResourceBuilder<TProvider> provider,
         Action<AzureCustomDomainOpsOptions>? configure = null)
         where T : IResource
-        where TProvider : DomainOpsProviderResource
-    {
+        where TProvider : DomainOpsProviderResource {
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentException.ThrowIfNullOrWhiteSpace(hostname);
         ArgumentNullException.ThrowIfNull(provider);
@@ -278,82 +263,31 @@ public static partial class AzureCustomDomainOpsExtensions
         return builder.WithAzureCustomDomainOps(customDomain, certificateName, provider, configure);
     }
 
-    /// <summary>
-    /// Chains <c>provision|deploy-{resource}-domain-*</c> steps for one compute resource in ordinal name order
-    /// so concurrent Container App patches cannot race.
-    /// </summary>
-    internal static void SerializeSameResourceDomainArmSteps(IEnumerable<PipelineStep> steps, string resourceName)
-    {
-        ArgumentNullException.ThrowIfNull(steps);
-        ArgumentException.ThrowIfNullOrWhiteSpace(resourceName);
-
-        ChainSiblingStepsByPrefix(steps, $"provision-{resourceName}-domain-");
-        ChainSiblingStepsByPrefix(steps, $"deploy-{resourceName}-domain-");
-    }
-
-    private static void ChainSiblingStepsByPrefix(IEnumerable<PipelineStep> steps, string prefix)
-    {
-        var ordered = steps
-            .Where(s => s.Name.StartsWith(prefix, StringComparison.Ordinal))
-            .OrderBy(s => s.Name, StringComparer.Ordinal)
-            .ToList();
-
-        for (var i = 1; i < ordered.Count; i++)
-        {
-            ordered[i].DependsOn(ordered[i - 1]);
-        }
-    }
-
     internal static IResourceBuilder<AzureCustomDomainOpsResource> EnsureDomainOpsResource(
-        IDistributedApplicationBuilder applicationBuilder)
-    {
+            IDistributedApplicationBuilder applicationBuilder) {
         var existing = applicationBuilder.Resources
             .OfType<AzureCustomDomainOpsResource>()
             .FirstOrDefault();
 
-        if (existing is not null)
-        {
+        if (existing is not null) {
             return applicationBuilder.CreateResourceBuilder(existing);
         }
 
         return applicationBuilder.AddResource(new AzureCustomDomainOpsResource(AzureCustomDomainOpsResource.DefaultResourceName))
             .ExcludeFromManifest()
-            .WithInitialState(new CustomResourceSnapshot
-            {
+            .WithInitialState(new CustomResourceSnapshot {
                 ResourceType = "DomainOps",
                 State = KnownResourceStates.Running,
                 Properties = []
             });
     }
 
-    internal static string ResolveZoneName(
-        IDistributedApplicationBuilder applicationBuilder,
-        ParameterResource customDomain,
-        AzureCustomDomainOpsOptions options)
-    {
-        if (!string.IsNullOrWhiteSpace(options.DnsZoneName))
-        {
-            return DnsRecordPlanner.NormalizeHostname(options.DnsZoneName);
-        }
-
-        var hostname = TryPeekHostname(applicationBuilder, customDomain);
-        if (string.IsNullOrWhiteSpace(hostname))
-        {
-            throw new InvalidOperationException(
-                $"Cannot resolve DNS zone for DomainOps. Set AzureCustomDomainOpsOptions.DnsZoneName " +
-                $"or provide a default for parameter '{customDomain.Name}' (e.g. AddParameter(\"{customDomain.Name}\", \"www.example.com\")).");
-        }
-
-        return DnsRecordPlanner.GetZoneName(hostname);
-    }
-
     internal static string ResolveDomainSlug(
-        IDistributedApplicationBuilder applicationBuilder,
-        ParameterResource customDomain)
-    {
+            IDistributedApplicationBuilder applicationBuilder,
+            ParameterResource customDomain) {
         var hostname = TryPeekHostname(applicationBuilder, customDomain);
-        if (string.IsNullOrWhiteSpace(hostname))
-        {
+
+        if (string.IsNullOrWhiteSpace(hostname)) {
             throw new InvalidOperationException(
                 $"Cannot resolve domain slug for DomainOps step names. Provide a default for parameter '{customDomain.Name}' " +
                 $"(e.g. AddParameter(\"{customDomain.Name}\", \"www.example.com\")) or set Parameters:{customDomain.Name}.");
@@ -362,35 +296,62 @@ public static partial class AzureCustomDomainOpsExtensions
         return ToZoneSlug(DnsRecordPlanner.NormalizeHostname(hostname));
     }
 
+    internal static string ResolveZoneName(
+            IDistributedApplicationBuilder applicationBuilder,
+            ParameterResource customDomain,
+            AzureCustomDomainOpsOptions options) {
+        if (!string.IsNullOrWhiteSpace(options.DnsZoneName)) {
+            return DnsRecordPlanner.NormalizeHostname(options.DnsZoneName);
+        }
+
+        var hostname = TryPeekHostname(applicationBuilder, customDomain);
+
+        if (string.IsNullOrWhiteSpace(hostname)) {
+            throw new InvalidOperationException(
+                $"Cannot resolve DNS zone for DomainOps. Set AzureCustomDomainOpsOptions.DnsZoneName " +
+                $"or provide a default for parameter '{customDomain.Name}' (e.g. AddParameter(\"{customDomain.Name}\", \"www.example.com\")).");
+        }
+
+        return DnsRecordPlanner.GetZoneName(hostname);
+    }
+
+    /// <summary>
+    /// Chains <c>provision|deploy-{resource}-domain-*</c> steps for one compute resource in ordinal name order
+    /// so concurrent Container App patches cannot race.
+    /// </summary>
+    internal static void SerializeSameResourceDomainArmSteps(IEnumerable<PipelineStep> steps, string resourceName) {
+        ArgumentNullException.ThrowIfNull(steps);
+        ArgumentException.ThrowIfNullOrWhiteSpace(resourceName);
+
+        ChainSiblingStepsByPrefix(steps, $"provision-{resourceName}-domain-");
+        ChainSiblingStepsByPrefix(steps, $"deploy-{resourceName}-domain-");
+    }
+
     internal static string? TryPeekHostname(
         IDistributedApplicationBuilder applicationBuilder,
-        ParameterResource customDomain)
-    {
+        ParameterResource customDomain) {
         var fromConfig = applicationBuilder.Configuration[$"Parameters:{customDomain.Name}"];
-        if (!string.IsNullOrWhiteSpace(fromConfig))
-        {
+
+        if (!string.IsNullOrWhiteSpace(fromConfig)) {
             return fromConfig;
         }
 
         fromConfig = applicationBuilder.Configuration[$"Parameters__{customDomain.Name}"];
-        if (!string.IsNullOrWhiteSpace(fromConfig))
-        {
+
+        if (!string.IsNullOrWhiteSpace(fromConfig)) {
             return fromConfig;
         }
 
         // Prefer AddParameter constant defaults; skip generated/user-secrets defaults that fail at design time.
-        if (customDomain.Default is not null)
-        {
-            try
-            {
+        if (customDomain.Default is not null) {
+            try {
                 var fromDefault = customDomain.Default.GetDefaultValue();
-                if (!string.IsNullOrWhiteSpace(fromDefault))
-                {
+
+                if (!string.IsNullOrWhiteSpace(fromDefault)) {
                     return fromDefault;
                 }
             }
-            catch
-            {
+            catch {
                 // Ignore non-constant defaults (e.g. generated secrets) at registration time.
             }
         }
@@ -398,16 +359,14 @@ public static partial class AzureCustomDomainOpsExtensions
         // AddParameter(name, value) may expose the constant via obsolete Value when Default is null
         // (e.g. under --publisher manifest).
 #pragma warning disable CS0618
-        try
-        {
+        try {
             var fromValue = customDomain.Value;
-            if (!string.IsNullOrWhiteSpace(fromValue))
-            {
+
+            if (!string.IsNullOrWhiteSpace(fromValue)) {
                 return fromValue;
             }
         }
-        catch
-        {
+        catch {
             // Value throws when the parameter has no default and is unresolved.
         }
 #pragma warning restore CS0618
@@ -415,14 +374,16 @@ public static partial class AzureCustomDomainOpsExtensions
         return null;
     }
 
-    private static AzureContainerAppEnvironmentResource RequireAcaEnvironment(
-        IDistributedApplicationBuilder applicationBuilder)
-        => applicationBuilder.Resources
-               .OfType<AzureContainerAppEnvironmentResource>()
-               .FirstOrDefault()
-           ?? throw new InvalidOperationException(
-               "DomainOps requires an Azure Container Apps environment. " +
-               "Call AddAzureContainerAppEnvironment(...) on the AppHost before WithAzureCustomDomainOps.");
+    private static void ChainSiblingStepsByPrefix(IEnumerable<PipelineStep> steps, string prefix) {
+        var ordered = steps
+            .Where(s => s.Name.StartsWith(prefix, StringComparison.Ordinal))
+            .OrderBy(s => s.Name, StringComparer.Ordinal)
+            .ToList();
+
+        for (var i = 1; i < ordered.Count; i++) {
+            ordered[i].DependsOn(ordered[i - 1]);
+        }
+    }
 
     private static void RegisterSharedSteps(
         IResourceBuilder<AzureCustomDomainOpsResource> domainOps,
@@ -434,8 +395,7 @@ public static partial class AzureCustomDomainOpsExtensions
         AzureCustomDomainOpsOptions options,
         string zoneName,
         string environmentName,
-        string domainSlug)
-    {
+        string domainSlug) {
         EnsurePlanProviderStep(domainOps, applicationBuilder, provider, options);
         EnsureZoneSteps(domainOps, applicationBuilder, provider, options, zoneName);
         EnsureEnvDomainsGate(domainOps, environmentName);
@@ -453,8 +413,16 @@ public static partial class AzureCustomDomainOpsExtensions
             domainSlug);
     }
 
-    private sealed class DomainOpsNamedStepAnnotation(string stepName) : IResourceAnnotation
-    {
+    private static AzureContainerAppEnvironmentResource RequireAcaEnvironment(
+            IDistributedApplicationBuilder applicationBuilder)
+        => applicationBuilder.Resources
+               .OfType<AzureContainerAppEnvironmentResource>()
+               .FirstOrDefault()
+           ?? throw new InvalidOperationException(
+               "DomainOps requires an Azure Container Apps environment. " +
+               "Call AddAzureContainerAppEnvironment(...) on the AppHost before WithAzureCustomDomainOps.");
+
+    private sealed class DomainOpsNamedStepAnnotation(string stepName) : IResourceAnnotation {
         public string StepName { get; } = stepName;
     }
 

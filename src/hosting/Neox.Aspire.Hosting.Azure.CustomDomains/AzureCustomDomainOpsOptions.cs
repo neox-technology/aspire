@@ -3,17 +3,27 @@ namespace Neox.Aspire.Hosting.Azure;
 /// <summary>
 /// Options for Azure Container Apps custom domain operations.
 /// </summary>
-public sealed class AzureCustomDomainOpsOptions
-{
+public sealed class AzureCustomDomainOpsOptions {
+
+    /// <summary>
+    /// Reserved for V2 GitHub Actions variable automation. Unused in DomainOps V1.
+    /// </summary>
+    public string CertificateGitHubVariableName { get; set; } = "CERTIFICATE_NAME";
+
+    /// <summary>
+    /// Azure Container Apps environment name. When null, inferred from deploy context / Azure settings.
+    /// </summary>
+    public string? ContainerAppEnvironmentName { get; set; }
+
     /// <summary>
     /// Aspire resource name of the Container App (used with Azure ARM queries).
     /// </summary>
     public string? ContainerAppResourceName { get; set; }
 
     /// <summary>
-    /// Azure Container Apps environment name. When null, inferred from deploy context / Azure settings.
+    /// Maximum time to wait for DNS propagation after zone provision.
     /// </summary>
-    public string? ContainerAppEnvironmentName { get; set; }
+    public TimeSpan DnsPropagationTimeout { get; set; } = TimeSpan.FromMinutes(10);
 
     /// <summary>
     /// Optional DNS zone override for pipeline step naming / aggregation.
@@ -22,10 +32,9 @@ public sealed class AzureCustomDomainOpsOptions
     public string? DnsZoneName { get; set; }
 
     /// <summary>
-    /// Optional TTL (seconds) for planned ACA DNS records.
-    /// When null, uses <c>0</c> (provider / domain default TTL).
+    /// Managed certificate name to create/bind when provisioning. Defaults to a sanitized hostname.
     /// </summary>
-    public int? Ttl { get; set; }
+    public string? ManagedCertificateName { get; set; }
 
     /// <summary>
     /// Path where the generated OctoDNS config YAML is written (secrets use <c>env/VAR</c> refs only).
@@ -33,19 +42,19 @@ public sealed class AzureCustomDomainOpsOptions
     public string OctoDnsConfigPath { get; set; } = "octodns.yaml";
 
     /// <summary>
-    /// Directory where generated zone YAML fragments are written before sync.
-    /// </summary>
-    public string OctoDnsZoneDirectory { get; set; } = "zones";
-
-    /// <summary>
     /// Optional override for the OctoDNS Docker image (defaults to the provider resource image).
     /// </summary>
     public string? OctoDnsDockerImage { get; set; }
 
     /// <summary>
-    /// Reserved for V2 GitHub Actions variable automation. Unused in DomainOps V1.
+    /// Directory where generated zone YAML fragments are written before sync.
     /// </summary>
-    public string CertificateGitHubVariableName { get; set; } = "CERTIFICATE_NAME";
+    public string OctoDnsZoneDirectory { get; set; } = "zones";
+
+    /// <summary>
+    /// Polling interval while waiting for DNS or certificate readiness.
+    /// </summary>
+    public TimeSpan PollInterval { get; set; } = TimeSpan.FromSeconds(15);
 
     /// <summary>
     /// When true, certificate name parameter is preferred for the planned managed certificate name.
@@ -53,17 +62,8 @@ public sealed class AzureCustomDomainOpsOptions
     public bool RequireCertificateName { get; set; } = true;
 
     /// <summary>
-    /// Managed certificate name to create/bind when provisioning. Defaults to a sanitized hostname.
+    /// Optional TTL (seconds) for planned ACA DNS records.
+    /// When null, uses <c>0</c> (provider / domain default TTL).
     /// </summary>
-    public string? ManagedCertificateName { get; set; }
-
-    /// <summary>
-    /// Maximum time to wait for DNS propagation after zone provision.
-    /// </summary>
-    public TimeSpan DnsPropagationTimeout { get; set; } = TimeSpan.FromMinutes(10);
-
-    /// <summary>
-    /// Polling interval while waiting for DNS or certificate readiness.
-    /// </summary>
-    public TimeSpan PollInterval { get; set; } = TimeSpan.FromSeconds(15);
+    public int? Ttl { get; set; }
 }

@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\hosting\Neox.Aspire.Hosting.Azure.EntraId\Neox.Aspire.Hosting.Azure.EntraId.csproj" />
+    <ProjectReference Include="..\..\src\hosting\Neox.Aspire.Hosting.Azure.EntraId.Generators.Internal\Neox.Aspire.Hosting.Azure.EntraId.Generators.Internal.csproj" />
   </ItemGroup>
 
   <ItemGroup>

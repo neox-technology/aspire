@@ -1,7 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 
 namespace Neox.Aspire.EntityFrameworkCore;
 
@@ -9,28 +6,24 @@ namespace Neox.Aspire.EntityFrameworkCore;
 /// One-shot background service that applies EF Core migrations for all registered
 /// <see cref="DbContext"/> types (in registration order), then stops the host once.
 /// </summary>
-public sealed class EfCoreMigrationWorker : BackgroundService
-{
-    private readonly IServiceProvider _serviceProvider;
+public sealed class EfCoreMigrationWorker : BackgroundService {
     private readonly IHostApplicationLifetime _hostApplicationLifetime;
     private readonly ILogger<EfCoreMigrationWorker> _logger;
+    private readonly IServiceProvider _serviceProvider;
 
     public EfCoreMigrationWorker(
         IServiceProvider serviceProvider,
         IHostApplicationLifetime hostApplicationLifetime,
-        ILogger<EfCoreMigrationWorker> logger)
-    {
+        ILogger<EfCoreMigrationWorker> logger) {
         _serviceProvider = serviceProvider;
         _hostApplicationLifetime = hostApplicationLifetime;
         _logger = logger;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
         var registry = _serviceProvider.GetRequiredService<EfCoreMigrationRegistry>();
 
-        foreach (var dbContextType in registry.DbContextTypes)
-        {
+        foreach (var dbContextType in registry.DbContextTypes) {
             _logger.LogInformation("Applying database migrations for {DbContext}.", dbContextType.Name);
 
             using var scope = _serviceProvider.CreateScope();

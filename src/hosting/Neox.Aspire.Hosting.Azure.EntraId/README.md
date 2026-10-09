@@ -138,6 +138,15 @@ builder.AddViteApp("frontend", "../spa")
     .WithEntraIdSpaApplication(EntraIdInstance.Workforce, spaApp);
 ```
 
+`WithPermission(AzureEntraIdWellKnownPermission)` requests a first-party Microsoft Graph permission the same way. `MicrosoftGraph.Delegated` is a delegated scope (`type: 'Scope'`); `MicrosoftGraph.Application` is an application role (`type: 'Role'`). Permissions for Microsoft Graph share one `requiredResourceAccess` object. `resourceAppId` is the literal `00000003-0000-0000-c000-000000000000`. There is no `WaitFor` and no Bicep parameter. Existing applications omit these entries. This does not grant admin consent.
+
+```csharp
+registration
+    .WithPermission(MicrosoftGraph.Delegated.UserReadAll)
+    .WithPermission(MicrosoftGraph.Delegated.ApplicationReadAll)
+    .WithPermission(MicrosoftGraph.Delegated.AppRoleAssignmentReadWriteAll);
+```
+
 ### Certificates
 
 `AddCertificate` registers an `AsymmetricX509CertResource` that checks `StoreName.My` at `StoreLocation.CurrentUser` or `LocalMachine` by thumbprint. The thumbprint comes from an Aspire `ParameterResource` (typically `secret: true`) and is resolved at initialize time. It does not create or upload the certificate. `WithKeyCredential` emits Graph `keyCredentials` (`type: AsymmetricX509Cert`, `usage: Verify`) on the **create** path and `WaitFor`s the cert. The public CER bytes are a deferred secure Bicep parameter.
@@ -171,7 +180,7 @@ Requires Microsoft Graph **`Application.ReadWrite.All`** (same as app registrati
 
 ### Existing applications
 
-Aspire 13.4.6 `RunAsExisting` / `PublishAsExisting` / `AsExisting` apply. The annotation **name** is the Graph `uniqueName` (not an ARM resource name). Omit resource group (tenant object; ARM resource-group deployment is only the vehicle).
+Aspire 13.5.4 `RunAsExisting` / `PublishAsExisting` / `AsExisting` apply. The annotation **name** is the Graph `uniqueName` (not an ARM resource name). Omit resource group (tenant object; ARM resource-group deployment is only the vehicle).
 
 ```csharp
 var existingName = builder.AddParameter("existingAppUniqueName");

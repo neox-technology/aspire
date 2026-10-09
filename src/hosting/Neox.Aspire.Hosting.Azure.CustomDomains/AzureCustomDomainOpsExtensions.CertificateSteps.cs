@@ -11,19 +11,17 @@ using Neox.Aspire.Hosting.Azure.Provisioning;
 
 namespace Neox.Aspire.Hosting.Azure;
 
-public static partial class AzureCustomDomainOpsExtensions
-{
+public static partial class AzureCustomDomainOpsExtensions {
+
     private static void EnsureEnvCertificateSteps(
         IResourceBuilder<AzureCustomDomainOpsResource> domainOps,
         IDistributedApplicationBuilder applicationBuilder,
-        string environmentName)
-    {
+        string environmentName) {
         var planStepName = GetPlanEnvCertificatesStepName(environmentName);
         var provisionStepName = GetProvisionEnvCertificatesStepName(environmentName);
 
         if (domainOps.Resource.Annotations.OfType<DomainOpsNamedStepAnnotation>()
-            .Any(a => string.Equals(a.StepName, planStepName, StringComparison.Ordinal)))
-        {
+            .Any(a => string.Equals(a.StepName, planStepName, StringComparison.Ordinal))) {
             return;
         }
 
@@ -33,15 +31,13 @@ public static partial class AzureCustomDomainOpsExtensions
         var acaEnv = RequireAcaEnvironment(applicationBuilder);
         var capturedEnv = environmentName;
 
-        domainOps.WithPipelineStepFactory(factoryContext => new PipelineStep
-        {
+        domainOps.WithPipelineStepFactory(factoryContext => new PipelineStep {
             Name = planStepName,
             Description = $"Inventory managed certificates on ACA environment '{environmentName}'.",
             Tags = ["domain-ops"],
             Resource = factoryContext.Resource,
             DependsOnSteps = [$"provision-{acaEnv.Name}"],
-            Action = async context =>
-            {
+            Action = async context => {
                 var logger = context.Services.GetRequiredService<ILoggerFactory>().CreateLogger(planStepName);
                 var runner = context.Services.GetService<IProcessRunner>() ?? new ProcessRunner();
                 var sample = applicationBuilder.Resources
@@ -49,13 +45,13 @@ public static partial class AzureCustomDomainOpsExtensions
                         .Select(a => (Resource: r, Annotation: a)))
                     .FirstOrDefault();
 
-                if (sample.Resource is null)
-                {
+                if (sample.Resource is null) {
                     throw new InvalidOperationException("No DomainOps bindings found for certificate inventory.");
                 }
 
                 var appName = sample.Annotation.Options.ContainerAppResourceName ?? sample.Resource.Name;
                 var orchestrator = new DomainOpsOrchestrator(runner, logger, context.Services);
+
                 await orchestrator.PlanEnvCertificatesAsync(
                         capturedEnv,
                         appName,
@@ -65,15 +61,13 @@ public static partial class AzureCustomDomainOpsExtensions
             }
         });
 
-        domainOps.WithPipelineStepFactory(factoryContext => new PipelineStep
-        {
+        domainOps.WithPipelineStepFactory(factoryContext => new PipelineStep {
             Name = provisionStepName,
             Description = $"Create missing managed certificates on ACA environment '{environmentName}'.",
             Tags = ["domain-ops"],
             Resource = factoryContext.Resource,
             DependsOnSteps = [planStepName],
-            Action = async context =>
-            {
+            Action = async context => {
                 var logger = context.Services.GetRequiredService<ILoggerFactory>().CreateLogger(provisionStepName);
                 var runner = context.Services.GetService<IProcessRunner>() ?? new ProcessRunner();
                 var bindings = applicationBuilder.Resources
@@ -81,14 +75,13 @@ public static partial class AzureCustomDomainOpsExtensions
                         .Select(a => (Resource: r, Annotation: a)))
                     .ToList();
 
-                if (bindings.Count == 0)
-                {
+                if (bindings.Count == 0) {
                     throw new InvalidOperationException("No DomainOps bindings found for certificate provision.");
                 }
 
                 var plans = new List<DomainBindingPlan>();
-                foreach (var (resource, annotation) in bindings)
-                {
+
+                foreach (var (resource, annotation) in bindings) {
                     await DomainOpsParameterPrompt.EnsureReadyAsync(
                             context.Services,
                             DomainOpsParameterPrompt.CollectRequired(
@@ -102,8 +95,8 @@ public static partial class AzureCustomDomainOpsExtensions
 
                     var hostname = await annotation.CustomDomain.Resource.GetValueAsync(context.CancellationToken)
                         .ConfigureAwait(false);
-                    if (string.IsNullOrWhiteSpace(hostname))
-                    {
+
+                    if (string.IsNullOrWhiteSpace(hostname)) {
                         throw new InvalidOperationException(
                             $"Custom domain parameter '{annotation.CustomDomain.Resource.Name}' is empty.");
                     }
@@ -111,6 +104,7 @@ public static partial class AzureCustomDomainOpsExtensions
                     var certParam = await annotation.CertificateName.Resource.GetValueAsync(context.CancellationToken)
                         .ConfigureAwait(false);
                     var orchestrator = new DomainOpsOrchestrator(runner, logger, context.Services);
+
                     plans.Add(orchestrator.PlanResourceDomain(resource, hostname, annotation.Options, certParam));
                 }
 
@@ -131,6 +125,7 @@ public static partial class AzureCustomDomainOpsExtensions
                     runner,
                     azure,
                     delayAsync: null);
+
                 await provisioner.ProvisionEnvCertificatesAsync(targets, plans, existing, context.CancellationToken)
                     .ConfigureAwait(false);
             }

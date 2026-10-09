@@ -6,8 +6,8 @@ namespace Neox.Aspire.Hosting.Azure;
 /// Graph <c>requiredResourceAccess[].resourceAccess[].type</c>: delegated scope
 /// (<see cref="Scope"/>) or app role (<see cref="Role"/>).
 /// </summary>
-public enum AzureEntraIdPermissionType
-{
+public enum AzureEntraIdPermissionType {
+
     /// <summary>
     /// Delegated permission (Graph <c>Scope</c>).
     /// </summary>
@@ -23,8 +23,8 @@ public enum AzureEntraIdPermissionType
 /// An OAuth2 permission scope or app role that a consumer app registration can
 /// request via <c>WithPermission</c> (Graph <c>requiredResourceAccess</c>).
 /// </summary>
-public interface IAzureEntraIdPermissibleResource : IResourceWithParent<AzureEntraIdAppRegistrationResource>
-{
+public interface IAzureEntraIdPermissibleResource : IResourceWithParent<AzureEntraIdAppRegistrationResource> {
+
     /// <summary>
     /// Stable Graph permission <c>id</c> (scope or app role).
     /// </summary>
