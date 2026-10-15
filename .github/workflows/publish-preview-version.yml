@@ -1,0 +1,232 @@
+name: publish-preview-version
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: publish-preview-version-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    if: startsWith(github.ref, 'refs/heads/release/')
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Release guard
+        id: version
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          CHANNEL: preview
+        run: |
+          set -euo pipefail
+          RAW="${REF_NAME#release/}"
+          RAW="${RAW#v}"
+          case "$CHANNEL" in
+            preview)
+              [[ "$RAW" =~ ^[0-9]+\.[0-9]+\.[0-9]+-preview\.[0-9]+$ ]] || {
+                echo "::error::Branch '$REF_NAME' must be release/x.x.x-preview.x"
+                exit 1
+              }
+              ;;
+            final)
+              [[ "$RAW" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+                echo "::error::Branch '$REF_NAME' must be release/x.x.x"
+                exit 1
+              }
+              ;;
+            *)
+              echo "::error::CHANNEL must be preview or final"
+              exit 1
+              ;;
+          esac
+          echo "version=$RAW" >> "$GITHUB_OUTPUT"
+
+      - name: Variables and secrets guard
+        env:
+          GUARD_ENTRIES: |
+            Secret|projet|GITHUB_TOKEN|.+
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          failed=0
+          while IFS='|' read -r KIND SCOPE NAME PATTERN; do
+            [ -z "${KIND:-}" ] && continue
+            VALUE="${!NAME:-}"
+            if [ -z "$PATTERN" ]; then PATTERN='.+'; fi
+            if [ -z "$VALUE" ]; then
+              echo "::error::${KIND} from ${SCOPE} not provided."
+              failed=1
+              continue
+            fi
+            if ! [[ "$VALUE" =~ $PATTERN ]]; then
+              echo "::error::${KIND} from ${SCOPE} malformated."
+              failed=1
+            fi
+          done <<< "$GUARD_ENTRIES"
+          if [ "$failed" -ne 0 ]; then exit 1; fi
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.110"
+
+      - name: Compute OfficialBuildId
+        id: buildid
+        run: echo "official_build_id=$(date -u +%Y%m%d).${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build test and pack
+        run: |
+          set -euo pipefail
+          ./eng/common/build.sh --ci --restore --build --test --pack \
+            --configuration Release \
+            /p:Sign=false \
+            /p:OfficialBuildId=${{ steps.buildid.outputs.official_build_id }} \
+            /p:StabilizePackageVersion=false \
+            /p:PreReleaseVersionLabel=daily
+
+      - name: Upload Shipping packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: Shipping-daily-${{ github.ref_name }}-${{ github.run_number }}
+          path: artifacts/packages/Release/Shipping/
+          if-no-files-found: error
+
+      - name: Variables and secrets guard
+        env:
+          GUARD_ENTRIES: ""
+        run: |
+          set -euo pipefail
+          failed=0
+          while IFS='|' read -r KIND SCOPE NAME PATTERN; do
+            [ -z "${KIND:-}" ] && continue
+            VALUE="${!NAME:-}"
+            if [ -z "$PATTERN" ]; then PATTERN='.+'; fi
+            if [ -z "$VALUE" ]; then
+              echo "::error::${KIND} from ${SCOPE} not provided."
+              failed=1
+              continue
+            fi
+            if ! [[ "$VALUE" =~ $PATTERN ]]; then
+              echo "::error::${KIND} from ${SCOPE} malformated."
+              failed=1
+            fi
+          done <<< "$GUARD_ENTRIES"
+          if [ "$failed" -ne 0 ]; then exit 1; fi
+
+      - name: Push to GitHub Packages
+        env:
+          NUGET_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          source="https://nuget.pkg.github.com/neox-technology/index.json"
+          dotnet nuget push "artifacts/packages/Release/Shipping/*.nupkg" --source "$source" --api-key "$NUGET_TOKEN" --skip-duplicate
+          dotnet nuget push "artifacts/packages/Release/Shipping/*.snupkg" --source "$source" --api-key "$NUGET_TOKEN" --skip-duplicate
+
+  finalize-git:
+    needs: publish
+    if: success()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.NEOX_GITFLOW_APP_ID }}
+          private-key: ${{ secrets.NEOX_GITFLOW_APP_PRIVATE_KEY }}
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref_name }}
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Release guard
+        id: version
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          CHANNEL: preview
+        run: |
+          set -euo pipefail
+          RAW="${REF_NAME#release/}"
+          RAW="${RAW#v}"
+          [[ "$RAW" =~ ^[0-9]+\.[0-9]+\.[0-9]+-preview\.[0-9]+$ ]] || {
+            echo "::error::Branch '$REF_NAME' must be release/x.x.x-preview.x"
+            exit 1
+          }
+          echo "version=$RAW" >> "$GITHUB_OUTPUT"
+
+      - name: Squash-merge into develop
+        env:
+          HEAD_REF: ${{ github.ref_name }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name "neox-gitflow[bot]"
+          git config user.email "neox-gitflow[bot]@users.noreply.github.com"
+          git fetch origin develop "$HEAD_REF"
+          git checkout -B develop origin/develop
+          git merge --squash "origin/$HEAD_REF"
+          if git diff --cached --quiet; then
+            echo "develop already contains $HEAD_REF — nothing to squash"
+          else
+            git commit -m "chore: sync release $VERSION into develop"
+            git push origin develop
+          fi
+
+      - name: Create tag
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          TAG="v${VERSION}"
+          git fetch origin develop --tags --force
+          git checkout develop
+          git pull origin develop
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "::error::Tag $TAG already exists"
+            exit 1
+          fi
+          git config user.name "neox-gitflow[bot]"
+          git config user.email "neox-gitflow[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          TAG: v${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists"
+          else
+            gh release create "$TAG" --title "$TAG" --generate-notes --prerelease
+          fi
+
+      - name: Close release branch
+        env:
+          HEAD_REF: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          case "$HEAD_REF" in
+            release/*) ;;
+            *) echo "::error::Refusing to delete '$HEAD_REF'"; exit 1 ;;
+          esac
+          git push origin --delete "$HEAD_REF"

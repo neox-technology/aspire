@@ -71,8 +71,8 @@ After creating or updating a feature, refresh the index below **and** the status
 | [`domain-glossary`](features/domain-glossary.md) | defined | Neox Aspire terms (repo, development host, sample AppHost, package vocabulary) |
 | [`aspire-bootstrap`](features/aspire-bootstrap.md) | defined | Public repo identity, local specs, sample AppHosts, manual release Actions |
 | [`arcade-bootstrap`](features/arcade-bootstrap.md) | implemented | Arcade clone-and-build on .NET 10; `Neox.Aspire.slnx`; MIT |
-| [`gitflow-ci`](features/gitflow-ci.md) | implemented | GitFlow branches + manual release-start / private-publish / finalize Actions |
-| [`nuget-org`](features/nuget-org.md) | implemented | Arcade pack; GitHub Packages daily from `release/*`; nuget.org Trusted Publishing |
+| [`gitflow-ci`](features/gitflow-ci.md) | implemented | GitFlow branches + start-release / publish-preview-version / publish-final-version |
+| [`nuget-org`](features/nuget-org.md) | implemented | Arcade pack; GitHub Packages daily from preview releases; nuget.org Trusted Publishing from final releases |
 | [`efcore-migration-worker`](features/efcore-migration-worker.md) | implemented | EF Core migration worker + Aspire xUnit harnesses (SqlServer/Postgres/MySQL/Oracle) |
 | [`azure-custom-domains`](features/azure-custom-domains.md) | implemented | ACA custom domain ops (OctoDNS-in-Docker, managed certs, `aspire do`) |
 | [`azure-entra-id`](features/azure-entra-id.md) | implemented | Shipping `AddAzureAppRegistration` + `WithSupportedAccountType` + `AddScope` + `AddAppRole` + `AddWebApplication` + `AddSpaApplication` + `WithPermission` (in-model and `MicrosoftGraph`) + `AddCertificate` / `WithKeyCredential` + `WithSecret` (`EntraIdPasswordCredentialResource`) + `EntraIdInstance` + `WithMicrosoftIdentityWebApplication` + `WithEntraIdSpaApplication` |

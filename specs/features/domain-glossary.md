@@ -21,7 +21,7 @@ Terminology authority for **Neox Aspire** packages in this **public** repository
 | **Neox Aspire packages** | Packable NuGet libraries under the `Neox.Aspire.*` root namespace (hosting and non-hosting). MIT-licensed. Published to nuget.org via Trusted Publishing; pre-ship **daily** builds go to private GitHub Packages; local pack uses Arcade. |
 | **hosting package** | A `Neox.Aspire.Hosting.*` library that AppHosts reference for Aspire resource/extension helpers. Lives under `src/hosting/` when present. |
 | **Shipping** | Arcade package output bucket for packages intended for consumers (`artifacts/packages/<Configuration>/Shipping/`). Distinct from non-shipping / internal artifacts. |
-| **daily** | Arcade prerelease label used by **release-private-publish** on `release/*`: packages version as `X.Y.Z-daily.{OfficialBuildId}` and publish to private GitHub Packages for pre-ship validation (not the public nuget.org identity). |
+| **daily** | Arcade prerelease label used by **publish-preview-version** on `release/x.x.x-preview.x`: packages version as `X.Y.Z-daily.{OfficialBuildId}` and publish to private GitHub Packages (not the public nuget.org identity). |
 | **migration worker** | Reusable non-hosting DI helper (`Neox.Aspire.EntityFrameworkCore.MigrationWorker`) that runs EF Core `MigrateAsync` for one or more registered `DbContext` types in a single one-shot `BackgroundService` (registration order, sequential), then stops the host once via repeated `AddEfCoreMigrationService<TDbContext>()` calls. |
 | **custom domain ops** | Hosting helpers (`Neox.Aspire.Hosting.Azure.CustomDomains`) that orchestrate ACA custom domain DNS and managed certificates via `aspire do` pipeline steps (plan/provision/deploy split for provider, zone, hostname add, env certs, and resource bind). |
 | **DomainOps provider** | Aspire resource (`DomainOpsProviderResource` and **source-generated** subtypes such as Cloudflare/OVH/Route53) that selects an OctoDNS DNS **provider**, holds auth parameter bindings, and drives generated `octodns.yaml` + Docker image choice. Aligns with octoDNS terminology (**provider**, not provisioner). Types are emitted from the versioned OctoDNS provider catalogue. |
@@ -83,7 +83,7 @@ Terminology authority for **Neox Aspire** packages in this **public** repository
 
 - [`aspire-bootstrap`](aspire-bootstrap.md) — repository identity that consumes these terms (this file remains the terminology authority)
 - [`arcade-bootstrap`](arcade-bootstrap.md) — **Shipping**
-- [`nuget-org`](nuget-org.md) — **daily** versioning label (publish not wired)
+- [`nuget-org`](nuget-org.md) — **daily** versioning label on preview publish
 - [`azure-entra-id`](azure-entra-id.md) — **Azure Entra ID hosting**
 - [`keycloak-hosting`](keycloak-hosting.md) — **Keycloak hosting**, **Keycloak realm resource**, **Keycloak user**, **Keycloak identity provider**
 - [`keycloak-entraid`](keycloak-entraid.md) — **Keycloak Entra ID hosting**
