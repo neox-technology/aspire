@@ -1,6 +1,6 @@
+using Aspire.Hosting.ApplicationModel;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
-using Aspire.Hosting.ApplicationModel;
 
 namespace Neox.Aspire.Hosting.Azure;
 
@@ -9,8 +9,8 @@ namespace Neox.Aspire.Hosting.Azure;
 /// Not a provisioning resource; Graph <c>keyCredentials</c> are emitted by
 /// <see cref="AzureEntraIdAppRegistrationResource"/> via <c>WithKeyCredential</c>.
 /// </summary>
-public sealed class AsymmetricX509CertResource : Resource
-{
+public sealed class AsymmetricX509CertResource : Resource {
+
     /// <summary>
     /// Initializes a new <see cref="AsymmetricX509CertResource"/>.
     /// </summary>
@@ -18,8 +18,7 @@ public sealed class AsymmetricX509CertResource : Resource
     /// <param name="thumbprint">Parameter whose value is the certificate thumbprint (hex; spaces ignored).</param>
     /// <param name="storeLocation">CurrentUser or LocalMachine.</param>
     public AsymmetricX509CertResource(string name, ParameterResource thumbprint, StoreLocation storeLocation)
-        : base(name)
-    {
+        : base(name) {
         ArgumentNullException.ThrowIfNull(thumbprint);
 
         ThumbprintParameter = thumbprint;
@@ -27,9 +26,9 @@ public sealed class AsymmetricX509CertResource : Resource
     }
 
     /// <summary>
-    /// Parameter that supplies the certificate thumbprint.
+    /// Store location searched by <c>AddCertificate</c>.
     /// </summary>
-    public ParameterResource ThumbprintParameter { get; }
+    public StoreLocation StoreLocation { get; }
 
     /// <summary>
     /// Normalized certificate thumbprint. Resolves <see cref="ThumbprintParameter"/> on demand.
@@ -37,60 +36,28 @@ public sealed class AsymmetricX509CertResource : Resource
     public string Thumbprint => NormalizeThumbprint(ResolveThumbprint());
 
     /// <summary>
-    /// Store location searched by <c>AddCertificate</c>.
+    /// Parameter that supplies the certificate thumbprint.
     /// </summary>
-    public StoreLocation StoreLocation { get; }
+    public ParameterResource ThumbprintParameter { get; }
 
-    internal static string NormalizeThumbprint(string thumbprint)
-    {
-        return thumbprint.Replace(" ", string.Empty, StringComparison.Ordinal).ToUpperInvariant();
-    }
-
-    internal static string KeyCredentialParameterName(string certName)
-    {
+    internal static string KeyCredentialParameterName(string certName) {
         ArgumentException.ThrowIfNullOrEmpty(certName);
         return "keyCredential_" + certName.Replace("-", "_", StringComparison.Ordinal);
     }
 
-    internal async Task<string?> TryResolveNormalizedThumbprintAsync(CancellationToken cancellationToken)
-    {
-        try
-        {
-            var value = await ThumbprintParameter.GetValueAsync(cancellationToken).ConfigureAwait(false);
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                return null;
-            }
-
-            return NormalizeThumbprint(value);
-        }
-        catch (Exception)
-        {
-            return null;
-        }
+    internal static string NormalizeThumbprint(string thumbprint) {
+        return thumbprint.Replace(" ", string.Empty, StringComparison.Ordinal).ToUpperInvariant();
     }
 
-    internal bool TryFind()
-    {
-        if (!TryFind(Thumbprint, StoreLocation, out var certificate))
-        {
-            return false;
-        }
-
-        certificate?.Dispose();
-        return true;
-    }
-
-    internal static bool TryFind(string thumbprint, StoreLocation storeLocation, out X509Certificate2? certificate)
-    {
+    internal static bool TryFind(string thumbprint, StoreLocation storeLocation, out X509Certificate2? certificate) {
         certificate = null;
+
         using var store = new X509Store(StoreName.My, storeLocation);
-        try
-        {
+
+        try {
             store.Open(OpenFlags.ReadOnly | OpenFlags.OpenExistingOnly);
         }
-        catch (CryptographicException)
-        {
+        catch (CryptographicException) {
             return false;
         }
 
@@ -98,8 +65,8 @@ public sealed class AsymmetricX509CertResource : Resource
             X509FindType.FindByThumbprint,
             NormalizeThumbprint(thumbprint),
             validOnly: false);
-        if (found.Count == 0)
-        {
+
+        if (found.Count == 0) {
             return false;
         }
 
@@ -107,23 +74,44 @@ public sealed class AsymmetricX509CertResource : Resource
         return true;
     }
 
-    internal string ExportPublicKeyBase64()
-    {
-        if (!TryFind(Thumbprint, StoreLocation, out var certificate) || certificate is null)
-        {
+    internal string ExportPublicKeyBase64() {
+        if (!TryFind(Thumbprint, StoreLocation, out var certificate) || certificate is null) {
             throw new InvalidOperationException(
                 $"Certificate '{Thumbprint}' was not found in StoreName.My at {StoreLocation}.");
         }
 
-        using (certificate)
-        {
+        using (certificate) {
             return Convert.ToBase64String(certificate.Export(X509ContentType.Cert));
         }
     }
 
-    private string ResolveThumbprint()
-    {
+    internal bool TryFind() {
+        if (!TryFind(Thumbprint, StoreLocation, out var certificate)) {
+            return false;
+        }
+
+        certificate?.Dispose();
+        return true;
+    }
+
+    internal async Task<string?> TryResolveNormalizedThumbprintAsync(CancellationToken cancellationToken) {
+        try {
+            var value = await ThumbprintParameter.GetValueAsync(cancellationToken).ConfigureAwait(false);
+
+            if (string.IsNullOrWhiteSpace(value)) {
+                return null;
+            }
+
+            return NormalizeThumbprint(value);
+        }
+        catch (Exception) {
+            return null;
+        }
+    }
+
+    private string ResolveThumbprint() {
         var value = ThumbprintParameter.GetValueAsync(CancellationToken.None).AsTask().GetAwaiter().GetResult();
+
         ArgumentException.ThrowIfNullOrEmpty(value, ThumbprintParameter.Name);
         return value;
     }

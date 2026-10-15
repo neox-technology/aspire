@@ -28,6 +28,7 @@ public sealed class AddEntraIdIdentityProviderTests
     public void AddEntraIdIdentityProvider_registers_oidc_stub_and_config_gate()
     {
         var builder = DistributedApplication.CreateBuilder();
+
         builder.Configuration["Azure:TenantId"] = "tenant-guid";
 
         var keycloak = CreateKeycloak(builder, "auth-entra-idp");
@@ -47,6 +48,7 @@ public sealed class AddEntraIdIdentityProviderTests
         Assert.IsAssignableFrom<IResourceWithParent<KeycloakRealmResource>>(idp.Resource);
 
         var config = Assert.Single(builder.Resources.OfType<KeycloakEntraIdConfigResource>());
+
         Assert.Equal($"{idp.Resource.Name}-config", config.Name);
         Assert.Same(idp.Resource, config.IdentityProvider);
         Assert.Contains(
@@ -64,17 +66,20 @@ public sealed class AddEntraIdIdentityProviderTests
 
         using var document = ReadRealmJson(builder, "auth-entra-idp", "neox");
         var providers = document.RootElement.GetProperty("identityProviders");
+
         Assert.Equal(1, providers.GetArrayLength());
         Assert.Equal("microsoft", providers[0].GetProperty("alias").GetString());
         Assert.Equal("oidc", providers[0].GetProperty("providerId").GetString());
         Assert.Equal("Microsoft Entra ID", providers[0].GetProperty("displayName").GetString());
 
         var mappers = document.RootElement.GetProperty("identityProviderMappers");
+
         Assert.Equal(2, mappers.GetArrayLength());
 
         var emailMapper = Assert.Single(
             mappers.EnumerateArray(),
             mapper => mapper.GetProperty("name").GetString() == "email");
+
         Assert.Equal("microsoft", emailMapper.GetProperty("identityProviderAlias").GetString());
         Assert.Equal(
             "oidc-user-attribute-idp-mapper",
@@ -86,6 +91,7 @@ public sealed class AddEntraIdIdentityProviderTests
         var preferredUsernameMapper = Assert.Single(
             mappers.EnumerateArray(),
             mapper => mapper.GetProperty("name").GetString() == "preferred_username-email");
+
         Assert.Equal("microsoft", preferredUsernameMapper.GetProperty("identityProviderAlias").GetString());
         Assert.Equal(
             "preferred_username",
@@ -120,6 +126,7 @@ public sealed class AddEntraIdIdentityProviderTests
         string name)
     {
         var password = builder.AddParameter($"{name}-password", "admin", secret: true);
+
         return builder.AddKeycloak(name, adminPassword: password);
     }
 
@@ -132,6 +139,7 @@ public sealed class AddEntraIdIdentityProviderTests
             Path.Combine(".aspire", "keycloak-realms", keycloakName),
             builder.AppHostDirectory);
         var json = File.ReadAllText(Path.Combine(importDirectory, $"{realm}-realm.json"));
+
         return JsonDocument.Parse(json);
     }
 }

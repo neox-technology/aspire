@@ -13,6 +13,7 @@ public sealed class WithOrganizationTests
     {
         var builder = DistributedApplication.CreateBuilder();
         var keycloak = CreateKeycloak(builder, "auth-orgs");
+
         keycloak.AddRealm(realm: "neox").WithOrganizations();
 
         using var document = ReadRealmJson(builder, "auth-orgs", "neox");
@@ -26,19 +27,24 @@ public sealed class WithOrganizationTests
     {
         var builder = DistributedApplication.CreateBuilder();
         var keycloak = CreateKeycloak(builder, "auth-org-add");
+
         keycloak.AddRealm(realm: "neox").WithOrganization("Acme", "acme.com");
 
         using var document = ReadRealmJson(builder, "auth-org-add", "neox");
 
         Assert.True(document.RootElement.GetProperty("organizationsEnabled").GetBoolean());
+
         var organizations = document.RootElement.GetProperty("organizations");
+
         Assert.Equal(1, organizations.GetArrayLength());
 
         var organization = organizations[0];
+
         Assert.Equal("Acme", organization.GetProperty("name").GetString());
         Assert.True(organization.GetProperty("enabled").GetBoolean());
 
         var domains = organization.GetProperty("domains");
+
         Assert.Equal(1, domains.GetArrayLength());
         Assert.Equal("acme.com", domains[0].GetProperty("name").GetString());
     }
@@ -49,12 +55,14 @@ public sealed class WithOrganizationTests
         var builder = DistributedApplication.CreateBuilder();
         var keycloak = CreateKeycloak(builder, "auth-org-idempotent");
         var realm = keycloak.AddRealm(realm: "neox");
+
         realm.WithOrganization("Acme", "acme.com");
         realm.WithOrganization("Acme", "acme.com");
 
         using var document = ReadRealmJson(builder, "auth-org-idempotent", "neox");
 
         var organizations = document.RootElement.GetProperty("organizations");
+
         Assert.Equal(1, organizations.GetArrayLength());
         Assert.Equal(1, organizations[0].GetProperty("domains").GetArrayLength());
     }
@@ -64,6 +72,7 @@ public sealed class WithOrganizationTests
         string name)
     {
         var password = builder.AddParameter($"{name}-password", "admin", secret: true);
+
         return builder.AddKeycloak(name, adminPassword: password);
     }
 
@@ -76,6 +85,7 @@ public sealed class WithOrganizationTests
             Path.Combine(".aspire", "keycloak-realms", keycloakName),
             builder.AppHostDirectory);
         var json = File.ReadAllText(Path.Combine(importDirectory, $"{realm}-realm.json"));
+
         return JsonDocument.Parse(json);
     }
 }

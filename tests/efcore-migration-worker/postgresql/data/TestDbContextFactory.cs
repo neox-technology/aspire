@@ -10,6 +10,7 @@ public sealed class TestDbContextFactory : IDesignTimeDbContextFactory<TestDbCon
         var options = new DbContextOptionsBuilder<TestDbContext>()
             .UseNpgsql("Host=localhost;Database=neox_efmw_pg_design;Username=postgres;Password=postgres")
             .Options;
+
         return new TestDbContext(options);
     }
 }

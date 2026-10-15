@@ -15,11 +15,13 @@ permissions:
   packages: write
 
 jobs:
-  private-publish:
+  prepare:
     if: startsWith(github.ref, 'refs/heads/release/')
     runs-on: ubuntu-latest
-    name: Build, test, publish GitHub Packages
-    timeout-minutes: 60
+    name: Guard and compute build id
+    outputs:
+      official_build_id: ${{ steps.version.outputs.official_build_id }}
+      artifact_name: ${{ steps.version.outputs.artifact_name }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -63,33 +65,45 @@ jobs:
 
       - name: Compute OfficialBuildId
         id: version
-        run: echo "official_build_id=$(date -u +%Y%m%d).${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+        run: |
+          set -euo pipefail
+          BUILD_ID="$(date -u +%Y%m%d).${{ github.run_number }}"
+          # Artifact names cannot contain '/'
+          SAFE_REF="${GITHUB_REF_NAME//\//-}"
+          echo "official_build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
+          echo "artifact_name=Shipping-daily-${SAFE_REF}-${{ github.run_number }}" >> "$GITHUB_OUTPUT"
 
-      - name: Build, test, and pack (daily)
-        run: >
-          ./eng/common/build.sh
-          --ci --restore --build --test --pack
-          --configuration Release
-          /p:Sign=false
-          /p:OfficialBuildId=${{ steps.version.outputs.official_build_id }}
-          /p:StabilizePackageVersion=false
-          /p:PreReleaseVersionLabel=daily
+  build:
+    needs: prepare
+    uses: ./.github/workflows/arcade-build-test-package.yml
+    with:
+      official_build_id: ${{ needs.prepare.outputs.official_build_id }}
+      artifact_name: ${{ needs.prepare.outputs.artifact_name }}
+      extra_msbuild_args: /p:StabilizePackageVersion=false /p:PreReleaseVersionLabel=daily
 
-      - name: Upload Shipping packages
-        uses: actions/upload-artifact@v4
+  publish:
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    name: Push to GitHub Packages
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Download Shipping packages
+        uses: actions/download-artifact@v4
         with:
-          name: Shipping-daily-${{ github.ref_name }}-${{ github.run_number }}
-          path: artifacts/packages/Release/Shipping/
-          if-no-files-found: error
+          name: ${{ needs.prepare.outputs.artifact_name }}
+          path: packages
 
       - name: Push packages to GitHub Packages
         run: |
           set -euo pipefail
           shopt -s nullglob
-          packages=(artifacts/packages/Release/Shipping/*.nupkg)
-          symbols=(artifacts/packages/Release/Shipping/*.snupkg)
+          mapfile -t packages < <(find packages -type f -name '*.nupkg' | sort -u)
+          mapfile -t symbols < <(find packages -type f -name '*.snupkg' | sort -u)
           if [ ${#packages[@]} -eq 0 ]; then
-            echo "No Shipping packages found under artifacts/packages/Release/Shipping/"
+            echo "No Shipping packages found in downloaded artifact"
+            find packages -type f -print || true
             exit 1
           fi
           source="https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"

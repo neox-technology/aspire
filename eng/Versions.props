@@ -7,20 +7,28 @@
     <StabilizePackageVersion>false</StabilizePackageVersion>
     <DotNetFinalVersionKind Condition="'$(StabilizePackageVersion)' == 'true'">release</DotNetFinalVersionKind>
 
-    <!-- Align with Aspire 13.4.6 net10.0 dependency graph -->
-    <AspireVersion>13.4.6</AspireVersion>
-    <!-- Aspire.Hosting.Keycloak is preview-only on nuget.org (no stable 13.4.6) -->
-    <AspireHostingKeycloakVersion>13.4.6-preview.1.26319.6</AspireHostingKeycloakVersion>
-    <AspireKeycloakAuthenticationVersion>13.4.6-preview.1.26319.6</AspireKeycloakAuthenticationVersion>
-    <MicrosoftEntityFrameworkCoreVersion>10.0.8</MicrosoftEntityFrameworkCoreVersion>
-    <NpgsqlEntityFrameworkCorePostgreSQLVersion>10.0.0</NpgsqlEntityFrameworkCorePostgreSQLVersion>
-    <MySqlEntityFrameworkCoreVersion>10.0.1</MySqlEntityFrameworkCoreVersion>
+    <!-- Align with Aspire 13.5.3 net10.0 dependency graph -->
+    <AspireVersion>13.5.3</AspireVersion>
+    <!-- Aspire.Hosting.Keycloak is preview-only on nuget.org (no stable 13.5.3) -->
+    <AspireHostingKeycloakVersion>13.5.3-preview.1.26425.3</AspireHostingKeycloakVersion>
+    <AspireKeycloakAuthenticationVersion>13.5.3-preview.1.26425.3</AspireKeycloakAuthenticationVersion>
+    <MicrosoftEntityFrameworkCoreVersion>10.0.11</MicrosoftEntityFrameworkCoreVersion>
+    <NpgsqlEntityFrameworkCorePostgreSQLVersion>10.0.3</NpgsqlEntityFrameworkCorePostgreSQLVersion>
+    <MySqlEntityFrameworkCoreVersion>10.0.9</MySqlEntityFrameworkCoreVersion>
     <OracleEntityFrameworkCoreVersion>10.23.26300</OracleEntityFrameworkCoreVersion>
-    <MicrosoftExtensionsHostingAbstractionsVersion>10.0.8</MicrosoftExtensionsHostingAbstractionsVersion>
+    <MicrosoftExtensionsHostingAbstractionsVersion>10.0.11</MicrosoftExtensionsHostingAbstractionsVersion>
     <!-- Arcade property (XUnitVersion); pins xunit.core / assert / runners -->
     <XUnitVersion>2.9.3</XUnitVersion>
-    <AzureProvisioningVersion>1.5.0</AzureProvisioningVersion>
-    <MicrosoftIdentityWebVersion>4.13.2</MicrosoftIdentityWebVersion>
+    <AzureProvisioningVersion>1.6.0</AzureProvisioningVersion>
+    <MicrosoftIdentityWebVersion>4.14.2</MicrosoftIdentityWebVersion>
     <SwashbuckleAspNetCoreVersion>10.2.3</SwashbuckleAspNetCoreVersion>
+    <AzureIdentityVersion>1.21.0</AzureIdentityVersion>
+    <AzureResourceManagerAppContainersVersion>1.5.0</AzureResourceManagerAppContainersVersion>
+    <YamlDotNetVersion>18.1.0</YamlDotNetVersion>
+    <SystemTextJsonVersion>10.0.11</SystemTextJsonVersion>
+    <!-- SDK 10.0.111 ships Roslyn 5.0.0; generators must not reference a newer compiler (CS9057).
+         Microsoft.CodeAnalysis.Analyzers has no 5.0.0 package; 5.3.0 is the matching stable line. -->
+    <MicrosoftCodeAnalysisCSharpVersion>5.0.0</MicrosoftCodeAnalysisCSharpVersion>
+    <MicrosoftCodeAnalysisAnalyzersVersion>5.3.0</MicrosoftCodeAnalysisAnalyzersVersion>
   </PropertyGroup>
 </Project>

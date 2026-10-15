@@ -10,13 +10,9 @@ public sealed class KeycloakIdentityProviderResource(
     KeycloakRealmResource parent,
     string alias,
     string providerId)
-    : Resource(name), IResourceWithParent<KeycloakRealmResource>, IResourceWithWaitSupport
-{
-    public KeycloakRealmResource Parent { get; } = parent;
-
+    : Resource(name), IResourceWithParent<KeycloakRealmResource>, IResourceWithWaitSupport {
     public string Alias { get; } = alias;
-
-    public string ProviderId { get; } = providerId;
-
     public KeycloakResource Keycloak => Parent.Parent;
+    public KeycloakRealmResource Parent { get; } = parent;
+    public string ProviderId { get; } = providerId;
 }

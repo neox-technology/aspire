@@ -4,13 +4,45 @@ namespace Neox.Aspire.Hosting.Azure.Dns;
 /// Plans A + TXT ownership records for Azure Container Apps custom domains.
 /// Every hostname (apex and subdomain) uses an A record to the environment static IP.
 /// </summary>
-public sealed class DnsRecordPlanner
-{
+public sealed class DnsRecordPlanner {
+
+    public static HostnameKind DetectKind(string hostname) {
+        var labels = NormalizeHostname(hostname).Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        // apex: example.com (2 labels). subdomain: www.example.com or api.prod.example.com
+        return labels.Length <= 2 ? HostnameKind.Apex : HostnameKind.Subdomain;
+    }
+
+    /// <summary>
+    /// Resolves the registrable DNS zone name for a custom hostname (apex or subdomain).
+    /// </summary>
+    public static string GetZoneName(string hostname) {
+        var normalized = NormalizeHostname(hostname);
+        var kind = DetectKind(normalized);
+
+        return SplitZone(normalized, kind).ZoneName;
+    }
+
+    public static string NormalizeHostname(string hostname) {
+        var value = hostname.Trim().TrimEnd('.').ToLowerInvariant();
+
+        if (value.StartsWith("https://", StringComparison.Ordinal) || value.StartsWith("http://", StringComparison.Ordinal)) {
+            value = new Uri(hostname.Trim()).Host.ToLowerInvariant();
+        }
+
+        return value;
+    }
+
+    /// <summary>
+    /// Absolute FQDN for OctoDNS record values (trailing <c>.</c>).
+    /// </summary>
+    public static string ToAbsoluteFqdn(string hostname)
+        => NormalizeHostname(hostname) + ".";
+
     /// <summary>
     /// Builds the DNS records required for managed certificate validation (A + asuid TXT).
     /// </summary>
-    public DnsPlan Plan(DnsPlanInput input)
-    {
+    public DnsPlan Plan(DnsPlanInput input) {
         ArgumentNullException.ThrowIfNull(input);
         ArgumentException.ThrowIfNullOrWhiteSpace(input.CustomHostname);
         ArgumentException.ThrowIfNullOrWhiteSpace(input.ContainerAppFqdn);
@@ -19,7 +51,9 @@ public sealed class DnsRecordPlanner
 
         var hostname = NormalizeHostname(input.CustomHostname);
         var kind = DetectKind(hostname);
+
         var (zoneName, relativeHost) = SplitZone(hostname, kind);
+
         var verificationId = input.CustomDomainVerificationId.Trim();
         var asuidName = string.IsNullOrEmpty(relativeHost) ? "asuid" : $"asuid.{relativeHost}";
 
@@ -32,55 +66,20 @@ public sealed class DnsRecordPlanner
         return new DnsPlan(kind, zoneName, relativeHost, records);
     }
 
-    /// <summary>
-    /// Absolute FQDN for OctoDNS record values (trailing <c>.</c>).
-    /// </summary>
-    public static string ToAbsoluteFqdn(string hostname)
-        => NormalizeHostname(hostname) + ".";
-
-    public static HostnameKind DetectKind(string hostname)
-    {
-        var labels = NormalizeHostname(hostname).Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        // apex: example.com (2 labels). subdomain: www.example.com or api.prod.example.com
-        return labels.Length <= 2 ? HostnameKind.Apex : HostnameKind.Subdomain;
-    }
-
-    /// <summary>
-    /// Resolves the registrable DNS zone name for a custom hostname (apex or subdomain).
-    /// </summary>
-    public static string GetZoneName(string hostname)
-    {
-        var normalized = NormalizeHostname(hostname);
-        var kind = DetectKind(normalized);
-        return SplitZone(normalized, kind).ZoneName;
-    }
-
-    public static string NormalizeHostname(string hostname)
-    {
-        var value = hostname.Trim().TrimEnd('.').ToLowerInvariant();
-        if (value.StartsWith("https://", StringComparison.Ordinal) || value.StartsWith("http://", StringComparison.Ordinal))
-        {
-            value = new Uri(hostname.Trim()).Host.ToLowerInvariant();
-        }
-
-        return value;
-    }
-
-    private static (string ZoneName, string RelativeHost) SplitZone(string hostname, HostnameKind kind)
-    {
+    private static (string ZoneName, string RelativeHost) SplitZone(string hostname, HostnameKind kind) {
         var labels = hostname.Split('.', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (labels.Length < 2)
-        {
+
+        if (labels.Length < 2) {
             throw new ArgumentException($"Hostname '{hostname}' must include a registrable domain.", nameof(hostname));
         }
 
-        if (kind == HostnameKind.Apex)
-        {
+        if (kind == HostnameKind.Apex) {
             return (hostname, "");
         }
 
         var zoneName = string.Join('.', labels[^2], labels[^1]);
         var relativeHost = string.Join('.', labels[..^2]);
+
         return (zoneName, relativeHost);
     }
 }

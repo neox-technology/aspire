@@ -1,10 +1,9 @@
 name: release-finalize
 
 # Manual finalize from a release/* branch:
-# 1) Squash-merge release branch into main and develop
-# 2) Tag v<version> on main
-# 3) Arcade build/test/pack
-# 4) Publish Shipping packages to nuget.org via Trusted Publishing (OIDC)
+# 1) Arcade build/test/pack of the release branch (reusable workflow)
+# 2) Publish Shipping packages to nuget.org via Trusted Publishing (OIDC)
+# 3) Squash-merge into main and develop, tag v<version>, GitHub Release
 
 on:
   workflow_dispatch:
@@ -17,28 +16,19 @@ permissions:
   contents: read
 
 jobs:
-  finalize:
+  prepare:
     if: startsWith(github.ref, 'refs/heads/release/')
     runs-on: ubuntu-latest
-    name: Squash to main/develop, tag, publish nuget.org
-    timeout-minutes: 60
-    permissions:
-      contents: write
-      id-token: write
+    name: Guard and compute build id
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+      head_ref: ${{ steps.version.outputs.head_ref }}
+      official_build_id: ${{ steps.buildid.outputs.official_build_id }}
+      artifact_name: ${{ steps.buildid.outputs.artifact_name }}
     steps:
-      - name: Create GitHub App token
-        id: app-token
-        uses: actions/create-github-app-token@v1
-        with:
-          app-id: ${{ secrets.NEOX_GITFLOW_APP_ID }}
-          private-key: ${{ secrets.NEOX_GITFLOW_APP_PRIVATE_KEY }}
-
-      - name: Checkout release branch
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref_name }}
-          token: ${{ steps.app-token.outputs.token }}
 
       - name: Parse version from branch
         id: version
@@ -80,10 +70,96 @@ jobs:
           echo "head_ref=$REF_NAME" >> "$GITHUB_OUTPUT"
           echo "Parsed version=$RAW tag=$TAG"
 
+      - name: Compute OfficialBuildId
+        id: buildid
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          BUILD_ID="$(date -u +%Y%m%d).${{ github.run_number }}"
+          echo "official_build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
+          echo "artifact_name=Shipping-${TAG}" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: prepare
+    uses: ./.github/workflows/arcade-build-test-package.yml
+    with:
+      ref: ${{ github.ref }}
+      official_build_id: ${{ needs.prepare.outputs.official_build_id }}
+      artifact_name: ${{ needs.prepare.outputs.artifact_name }}
+
+  publish:
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    name: Push to nuget.org
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Download Shipping packages
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.prepare.outputs.artifact_name }}
+          path: packages
+
+      - name: NuGet login (OIDC → temp API key)
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      - name: Push packages to nuget.org
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          mapfile -t packages < <(find packages -type f -name '*.nupkg' | sort -u)
+          mapfile -t symbols < <(find packages -type f -name '*.snupkg' | sort -u)
+          if [ ${#packages[@]} -eq 0 ]; then
+            echo "No Shipping packages found in downloaded artifact"
+            find packages -type f -print || true
+            exit 1
+          fi
+          echo "Publishing ${#packages[@]} package(s) to nuget.org"
+          for pkg in "${packages[@]}"; do
+            echo "  - $(basename "$pkg")"
+          done
+          dotnet nuget push "${packages[@]}" \
+            --source "https://api.nuget.org/v3/index.json" \
+            --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" \
+            --skip-duplicate
+          if [ ${#symbols[@]} -gt 0 ]; then
+            echo "Publishing ${#symbols[@]} symbol package(s)"
+            dotnet nuget push "${symbols[@]}" \
+              --source "https://api.nuget.org/v3/index.json" \
+              --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" \
+              --skip-duplicate
+          fi
+
+  git:
+    needs: [prepare, publish]
+    runs-on: ubuntu-latest
+    name: Squash to main/develop and tag
+    permissions:
+      contents: write
+    steps:
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.NEOX_GITFLOW_APP_ID }}
+          private-key: ${{ secrets.NEOX_GITFLOW_APP_PRIVATE_KEY }}
+
+      - name: Checkout release branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref_name }}
+          token: ${{ steps.app-token.outputs.token }}
+
       - name: Squash-merge into main
         env:
-          HEAD_REF: ${{ steps.version.outputs.head_ref }}
-          VERSION: ${{ steps.version.outputs.version }}
+          HEAD_REF: ${{ needs.prepare.outputs.head_ref }}
+          VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           set -euo pipefail
           git config user.name "neox-gitflow[bot]"
@@ -100,10 +176,30 @@ jobs:
             echo "Squash-merged $HEAD_REF into main"
           fi
 
+      - name: Squash-merge into develop
+        env:
+          HEAD_REF: ${{ needs.prepare.outputs.head_ref }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name "neox-gitflow[bot]"
+          git config user.email "neox-gitflow[bot]@users.noreply.github.com"
+
+          git fetch origin develop "$HEAD_REF"
+          git checkout -B develop origin/develop
+          git merge --squash "origin/$HEAD_REF"
+          if git diff --cached --quiet; then
+            echo "develop already contains $HEAD_REF — nothing to squash"
+          else
+            git commit -m "chore: sync release $VERSION into develop"
+            git push origin develop
+            echo "Squash-merged $HEAD_REF into develop"
+          fi
+
       - name: Create tag v*
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          TAG: ${{ steps.version.outputs.tag }}
+          TAG: ${{ needs.prepare.outputs.tag }}
         run: |
           set -euo pipefail
           git fetch origin main --tags --force
@@ -124,88 +220,11 @@ jobs:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          TAG: ${{ steps.version.outputs.tag }}
+          TAG: ${{ needs.prepare.outputs.tag }}
         run: |
           set -euo pipefail
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Release $TAG already exists"
           else
             gh release create "$TAG" --title "$TAG" --generate-notes
-          fi
-
-      - name: Squash-merge into develop
-        env:
-          HEAD_REF: ${{ steps.version.outputs.head_ref }}
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          set -euo pipefail
-          git config user.name "neox-gitflow[bot]"
-          git config user.email "neox-gitflow[bot]@users.noreply.github.com"
-
-          git fetch origin develop "$HEAD_REF"
-          git checkout -B develop origin/develop
-          git merge --squash "origin/$HEAD_REF"
-          if git diff --cached --quiet; then
-            echo "develop already contains $HEAD_REF — nothing to squash"
-          else
-            git commit -m "chore: sync release $VERSION into develop"
-            git push origin develop
-            echo "Squash-merged $HEAD_REF into develop"
-          fi
-
-      - name: Compute OfficialBuildId
-        id: buildid
-        run: echo "official_build_id=$(date -u +%Y%m%d).${{ github.run_number }}" >> "$GITHUB_OUTPUT"
-
-      - name: Checkout main for pack
-        run: |
-          set -euo pipefail
-          git fetch origin main
-          git checkout -B main origin/main
-
-      - name: Build, test, and pack
-        run: >
-          ./eng/common/build.sh
-          --ci --restore --build --test --pack
-          --configuration Release
-          /p:Sign=false
-          /p:OfficialBuildId=${{ steps.buildid.outputs.official_build_id }}
-
-      - name: Upload Shipping packages
-        uses: actions/upload-artifact@v4
-        with:
-          name: Shipping-${{ steps.version.outputs.tag }}
-          path: artifacts/packages/Release/Shipping/
-          if-no-files-found: error
-
-      - name: NuGet login (OIDC → temp API key)
-        uses: NuGet/login@v1
-        id: login
-        with:
-          user: ${{ secrets.NUGET_USER }}
-
-      - name: Push packages to nuget.org
-        run: |
-          set -euo pipefail
-          shopt -s nullglob
-          packages=(artifacts/packages/Release/Shipping/*.nupkg)
-          symbols=(artifacts/packages/Release/Shipping/*.snupkg)
-          if [ ${#packages[@]} -eq 0 ]; then
-            echo "No Shipping packages found under artifacts/packages/Release/Shipping/"
-            exit 1
-          fi
-          echo "Publishing ${#packages[@]} package(s) to nuget.org"
-          for pkg in "${packages[@]}"; do
-            echo "  - $(basename "$pkg")"
-          done
-          dotnet nuget push "${packages[@]}" \
-            --source "https://api.nuget.org/v3/index.json" \
-            --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" \
-            --skip-duplicate
-          if [ ${#symbols[@]} -gt 0 ]; then
-            echo "Publishing ${#symbols[@]} symbol package(s)"
-            dotnet nuget push "${symbols[@]}" \
-              --source "https://api.nuget.org/v3/index.json" \
-              --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" \
-              --skip-duplicate
           fi

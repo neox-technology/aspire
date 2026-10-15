@@ -1,11 +1,8 @@
 namespace Neox.Aspire.Hosting.Keycloak;
 
-internal interface IKeycloakRedirectClient
-{
-    KeycloakRealmResource Parent { get; }
-
+internal interface IKeycloakRedirectClient {
     string ClientId { get; }
-
+    KeycloakRealmResource Parent { get; }
     IList<Uri> RedirectUrls { get; }
 
     bool UseDevWebOriginWildcard { get; set; }

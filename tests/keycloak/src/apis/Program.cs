@@ -98,6 +98,7 @@ app.MapGet("/me", [Authorize] (HttpContext context) =>
         ?? context.User.FindFirst("name")?.Value
         ?? context.User.FindFirst("unique_name")?.Value
         ?? context.User.FindFirst("sub")?.Value;
+
     return Results.Ok(new { name });
 });
 

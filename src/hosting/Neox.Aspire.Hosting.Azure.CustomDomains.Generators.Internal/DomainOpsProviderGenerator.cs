@@ -1,16 +1,14 @@
-using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
+using System.Text;
 
 namespace Neox.Aspire.Hosting.Azure.CustomDomains.Generators.Internal;
 
 [Generator]
-public sealed class DomainOpsProviderGenerator : IIncrementalGenerator
-{
+public sealed class DomainOpsProviderGenerator : IIncrementalGenerator {
     private const string CatalogFileName = "octodns-providers.json";
 
-    public void Initialize(IncrementalGeneratorInitializationContext context)
-    {
+    public void Initialize(IncrementalGeneratorInitializationContext context) {
         var catalog = context.AdditionalTextsProvider
             .Where(static file => System.IO.Path.GetFileName(file.Path).Equals(CatalogFileName, System.StringComparison.OrdinalIgnoreCase))
             .Select(static (file, ct) => file.GetText(ct)?.ToString())
@@ -20,15 +18,13 @@ public sealed class DomainOpsProviderGenerator : IIncrementalGenerator
         context.RegisterSourceOutput(catalog, static (spc, json) => Execute(spc, json));
     }
 
-    private static void Execute(SourceProductionContext context, string json)
-    {
+    private static void Execute(SourceProductionContext context, string json) {
         System.Collections.Generic.IReadOnlyList<ProviderModel> providers;
-        try
-        {
+
+        try {
             providers = DomainOpsProviderCodeGen.ParseCatalog(json);
         }
-        catch (System.Text.Json.JsonException ex)
-        {
+        catch (System.Text.Json.JsonException ex) {
             context.ReportDiagnostic(Diagnostic.Create(
                 new DiagnosticDescriptor(
                     "NEOXOCTO001",
@@ -42,8 +38,7 @@ public sealed class DomainOpsProviderGenerator : IIncrementalGenerator
             return;
         }
 
-        if (providers.Count == 0)
-        {
+        if (providers.Count == 0) {
             return;
         }
 
@@ -54,8 +49,7 @@ public sealed class DomainOpsProviderGenerator : IIncrementalGenerator
             "DomainOpsProviderBuilder.Methods.g.cs",
             SourceText.From(DomainOpsProviderCodeGen.GenerateBuilderMethods(providers), Encoding.UTF8));
 
-        foreach (var provider in providers)
-        {
+        foreach (var provider in providers) {
             context.AddSource(
                 provider.MethodName + "DomainOpsProvider.g.cs",
                 SourceText.From(DomainOpsProviderCodeGen.GenerateProviderTypes(provider), Encoding.UTF8));

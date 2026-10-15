@@ -14,7 +14,7 @@ Arcade pack for Neox Aspire packages. Public package ids ship on **nuget.org** (
 
 1. **Contributor packs locally** — Arcade restore/build/pack writes Shipping nupkgs (and snupkgs when present) under `artifacts/packages/`.
 2. **Operator validates a release branch** — **release-private-publish** on `release/*` packs with `PreReleaseVersionLabel=daily` + `OfficialBuildId` and pushes to GitHub Packages.
-3. **Operator ships** — **release-finalize** on `release/*` packs with `OfficialBuildId` from `Versions.props` (stable when `StabilizePackageVersion=true`) and pushes to nuget.org via `NuGet/login@v1` OIDC.
+3. **Operator ships** — **release-finalize** on `release/*` packs the release branch with `OfficialBuildId` from `Versions.props` (stable when `StabilizePackageVersion=true`), pushes to nuget.org via `NuGet/login@v1` OIDC, then runs the git job only if that push succeeded.
 4. **Consumer installs from nuget.org** — packages remain installable; no private feed required for public consumption.
 
 ## Business rules
@@ -60,6 +60,7 @@ See [`domain-glossary`](domain-glossary.md). **Daily** = Arcade prerelease label
 |------|------|
 | Private publish workflow | `.github/workflows/release-private-publish.yml` |
 | nuget.org finalize workflow | `.github/workflows/release-finalize.yml` |
+| Shared Arcade pack | `.github/workflows/arcade-build-test-package.yml` |
 | Package metadata | `Directory.Build.props` / `Directory.Build.targets` |
 | License | Root `LICENSE` (MIT); NuGet `PackageLicenseExpression=MIT` |
 | Versions | `eng/Versions.props` |

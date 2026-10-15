@@ -52,6 +52,7 @@ public sealed class MigrationWorkerTests
     private async Task AssertMigrationsAppliedAsync(string databaseResourceName, CancellationToken cancellationToken)
     {
         var connectionString = await _app.GetConnectionStringAsync(databaseResourceName, cancellationToken);
+
         Assert.False(string.IsNullOrWhiteSpace(connectionString), $"Missing connection string for '{databaseResourceName}'.");
 
         var options = new DbContextOptionsBuilder<TestDbContext>()

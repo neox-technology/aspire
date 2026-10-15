@@ -3,36 +3,21 @@ using Aspire.Hosting.ApplicationModel;
 
 namespace Neox.Aspire.Hosting.Azure;
 
-public static partial class AzureCustomDomainOpsExtensions
-{
-    /// <summary>
-    /// Aspire parameter name for the custom hostname of compute resource <paramref name="resourceName"/>
-    /// (<c>{resource}-domain</c>).
-    /// </summary>
-    public static string GetCustomDomainParameterName(string resourceName)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(resourceName);
-        return $"{resourceName}-domain";
-    }
+public static partial class AzureCustomDomainOpsExtensions {
 
     /// <summary>
-    /// Aspire parameter name for the managed certificate of compute resource <paramref name="resourceName"/>
-    /// (<c>{resource}-certificate</c>).
+    /// Gets or adds the certificate parameter deduced from <paramref name="customDomain"/>
+    /// (<c>{domain.Name}-certificate</c>).
     /// </summary>
-    public static string GetCertificateParameterName(string resourceName)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(resourceName);
-        return $"{resourceName}-certificate";
-    }
-
-    /// <summary>
-    /// Aspire parameter name for the managed certificate paired with domain parameter
-    /// <paramref name="customDomain"/> (<c>{domain.Name}-certificate</c>).
-    /// </summary>
-    public static string GetCertificateParameterName(ParameterResource customDomain)
-    {
+    public static IResourceBuilder<ParameterResource> EnsureAzureCustomDomainCertificateParameter(
+        IDistributedApplicationBuilder applicationBuilder,
+        IResourceBuilder<ParameterResource> customDomain) {
+        ArgumentNullException.ThrowIfNull(applicationBuilder);
         ArgumentNullException.ThrowIfNull(customDomain);
-        return $"{customDomain.Name}-certificate";
+
+        return GetOrAddCertificateParameter(
+            applicationBuilder,
+            GetCertificateParameterName(customDomain.Resource));
     }
 
     /// <summary>
@@ -49,8 +34,7 @@ public static partial class AzureCustomDomainOpsExtensions
         EnsureAzureCustomDomainParameters(
             IDistributedApplicationBuilder applicationBuilder,
             string resourceName,
-            string? hostname = null)
-    {
+            string? hostname = null) {
         ArgumentNullException.ThrowIfNull(applicationBuilder);
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceName);
 
@@ -67,48 +51,30 @@ public static partial class AzureCustomDomainOpsExtensions
     }
 
     /// <summary>
-    /// Gets or adds the certificate parameter deduced from <paramref name="customDomain"/>
-    /// (<c>{domain.Name}-certificate</c>).
+    /// Aspire parameter name for the managed certificate of compute resource <paramref name="resourceName"/>
+    /// (<c>{resource}-certificate</c>).
     /// </summary>
-    public static IResourceBuilder<ParameterResource> EnsureAzureCustomDomainCertificateParameter(
-        IDistributedApplicationBuilder applicationBuilder,
-        IResourceBuilder<ParameterResource> customDomain)
-    {
-        ArgumentNullException.ThrowIfNull(applicationBuilder);
+    public static string GetCertificateParameterName(string resourceName) {
+        ArgumentException.ThrowIfNullOrWhiteSpace(resourceName);
+        return $"{resourceName}-certificate";
+    }
+
+    /// <summary>
+    /// Aspire parameter name for the managed certificate paired with domain parameter
+    /// <paramref name="customDomain"/> (<c>{domain.Name}-certificate</c>).
+    /// </summary>
+    public static string GetCertificateParameterName(ParameterResource customDomain) {
         ArgumentNullException.ThrowIfNull(customDomain);
-
-        return GetOrAddCertificateParameter(
-            applicationBuilder,
-            GetCertificateParameterName(customDomain.Resource));
+        return $"{customDomain.Name}-certificate";
     }
 
-    private static IResourceBuilder<ParameterResource> GetOrAddParameter(
-        IDistributedApplicationBuilder applicationBuilder,
-        string parameterName,
-        string? defaultValue)
-    {
-        var existing = FindParameter(applicationBuilder, parameterName);
-        if (existing is not null)
-        {
-            return applicationBuilder.CreateResourceBuilder(existing);
-        }
-
-        return string.IsNullOrWhiteSpace(defaultValue)
-            ? applicationBuilder.AddParameter(parameterName)
-            : applicationBuilder.AddParameter(parameterName, defaultValue);
-    }
-
-    private static IResourceBuilder<ParameterResource> GetOrAddCertificateParameter(
-        IDistributedApplicationBuilder applicationBuilder,
-        string parameterName)
-    {
-        var existing = FindParameter(applicationBuilder, parameterName);
-        if (existing is not null)
-        {
-            return applicationBuilder.CreateResourceBuilder(existing);
-        }
-
-        return applicationBuilder.AddParameter(parameterName, string.Empty, publishValueAsDefault: true);
+    /// <summary>
+    /// Aspire parameter name for the custom hostname of compute resource <paramref name="resourceName"/>
+    /// (<c>{resource}-domain</c>).
+    /// </summary>
+    public static string GetCustomDomainParameterName(string resourceName) {
+        ArgumentException.ThrowIfNullOrWhiteSpace(resourceName);
+        return $"{resourceName}-domain";
     }
 
     private static ParameterResource? FindParameter(
@@ -117,4 +83,31 @@ public static partial class AzureCustomDomainOpsExtensions
         => applicationBuilder.Resources
             .OfType<ParameterResource>()
             .FirstOrDefault(p => string.Equals(p.Name, parameterName, StringComparison.Ordinal));
+
+    private static IResourceBuilder<ParameterResource> GetOrAddCertificateParameter(
+        IDistributedApplicationBuilder applicationBuilder,
+        string parameterName) {
+        var existing = FindParameter(applicationBuilder, parameterName);
+
+        if (existing is not null) {
+            return applicationBuilder.CreateResourceBuilder(existing);
+        }
+
+        return applicationBuilder.AddParameter(parameterName, string.Empty, publishValueAsDefault: true);
+    }
+
+    private static IResourceBuilder<ParameterResource> GetOrAddParameter(
+                IDistributedApplicationBuilder applicationBuilder,
+        string parameterName,
+        string? defaultValue) {
+        var existing = FindParameter(applicationBuilder, parameterName);
+
+        if (existing is not null) {
+            return applicationBuilder.CreateResourceBuilder(existing);
+        }
+
+        return string.IsNullOrWhiteSpace(defaultValue)
+            ? applicationBuilder.AddParameter(parameterName)
+            : applicationBuilder.AddParameter(parameterName, defaultValue);
+    }
 }

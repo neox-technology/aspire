@@ -3,13 +3,15 @@ namespace Neox.Aspire.Hosting.Azure.Provisioning;
 /// <summary>
 /// Azure Resource Manager operations for Container App custom-domain provisioning.
 /// </summary>
-public interface IAzureContainerAppClient : IAzureContainerAppReader
-{
+public interface IAzureContainerAppClient : IAzureContainerAppReader {
+
     /// <summary>
-    /// Lists managed certificates on the Container Apps environment.
+    /// Binds an existing managed certificate to a custom hostname on the Container App.
     /// </summary>
-    Task<IReadOnlyList<AzureManagedCertificateInfo>> ListManagedCertificatesAsync(
+    Task BindHostnameAsync(
         AzureContainerAppTargets targets,
+        string hostname,
+        string certificateId,
         CancellationToken cancellationToken);
 
     /// <summary>
@@ -33,11 +35,9 @@ public interface IAzureContainerAppClient : IAzureContainerAppReader
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Binds an existing managed certificate to a custom hostname on the Container App.
+    /// Lists managed certificates on the Container Apps environment.
     /// </summary>
-    Task BindHostnameAsync(
+    Task<IReadOnlyList<AzureManagedCertificateInfo>> ListManagedCertificatesAsync(
         AzureContainerAppTargets targets,
-        string hostname,
-        string certificateId,
         CancellationToken cancellationToken);
 }

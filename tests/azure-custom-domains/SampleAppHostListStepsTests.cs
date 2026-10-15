@@ -9,6 +9,7 @@ public sealed class SampleAppHostListStepsTests
     public void SampleAppHost_ProjectFile_Exists()
     {
         var path = FindSampleAppHostProject();
+
         Assert.True(File.Exists(path), $"Expected sample AppHost at {path}");
     }
 
@@ -30,6 +31,7 @@ public sealed class SampleAppHostListStepsTests
 
         var stdout = await process.StandardOutput.ReadToEndAsync();
         var stderr = await process.StandardError.ReadToEndAsync();
+
         await process.WaitForExitAsync();
 
         Assert.True(process.ExitCode == 0, $"Build failed:{Environment.NewLine}{stdout}{Environment.NewLine}{stderr}");
@@ -38,6 +40,7 @@ public sealed class SampleAppHostListStepsTests
     private static string FindSampleAppHostProject()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
+
         while (dir is not null)
         {
             var candidate = Path.Combine(
@@ -57,6 +60,7 @@ public sealed class SampleAppHostListStepsTests
                 dir.FullName,
                 "sample-apphost",
                 "Neox.Aspire.Hosting.Azure.CustomDomains.Tests.SampleAppHost.csproj");
+
             if (File.Exists(candidate))
             {
                 return candidate;

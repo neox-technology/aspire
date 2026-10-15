@@ -12,6 +12,7 @@ public sealed class OctoDnsConfigWriterTests
     {
         var provider = new CloudflareDomainOpsProviderResource("dns");
         var token = new ParameterResource("dns-token", _ => "super-secret", secret: true);
+
         provider.BindAuthParameter("token", token);
 
         var yaml = new OctoDnsConfigWriter().WriteConfigYaml(provider, ["contoso.com"]);
@@ -26,6 +27,7 @@ public sealed class OctoDnsConfigWriterTests
     public void WriteConfigYaml_OvhIncludesLiteralEndpoint()
     {
         var provider = new OvhDomainOpsProviderResource("ovh");
+
         provider.SetLiteral("endpoint", "ovh-eu");
         provider.BindAuthParameter("application_key", new ParameterResource("ovh-application-key", _ => "k", secret: true));
         provider.BindAuthParameter("application_secret", new ParameterResource("ovh-application-secret", _ => "s", secret: true));

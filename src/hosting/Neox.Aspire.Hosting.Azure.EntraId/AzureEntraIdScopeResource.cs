@@ -1,5 +1,5 @@
-using System.Text;
 using Aspire.Hosting.ApplicationModel;
+using System.Text;
 
 namespace Neox.Aspire.Hosting.Azure;
 
@@ -8,8 +8,7 @@ namespace Neox.Aspire.Hosting.Azure;
 /// <see cref="AzureEntraIdAppRegistrationResource"/>. Not a provisioning resource;
 /// Graph <c>api.oauth2PermissionScopes</c> is emitted by the parent module.
 /// </summary>
-public sealed class AzureEntraIdScopeResource : Resource, IResourceWithParent<AzureEntraIdAppRegistrationResource>, IAzureEntraIdPermissibleResource
-{
+public sealed class AzureEntraIdScopeResource : Resource, IResourceWithParent<AzureEntraIdAppRegistrationResource>, IAzureEntraIdPermissibleResource {
     internal const string AdminConsentType = "Admin";
     internal const string UserConsentType = "User";
 
@@ -36,8 +35,7 @@ public sealed class AzureEntraIdScopeResource : Resource, IResourceWithParent<Az
         string adminConsentDescription,
         string? userConsentDisplayName = null,
         string? userConsentDescription = null)
-        : base(name)
-    {
+        : base(name) {
         ArgumentNullException.ThrowIfNull(parent);
         ArgumentException.ThrowIfNullOrEmpty(value);
         ArgumentException.ThrowIfNullOrEmpty(adminConsentDisplayName);
@@ -53,13 +51,10 @@ public sealed class AzureEntraIdScopeResource : Resource, IResourceWithParent<Az
         Id = CreateScopeId(parent.Name, value);
     }
 
-    /// <inheritdoc />
-    public AzureEntraIdAppRegistrationResource Parent { get; }
-
     /// <summary>
-    /// Graph <c>oauth2PermissionScopes[].value</c> (scp claim).
+    /// Graph <c>adminConsentDescription</c>.
     /// </summary>
-    public string Value { get; }
+    public string AdminConsentDescription { get; }
 
     /// <summary>
     /// Graph <c>adminConsentDisplayName</c>.
@@ -67,14 +62,20 @@ public sealed class AzureEntraIdScopeResource : Resource, IResourceWithParent<Az
     public string AdminConsentDisplayName { get; }
 
     /// <summary>
-    /// Graph <c>adminConsentDescription</c>.
+    /// Graph <c>type</c>: <c>Admin</c> or <c>User</c>.
     /// </summary>
-    public string AdminConsentDescription { get; }
+    public string ConsentType { get; }
 
     /// <summary>
-    /// Graph <c>userConsentDisplayName</c>, or <see langword="null"/> when consent type is Admin.
+    /// Stable Graph <c>oauth2PermissionScopes[].id</c> derived from parent name and <see cref="Value"/>.
     /// </summary>
-    public string? UserConsentDisplayName { get; }
+    public Guid Id { get; }
+
+    /// <inheritdoc />
+    public AzureEntraIdAppRegistrationResource Parent { get; }
+
+    /// <inheritdoc />
+    public AzureEntraIdPermissionType Type => AzureEntraIdPermissionType.Scope;
 
     /// <summary>
     /// Graph <c>userConsentDescription</c>, or <see langword="null"/> when consent type is Admin.
@@ -82,29 +83,28 @@ public sealed class AzureEntraIdScopeResource : Resource, IResourceWithParent<Az
     public string? UserConsentDescription { get; }
 
     /// <summary>
-    /// Graph <c>type</c>: <c>Admin</c> or <c>User</c>.
+    /// Graph <c>userConsentDisplayName</c>, or <see langword="null"/> when consent type is Admin.
     /// </summary>
-    public string ConsentType { get; }
-
-    /// <inheritdoc />
-    public AzureEntraIdPermissionType Type => AzureEntraIdPermissionType.Scope;
+    public string? UserConsentDisplayName { get; }
 
     /// <summary>
-    /// Stable Graph <c>oauth2PermissionScopes[].id</c> derived from parent name and <see cref="Value"/>.
+    /// Graph <c>oauth2PermissionScopes[].value</c> (scp claim).
     /// </summary>
-    public Guid Id { get; }
+    public string Value { get; }
 
-    internal static Guid CreateScopeId(string parentName, string value)
-    {
+    internal static Guid CreateScopeId(string parentName, string value) {
         var nameBytes = Encoding.UTF8.GetBytes($"{parentName}:{value}");
         Span<byte> ns = stackalloc byte[16];
+
         ScopeIdNamespace.TryWriteBytes(ns, bigEndian: true, out _);
 
         var data = new byte[16 + nameBytes.Length];
+
         ns.CopyTo(data);
         nameBytes.CopyTo(data.AsSpan(16));
 
         Span<byte> hash = stackalloc byte[20];
+
         System.Security.Cryptography.SHA1.HashData(data, hash);
         hash[6] = (byte)((hash[6] & 0x0F) | 0x50);
         hash[8] = (byte)((hash[8] & 0x3F) | 0x80);

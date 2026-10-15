@@ -1,7 +1,6 @@
 namespace Neox.Aspire.Hosting.Azure;
 
-internal enum DomainOpsActionKind
-{
+internal enum DomainOpsActionKind {
     PlanProvider,
     PlanZone,
     ProvisionZone,

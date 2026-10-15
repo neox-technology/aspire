@@ -227,6 +227,26 @@ Mark executable: `git add --chmod=+x build.sh`.
 
 Place under `src/`. Prefer `Microsoft.NET.Sdk` (not Arcade as the project SDK).
 
+## tests/Directory.Build.props
+
+MSBuild uses the nearest `Directory.Build.props` only. Always import the parent, then mark the whole tree non-shipping. Do **not** set `IsTestProject=true` on fixtures.
+
+```xml
+<Project>
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup>
+    <IsShipping>false</IsShipping>
+    <IsPackable>false</IsPackable>
+    <IsTestUtilityProject Condition="'$(IsUnitTestProject)' != 'true'">true</IsTestUtilityProject>
+  </PropertyGroup>
+</Project>
+```
+
+xUnit runners whose name does **not** end with `.Tests` / `.UnitTests` / `.IntegrationTests` / `.PerformanceTests` still need `<IsUnitTestProject>true</IsUnitTestProject>` in the csproj.
+
+Do not add `.esproj` / `Microsoft.VisualStudio.JavaScript.Sdk` under `tests/`. A SPA is a Vite folder wired with `AddViteApp`, not an MSBuild project.
+
 ## README consume snippet (GitHub Packages)
 
 Document when publishing:

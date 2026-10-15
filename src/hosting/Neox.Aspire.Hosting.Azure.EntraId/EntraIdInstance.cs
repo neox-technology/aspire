@@ -6,20 +6,17 @@ namespace Neox.Aspire.Hosting.Azure;
 /// <summary>
 /// Login host injected as <c>{sectionName}Instance</c> for Microsoft.Identity.Web or MSAL.
 /// </summary>
-public sealed class EntraIdInstance
-{
+public sealed class EntraIdInstance {
     private const string WorkforceUrl = "https://login.microsoftonline.com/";
 
     private readonly string? _literalUrl;
     private readonly ParameterResource? _subdomainParameter;
 
-    private EntraIdInstance(string literalUrl)
-    {
+    private EntraIdInstance(string literalUrl) {
         _literalUrl = literalUrl;
     }
 
-    private EntraIdInstance(ParameterResource subdomainParameter)
-    {
+    private EntraIdInstance(ParameterResource subdomainParameter) {
         _subdomainParameter = subdomainParameter;
     }
 
@@ -32,12 +29,12 @@ public sealed class EntraIdInstance
     /// External ID (CIAM) host <c>https://{tenantSubdomain}.ciamlogin.com/</c>.
     /// </summary>
     /// <param name="tenantSubdomain">Directory subdomain (for example <c>contoso</c>), not a URL or GUID.</param>
-    public static EntraIdInstance Ciam(string tenantSubdomain)
-    {
+    public static EntraIdInstance Ciam(string tenantSubdomain) {
         ArgumentException.ThrowIfNullOrWhiteSpace(tenantSubdomain);
+
         var trimmed = tenantSubdomain.Trim();
-        if (trimmed.Contains("://", StringComparison.Ordinal) || trimmed.Contains('/', StringComparison.Ordinal))
-        {
+
+        if (trimmed.Contains("://", StringComparison.Ordinal) || trimmed.Contains('/', StringComparison.Ordinal)) {
             throw new ArgumentException(
                 "CIAM tenant subdomain must be the directory subdomain (for example 'contoso'), not a URL.",
                 nameof(tenantSubdomain));
@@ -50,8 +47,7 @@ public sealed class EntraIdInstance
     /// External ID (CIAM) host from an Aspire parameter interpolated at env-callback time.
     /// Does not read <see cref="ParameterResource"/> value at <c>Configure()</c>.
     /// </summary>
-    public static EntraIdInstance Ciam(IResourceBuilder<ParameterResource> tenantSubdomain)
-    {
+    public static EntraIdInstance Ciam(IResourceBuilder<ParameterResource> tenantSubdomain) {
         ArgumentNullException.ThrowIfNull(tenantSubdomain);
         return new(tenantSubdomain.Resource);
     }
@@ -59,35 +55,31 @@ public sealed class EntraIdInstance
     internal void ApplyInstanceEnvironment<TResource>(
         IResourceBuilder<TResource> builder,
         string sectionName)
-        where TResource : IResourceWithEnvironment
-    {
+        where TResource : IResourceWithEnvironment {
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentException.ThrowIfNullOrEmpty(sectionName);
 
-        if (_literalUrl is not null)
-        {
+        if (_literalUrl is not null) {
             builder.WithEnvironment($"{sectionName}Instance", _literalUrl);
             return;
         }
 
-            builder.WithEnvironment(
-                $"{sectionName}Instance",
-                ReferenceExpression.Create($"https://{_subdomainParameter!}.ciamlogin.com/"));
+        builder.WithEnvironment(
+            $"{sectionName}Instance",
+            ReferenceExpression.Create($"https://{_subdomainParameter!}.ciamlogin.com/"));
     }
 
     /// <summary>
     /// Resolves the login host URL (trailing slash) for OIDC discovery construction.
     /// </summary>
-    internal async Task<string> ResolveBaseUrlAsync(CancellationToken cancellationToken)
-    {
-        if (_literalUrl is not null)
-        {
+    internal async Task<string> ResolveBaseUrlAsync(CancellationToken cancellationToken) {
+        if (_literalUrl is not null) {
             return _literalUrl;
         }
 
         var subdomain = await _subdomainParameter!.GetValueAsync(cancellationToken).ConfigureAwait(false);
-        if (string.IsNullOrWhiteSpace(subdomain))
-        {
+
+        if (string.IsNullOrWhiteSpace(subdomain)) {
             throw new InvalidOperationException("CIAM tenant subdomain parameter resolved to an empty value.");
         }
 

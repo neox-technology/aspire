@@ -5,7 +5,7 @@
 | Package | Downloads | README |
 |---------|-----------|--------|
 | [Neox.Aspire.EntityFrameworkCore.MigrationWorker](https://www.nuget.org/packages/Neox.Aspire.EntityFrameworkCore.MigrationWorker) | [![NuGet Downloads](https://img.shields.io/nuget/dt/Neox.Aspire.EntityFrameworkCore.MigrationWorker.svg)](https://www.nuget.org/packages/Neox.Aspire.EntityFrameworkCore.MigrationWorker) | [README](src/Neox.Aspire.EntityFrameworkCore.MigrationWorker/README.md) |
-| [Neox.Aspire.Hosting.Azure.CustomDomains](https://www.nuget.org/packages/Neox.Aspire.Hosting.Azure.CustomDomains) | [![NuGet Downloads](https://img.shields.io/nuget/dt/Neox.Aspire.Hosting.Azure.CustomDomains.svg)](https://www.nuget.org/packages/Neox.Aspire.Hosting.Azure.CustomDomains) | [README](src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains/README.md) |
+| [Neox.Aspire.Hosting.Azure.CustomDomains](src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains/README.md) | — | [README](src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains/README.md) |
 | [Neox.Azure.Provisioning.Graph](src/provisioning/Neox.Azure.Provisioning.Graph/README.md) | — | [README](src/provisioning/Neox.Azure.Provisioning.Graph/README.md) |
 | [Neox.Keycloak.Provisioning.Realm](src/provisioning/Neox.Keycloak.Provisioning.Realm/README.md) | — | [README](src/provisioning/Neox.Keycloak.Provisioning.Realm/README.md) |
 | [Neox.Aspire.Hosting.Azure.EntraId](src/hosting/Neox.Aspire.Hosting.Azure.EntraId/README.md) | — | [README](src/hosting/Neox.Aspire.Hosting.Azure.EntraId/README.md) |
@@ -28,7 +28,6 @@ Pick a package and install from nuget.org (see the package README for usage):
 
 ```bash
 dotnet add package Neox.Aspire.EntityFrameworkCore.MigrationWorker
-dotnet add package Neox.Aspire.Hosting.Azure.CustomDomains
 dotnet add package Neox.Azure.Provisioning.Graph
 dotnet add package Neox.Keycloak.Provisioning.Realm
 dotnet add package Neox.Aspire.Hosting.Azure.EntraId
@@ -42,12 +41,12 @@ dotnet add package Neox.Aspire.Hosting.Keycloak.EntraId
 | [CustomDomains](src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains/README.md) | `AddDomainOpsProvider` + `WithAzureCustomDomainOps` |
 | [Azure.Provisioning.Graph](src/provisioning/Neox.Azure.Provisioning.Graph/README.md) | `GraphApplication` / `GraphServicePrincipal` (`Azure.Provisioning` constructs from msgraph-bicep-types) |
 | [Keycloak.Provisioning.Realm](src/provisioning/Neox.Keycloak.Provisioning.Realm/README.md) | `RealmRepresentation` / `ClientRepresentation` (Keycloak realm import JSON POCOs from Admin REST OpenAPI) |
-| [Azure.EntraId](src/hosting/Neox.Aspire.Hosting.Azure.EntraId/README.md) | `AddAzureAppRegistration` + `WithSupportedAccountType` / `AddScope` / `AddAppRole` / `AddWebApplication` / `AddSpaApplication` / `WithPermission` / `AddCertificate` / `WithKeyCredential` / `WithSecret` / `EntraIdInstance` / `WithMicrosoftIdentityWebApplication` / `WithEntraIdSpaApplication` (`AzureProvisioningResource` + Graph CDK) |
+| [Azure.EntraId](src/hosting/Neox.Aspire.Hosting.Azure.EntraId/README.md) | `AddAzureAppRegistration` + `WithSupportedAccountType` / `AddScope` / `AddAppRole` / `AddWebApplication` / `AddSpaApplication` / `WithPermission` / `MicrosoftGraph` / `AddCertificate` / `WithKeyCredential` / `WithSecret` / `EntraIdInstance` / `WithMicrosoftIdentityWebApplication` / `WithEntraIdSpaApplication` (`AzureProvisioningResource` + Graph CDK) |
 | [Keycloak](src/hosting/Neox.Aspire.Hosting.Keycloak/README.md) | `AddRealm` + `AddJwtClient` / `AddOidcClient` / `AddIdentityProvider` + `WithLocalRedirectUri` / `WithRedirectUrl` + `WithKeycloakJwtBearer` / `WithKeycloakSpa` on upstream `AddKeycloak` |
 | [Keycloak.EntraId](src/hosting/Neox.Aspire.Hosting.Keycloak.EntraId/README.md) | `AddEntraIdIdentityProvider` — Entra app registration as Keycloak OIDC identity provider |
 
 > [!NOTE]
-> .NET SDK **10.0.110** is pinned in [`global.json`](global.json). Arcade installs a local copy via `eng/common` when needed.
+> .NET SDK **10.0.111** is pinned in [`global.json`](global.json). Arcade installs a local copy via `eng/common` when needed.
 
 ## Specs
 
@@ -64,8 +63,8 @@ See [`specs/README.md`](specs/README.md). Terminology: [`domain-glossary`](specs
 | Sample AppHosts | Harnesses under `tests/` ([`.cursor/rules/aspire-apphost.mdc`](.cursor/rules/aspire-apphost.mdc)) |
 | GitHub Actions | Manual release workflows ([`gitflow-ci`](specs/features/gitflow-ci.md), [`nuget-org`](specs/features/nuget-org.md)) |
 | NuGet packages | Shipping libraries in `src/`; local Arcade pack + GHA publish |
-| Azure Entra ID hosting | Implemented ([`azure-entra-id`](specs/features/azure-entra-id.md)) — `AddAzureAppRegistration` + `AddScope` + `AddAppRole` + `AddWebApplication` + `AddSpaApplication` + `WithPermission` + `AddCertificate` / `WithKeyCredential` + `WithSecret` + `EntraIdInstance` + `WithMicrosoftIdentityWebApplication` + `WithEntraIdSpaApplication` |
-| Keycloak hosting | Implemented ([`keycloak-hosting`](specs/features/keycloak-hosting.md)) — `AddRealm` + `WithOrganizations` / `WithOrganization` / `AddJwtClient` / `AddOidcClient` / `AddIdentityProvider` + `WithLocalRedirectUri` / `WithRedirectUrl` + `WithKeycloakJwtBearer` / `WithKeycloakSpa` on upstream `AddKeycloak`; harness runs Keycloak with realm import, JWT API, and SPA stub |
+| Azure Entra ID hosting | Implemented ([`azure-entra-id`](specs/features/azure-entra-id.md)) — `AddAzureAppRegistration` + `AddScope` + `AddAppRole` + `AddWebApplication` + `AddSpaApplication` + `WithPermission` / `MicrosoftGraph` + `AddCertificate` / `WithKeyCredential` + `WithSecret` + `EntraIdInstance` + `WithMicrosoftIdentityWebApplication` + `WithEntraIdSpaApplication` |
+| Keycloak hosting | Implemented ([`keycloak-hosting`](specs/features/keycloak-hosting.md)) — `AddRealm` + `WithOrganizations` / `WithOrganization` / `AddUser` / `WithRealmRole` / `WithUser` / `AddJwtClient` / `AddOidcClient` / `AddIdentityProvider` + `WithLocalRedirectUri` / `WithRedirectUrl` + `WithKeycloakJwtBearer` / `WithKeycloakSpa` on upstream `AddKeycloak`; harness runs Keycloak with realm import, JWT API, and SPA stub |
 | Keycloak Entra ID hosting | Implemented ([`keycloak-entraid`](specs/features/keycloak-entraid.md)) — bridge `AddEntraIdIdentityProvider` (Entra app registration → Keycloak OIDC IdP) |
 | Azure.Provisioning Graph | Implemented ([`azure-provisioning-graph`](specs/features/azure-provisioning-graph.md)) — source-generated Graph Bicep constructs |
 | Keycloak realm provisioning | Implemented ([`keycloak-provisioning-realm`](specs/features/keycloak-provisioning-realm.md)) — source-generated realm POCOs from Keycloak OpenAPI 26.2.5 |
@@ -87,7 +86,7 @@ Packable libraries live under `src/`. Hosting packages use the `Neox.Aspire.Host
 | [`Neox.Aspire.Hosting.Azure.CustomDomains`](src/hosting/Neox.Aspire.Hosting.Azure.CustomDomains) | ACA custom domain ops (`WithAzureCustomDomainOps`, OctoDNS / managed certs via `aspire do`) |
 | [`Neox.Azure.Provisioning.Graph`](src/provisioning/Neox.Azure.Provisioning.Graph) | Graph Bicep `Azure.Provisioning` constructs (Shipping; source-generated from msgraph-bicep-types) |
 | [`Neox.Keycloak.Provisioning.Realm`](src/provisioning/Neox.Keycloak.Provisioning.Realm) | Keycloak realm import JSON POCOs (Shipping; source-generated from Keycloak Admin REST OpenAPI) |
-| [`Neox.Aspire.Hosting.Azure.EntraId`](src/hosting/Neox.Aspire.Hosting.Azure.EntraId) | Entra ID `AddAzureAppRegistration` + `AddWebApplication` + `AddSpaApplication` + `EntraIdInstance` + `WithMicrosoftIdentityWebApplication` + `WithEntraIdSpaApplication` + `WithPermission` + `AddCertificate` / `WithKeyCredential` + `WithSecret` (`AzureProvisioningResource`; Shipping) |
+| [`Neox.Aspire.Hosting.Azure.EntraId`](src/hosting/Neox.Aspire.Hosting.Azure.EntraId) | Entra ID `AddAzureAppRegistration` + `AddWebApplication` + `AddSpaApplication` + `EntraIdInstance` + `WithMicrosoftIdentityWebApplication` + `WithEntraIdSpaApplication` + `WithPermission` / `MicrosoftGraph` + `AddCertificate` / `WithKeyCredential` + `WithSecret` (`AzureProvisioningResource`; Shipping) |
 | [`Neox.Aspire.Hosting.Keycloak`](src/hosting/Neox.Aspire.Hosting.Keycloak) | Keycloak `AddRealm` + `AddJwtClient` / `AddOidcClient` / `AddIdentityProvider` + `WithKeycloakJwtBearer` / `WithKeycloakSpa` (realm import + API/SPA env projection; Shipping) |
 | [`Neox.Aspire.Hosting.Keycloak.EntraId`](src/hosting/Neox.Aspire.Hosting.Keycloak.EntraId) | Bridge `AddEntraIdIdentityProvider` (Entra app registration → Keycloak OIDC IdP; Shipping) |
 
@@ -120,8 +119,9 @@ Branch convention: `feature/*` → `develop`; `release/*` / `hotfix/*` → `main
 | Trigger | Workflow | Effect |
 |---------|----------|--------|
 | `workflow_dispatch` on `develop` | [`.github/workflows/release-start.yml`](.github/workflows/release-start.yml) | Bump from latest `v*` (`major` / `minor` / `patch` / `none` + optional preview); update [`eng/Versions.props`](eng/Versions.props); push `release/<version>` (no PR) |
-| `workflow_dispatch` on `release/*` | [`.github/workflows/release-private-publish.yml`](.github/workflows/release-private-publish.yml) | Arcade build/test/pack (`daily` + `OfficialBuildId`) → private GitHub Packages |
-| `workflow_dispatch` on `release/*` | [`.github/workflows/release-finalize.yml`](.github/workflows/release-finalize.yml) | Squash-merge → `main` and `develop`, tag `v*`, GitHub Release, Arcade build/test/pack → nuget.org (Trusted Publishing) |
+| `workflow_dispatch` on `release/*` | [`.github/workflows/release-private-publish.yml`](.github/workflows/release-private-publish.yml) | Calls [arcade-build-test-package](.github/workflows/arcade-build-test-package.yml) (`daily`) → private GitHub Packages |
+| `workflow_dispatch` on `release/*` | [`.github/workflows/release-finalize.yml`](.github/workflows/release-finalize.yml) | arcade-build-test-package → nuget.org (Trusted Publishing), then squash-merge → `main` and `develop`, tag `v*`, GitHub Release |
+| reusable | [`.github/workflows/arcade-build-test-package.yml`](.github/workflows/arcade-build-test-package.yml) | Shared Arcade restore/build/test/pack + Shipping artifact |
 
 Git automation uses org App **`neox-gitflow`** (`NEOX_GITFLOW_APP_ID` / `NEOX_GITFLOW_APP_PRIVATE_KEY`). nuget.org Trusted Publishing needs repo secret `NUGET_USER` (profile name) and a nuget.org policy for workflow file `release-finalize.yml`. Finalize uses squash-merge (linear history).
 

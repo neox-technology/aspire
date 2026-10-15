@@ -10,6 +10,7 @@ public sealed class TestDbContextFactory : IDesignTimeDbContextFactory<TestDbCon
         var options = new DbContextOptionsBuilder<TestDbContext>()
             .UseSqlServer("Server=(localdb)\\mssqllocaldb;Database=NeoxEfmwSqlDesign;Trusted_Connection=True;")
             .Options;
+
         return new TestDbContext(options);
     }
 }

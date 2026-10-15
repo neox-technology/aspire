@@ -37,6 +37,7 @@ Console.WriteLine($"Wrote Keycloak Admin REST OpenAPI {KeycloakVersion} to {outp
 static string FindRepoRoot()
 {
     var dir = new DirectoryInfo(AppContext.BaseDirectory);
+
     while (dir is not null)
     {
         if (File.Exists(Path.Combine(dir.FullName, "Neox.Aspire.slnx")))

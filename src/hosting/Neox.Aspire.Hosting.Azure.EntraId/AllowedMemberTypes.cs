@@ -5,8 +5,8 @@ namespace Neox.Aspire.Hosting.Azure;
 /// and/or other applications (<see cref="Application"/>).
 /// </summary>
 [Flags]
-public enum AllowedMemberTypes
-{
+public enum AllowedMemberTypes {
+
     /// <summary>
     /// Assignable to users and groups (Graph <c>User</c>).
     /// </summary>
