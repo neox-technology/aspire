@@ -18,9 +18,11 @@
     <Compile Remove="src/**" />
     <Content Remove="aspire/**" />
     <Content Remove="src/**" />
+    <EmbeddedResource Remove="aspire/**" />
+    <EmbeddedResource Remove="src/**" />
     <None Remove="aspire/**" />
     <None Remove="src/**" />
     <None Include="aspire/**" />
-    <None Include="src/**" />
+    <None Include="src/**" Exclude="**/node_modules/**;**/dist/**" />
   </ItemGroup>
 </Project>

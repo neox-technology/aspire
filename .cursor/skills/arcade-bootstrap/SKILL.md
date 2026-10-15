@@ -43,7 +43,7 @@ Arcade bootstrap:
 - [ ] eng/common from dotnet/arcade
 - [ ] eng/Versions.props (preview) + eng/Version.Details.xml
 - [ ] Root Build.cmd / build.sh wrappers
-- [ ] License file + src conventions
+- [ ] License file + src / tests conventions (`tests/Directory.Build.props`)
 - [ ] GitHub Actions CI + publish-nuget (if packing)
 - [ ] README consume snippet (if publishing)
 - [ ] Local restore/build/pack smoke test
@@ -143,7 +143,8 @@ Same pattern for `Restore.cmd` / `Test.cmd` if useful.
 - Build outputs live under `artifacts/` (Arcade default) — do not invent a parallel `bin/` at repo root.
 - Source projects under `src/`, using `Sdk="Microsoft.NET.Sdk"`.
 - Root license file matching the chosen mode (`LICENSE.txt` proprietary, or SPDX `LICENSE` for OSS).
-- Test projects: `*.Tests` / `*.UnitTests` / `*.IntegrationTests` naming; keep `IsPackable=false`.
+- **Tests** live under `tests/`. Add `tests/Directory.Build.props` that **imports the parent** then sets `IsShipping=false`, `IsPackable=false`, and `IsTestUtilityProject` when `IsUnitTestProject` is not true. Arcade auto-sets `IsUnitTestProject` when the project name ends with `.Tests` / `.UnitTests` / `.IntegrationTests` / `.PerformanceTests`; otherwise set `IsUnitTestProject=true` only on xUnit runners. Do **not** set `IsTestProject=true` on AppHost/API/fixture projects (Arcade `/t:Test` expects xUnit). Template: [references/file-templates.md](references/file-templates.md).
+- **No `.esproj`** / `Microsoft.VisualStudio.JavaScript.Sdk` under `tests/`. A SPA is a Vite folder wired with `AddViteApp`, not an MSBuild project and not a slnx entry. Nested `Directory.Build.*` that skip the parent import drop Arcade (the old JS TFM/`Test`/`Pack` workaround).
 
 ### 9. License file
 
@@ -181,6 +182,9 @@ Validation checklist: [references/checklist.md](references/checklist.md).
 |------|----------|
 | Authors still “Microsoft” | Set `Company` / `Authors` / `Copyright` **after** `Sdk.targets` |
 | `IsPackable=true` global | Packs tests; default `false`, opt-in on Shipping projects |
+| Nested `Directory.Build.props` without parent import | Drops Arcade for that subtree; always `GetPathOfFileAbove` the parent |
+| `.esproj` under `tests/` | JavaScript.Sdk has no Arcade `Test`/`Pack` and fights TFM (`NU1012`); use a Vite folder + `AddViteApp` |
+| `IsTestProject=true` on fixtures | Arcade looks for an xUnit runner on AppHost/API; use `IsTestUtilityProject` instead |
 | Symbols not on the feed | `IncludeSymbols` produces `.snupkg`; publish template pushes `*.nupkg` only — push symbols explicitly if needed |
 | Missing `RepositoryType` / README in package | Set `RepositoryType=git`; consider `PackageReadmeFile` |
 | CI on `develop` | Out of scope for this skill’s publish model (`main` only) |

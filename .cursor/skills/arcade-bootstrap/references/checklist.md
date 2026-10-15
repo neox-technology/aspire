@@ -42,6 +42,9 @@ Run after wiring files. All items should pass before calling the bootstrap done.
 ## Layout
 
 - [ ] Source projects under `src/` use `Sdk="Microsoft.NET.Sdk"`
+- [ ] `tests/Directory.Build.props` imports the parent and sets `IsShipping=false` / `IsPackable=false` / `IsTestUtilityProject`
+- [ ] xUnit runners that do not match `*.Tests` naming set `IsUnitTestProject=true` in the csproj
+- [ ] No `.esproj` / `Microsoft.VisualStudio.JavaScript.Sdk`; nested `Directory.Build.*` import the parent
 - [ ] No conflicting custom `Directory.Build.*` that skip Arcade imports
 - [ ] Optional `eng/Build.props` lists the correct solution/projects if needed
 
