@@ -52,6 +52,8 @@ builder.Services.AddAuthentication()
 
 `AddRealm` writes `.aspire/keycloak-realms/{keycloakName}/{realm}-realm.json` under the AppHost directory and wires upstream `WithRealmImport` once per Keycloak container.
 
+`MutateRealmJson` reads that import file, applies a `RealmRepresentation` callback, and writes it back. It is the only read and write path for realm JSON.
+
 `WithOrganizations` enables the organizations feature on the realm JSON. `WithOrganization(name, domain)` adds an organization and domain idempotently (can be chained after `AddRealm`).
 
 `AddJwtClient` registers a confidential JWT client on the realm (realm JSON + child `KeycloakJwtClientResource`) with an `oidc-audience-mapper` so access tokens include the configured audience.

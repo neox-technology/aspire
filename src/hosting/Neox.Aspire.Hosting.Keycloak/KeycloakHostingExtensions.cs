@@ -215,6 +215,31 @@ public static class KeycloakHostingExtensions {
     }
 
     /// <summary>
+    /// Reads <c>{realm}-realm.json</c>, applies <paramref name="mutate"/>, forces the realm name, and writes the file back.
+    /// This is the only read and write path for realm JSON.
+    /// </summary>
+    /// <param name="resource">Realm whose import file is mutated.</param>
+    /// <param name="mutate">Callback that updates the deserialized realm.</param>
+    public static void MutateRealmJson(
+        KeycloakRealmResource resource,
+        Action<RealmRepresentation> mutate) {
+        ArgumentNullException.ThrowIfNull(resource);
+        ArgumentNullException.ThrowIfNull(mutate);
+
+        var realmFilePath = Path.Combine(resource.ImportDirectory, $"{resource.Realm}-realm.json");
+        var json = File.ReadAllText(realmFilePath);
+        var representation = JsonSerializer.Deserialize<RealmRepresentation>(json, KeycloakRealmJsonOptions.Default)
+            ?? throw new InvalidOperationException($"Failed to deserialize realm JSON at '{realmFilePath}'.");
+
+        mutate(representation);
+        representation.Realm = resource.Realm;
+
+        File.WriteAllText(
+            realmFilePath,
+            JsonSerializer.Serialize(representation, KeycloakRealmJsonOptions.Default));
+    }
+
+    /// <summary>
     /// Adds an <c>access_as_user</c> client scope with an audience mapper and assigns it as a default scope on the SPA client.
     /// </summary>
     public static IResourceBuilder<KeycloakOidcClientResource> WithApiAudience(
@@ -520,25 +545,6 @@ public static class KeycloakHostingExtensions {
         });
 
         return builder;
-    }
-
-    internal static void MutateRealmJson(
-        KeycloakRealmResource resource,
-        Action<RealmRepresentation> mutate) {
-        ArgumentNullException.ThrowIfNull(resource);
-        ArgumentNullException.ThrowIfNull(mutate);
-
-        var realmFilePath = Path.Combine(resource.ImportDirectory, $"{resource.Realm}-realm.json");
-        var json = File.ReadAllText(realmFilePath);
-        var representation = JsonSerializer.Deserialize<RealmRepresentation>(json, KeycloakRealmJsonOptions.Default)
-            ?? throw new InvalidOperationException($"Failed to deserialize realm JSON at '{realmFilePath}'.");
-
-        mutate(representation);
-        representation.Realm = resource.Realm;
-
-        File.WriteAllText(
-            realmFilePath,
-            JsonSerializer.Serialize(representation, KeycloakRealmJsonOptions.Default));
     }
 
     private static void AddLocalRedirectUris(

@@ -26,6 +26,5 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Neox.Aspire.Hosting.Keycloak.Tests" />
-    <InternalsVisibleTo Include="Neox.Aspire.Hosting.Keycloak.EntraId" />
   </ItemGroup>
 </Project>

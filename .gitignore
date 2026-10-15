@@ -387,3 +387,6 @@ FodyWeavers.xsd
 # OctoDNS .yaml files
 octodns.yaml
 **/zones/*.yaml
+
+# Generated dist files
+**/dist/
