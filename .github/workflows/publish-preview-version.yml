@@ -100,7 +100,7 @@ jobs:
       - name: Upload Shipping packages
         uses: actions/upload-artifact@v4
         with:
-          name: Shipping-daily-${{ github.ref_name }}-${{ github.run_number }}
+          name: Shipping-daily-${{ steps.version.outputs.version }}-${{ github.run_number }}
           path: artifacts/packages/Release/Shipping/
           if-no-files-found: error
 
