@@ -65,6 +65,7 @@ Shipping hosting package `Neox.Aspire.Hosting.Keycloak` extends upstream [`Aspir
 
 - [x] Package `Neox.Aspire.Hosting.Keycloak` exists under `src/hosting/Neox.Aspire.Hosting.Keycloak/`.
 - [x] Public API exposes `AddRealm`, `WithOrganizations` / `WithOrganization`, `AddJwtClient`, `AddOidcClient`, `WithRedirectUrl`, `WithLocalRedirectUri`, `WithKeycloakJwtBearer`, and `WithKeycloakSpa`.
+- [x] Public API exposes `MutateRealmJson`; it is the only read and write path for realm JSON.
 - [x] Public API exposes `AddIdentityProvider`; registers `KeycloakIdentityProviderResource` and upserts `identityProviders` in realm JSON by alias.
 - [x] Public API exposes `AddUser`, `WithRealmRole`, and `WithUser`; registers `KeycloakUserResource` on the Keycloak server and upserts `users` (including `realmRoles`) in realm JSON.
 - [x] Tests assert IdP JSON, child resource wiring, and alias idempotence.
