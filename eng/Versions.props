@@ -26,6 +26,8 @@
     <AzureResourceManagerAppContainersVersion>1.5.0</AzureResourceManagerAppContainersVersion>
     <YamlDotNetVersion>18.1.0</YamlDotNetVersion>
     <SystemTextJsonVersion>10.0.11</SystemTextJsonVersion>
+    <!-- GHSA-846f-f764-76mx and GHSA-2fmv-rv2c-59x7: 10.0.12 and earlier are vulnerable. -->
+    <SystemSecurityCryptographyPkcsVersion>10.0.13</SystemSecurityCryptographyPkcsVersion>
     <!-- SDK 10.0.111 ships Roslyn 5.0.0; generators must not reference a newer compiler (CS9057).
          Microsoft.CodeAnalysis.Analyzers has no 5.0.0 package; 5.3.0 is the matching stable line. -->
     <MicrosoftCodeAnalysisCSharpVersion>5.0.0</MicrosoftCodeAnalysisCSharpVersion>

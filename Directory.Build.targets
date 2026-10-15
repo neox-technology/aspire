@@ -13,4 +13,11 @@
     <DebugSymbols>true</DebugSymbols>
     <CopyOutputSymbolsToOutputDirectory>true</CopyOutputSymbolsToOutputDirectory>
   </PropertyGroup>
+
+  <!-- Transitive System.Security.Cryptography.Pkcs below 10.0.13 trips NU1902/NU1903.
+       A direct reference unifies the graph. PrivateAssets keeps it out of shipping nuspecs.
+       Lives in targets so IsRoslynComponent (set in the project body) is already defined. -->
+  <ItemGroup Condition="'$(IsRoslynComponent)' != 'true'">
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="$(SystemSecurityCryptographyPkcsVersion)" PrivateAssets="all" />
+  </ItemGroup>
 </Project>

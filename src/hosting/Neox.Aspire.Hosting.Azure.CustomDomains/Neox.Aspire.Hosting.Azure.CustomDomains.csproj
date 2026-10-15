@@ -18,16 +18,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Aspire.Hosting.Azure.AppContainers" Version="$(AspireVersion)" />
+    <PackageReference Include="Aspire.Hosting.Azure.AppContainers" Version="13.6.1" />
     <PackageReference Include="Azure.Identity" Version="$(AzureIdentityVersion)" />
-    <PackageReference Include="Azure.ResourceManager.AppContainers" Version="$(AzureResourceManagerAppContainersVersion)" />
+    <PackageReference Include="Azure.ResourceManager.AppContainers" Version="1.6.0" />
     <PackageReference Include="YamlDotNet" Version="$(YamlDotNetVersion)" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Neox.Aspire.Hosting.Azure.CustomDomains.Generators.Internal\Neox.Aspire.Hosting.Azure.CustomDomains.Generators.Internal.csproj"
-                      OutputItemType="Analyzer"
-                      ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\Neox.Aspire.Hosting.Azure.CustomDomains.Generators.Internal\Neox.Aspire.Hosting.Azure.CustomDomains.Generators.Internal.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
   <ItemGroup>

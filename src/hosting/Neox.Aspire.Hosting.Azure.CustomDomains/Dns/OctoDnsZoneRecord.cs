@@ -13,8 +13,8 @@ public sealed class OctoDnsZoneRecord {
     public int Ttl { get; init; } = 0;
 
     [YamlMember(Alias = "type", Order = 1)]
-    public string Type { get; init; }
+    public required string Type { get; init; }
 
     [YamlMember(Alias = "value", Order = 2)]
-    public string Value { get; init; }
+    public required string Value { get; init; }
 }

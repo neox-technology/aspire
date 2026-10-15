@@ -1,4 +1,4 @@
-<Project Sdk="Aspire.AppHost.Sdk/13.5.4">
+<Project Sdk="Aspire.AppHost.Sdk/13.6.1">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
@@ -9,7 +9,7 @@
     <UserSecretsId>22d1dbc1-29b4-4234-ae02-4b0bbb5ba71c</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Aspire.Hosting.JavaScript" Version="$(AspireVersion)" />
+    <PackageReference Include="Aspire.Hosting.JavaScript" Version="13.6.1" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\..\src\hosting\Neox.Aspire.Hosting.Azure.EntraId\Neox.Aspire.Hosting.Azure.EntraId.csproj" IsAspireProjectResource="false" />

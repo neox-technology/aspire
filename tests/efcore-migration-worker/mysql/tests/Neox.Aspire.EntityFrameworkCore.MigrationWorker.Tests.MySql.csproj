@@ -10,10 +10,10 @@
     <RootNamespace>Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.MySql</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Aspire.Hosting.Testing" Version="$(AspireVersion)" />
+    <PackageReference Include="Aspire.Hosting.Testing" Version="13.6.1" />
     <PackageReference Include="MySql.EntityFrameworkCore" Version="$(MySqlEntityFrameworkCoreVersion)" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="$(MicrosoftEntityFrameworkCoreVersion)" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="$(MicrosoftEntityFrameworkCoreVersion)" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.13" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.13" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\apphost\Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.MySql.AppHost.csproj" />

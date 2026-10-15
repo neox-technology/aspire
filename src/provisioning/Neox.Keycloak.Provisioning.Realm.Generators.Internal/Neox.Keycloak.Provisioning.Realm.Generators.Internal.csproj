@@ -14,6 +14,6 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="$(MicrosoftCodeAnalysisCSharpVersion)" PrivateAssets="all" />
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="$(MicrosoftCodeAnalysisAnalyzersVersion)" PrivateAssets="all" />
-    <PackageReference Include="System.Text.Json" Version="$(SystemTextJsonVersion)" PrivateAssets="all" />
+    <PackageReference Include="System.Text.Json" Version="10.0.13" PrivateAssets="all" />
   </ItemGroup>
 </Project>
