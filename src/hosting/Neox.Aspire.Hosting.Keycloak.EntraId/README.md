@@ -11,8 +11,7 @@ using Neox.Aspire.Hosting.Keycloak;
 using Neox.Aspire.Hosting.Keycloak.EntraId;
 
 var entraSecret = builder.AddParameter("entra-client-secret", secret: true);
-var entraApp = builder.AddAzureAppRegistration("saas-auth-entra")
-    .WithSecret(entraSecret);
+var entraApp = builder.AddAzureAppRegistration("saas-auth-entra");
 
 var keycloak = builder.AddKeycloak("auth", adminPassword: password);
 var realm = keycloak.AddRealm(realm: "master");
@@ -20,6 +19,7 @@ var realm = keycloak.AddRealm(realm: "master");
 realm.AddEntraIdIdentityProvider(
     EntraIdInstance.Workforce,
     entraApp,
+    entraSecret,
     alias: "microsoft",
     displayName: "Microsoft",
     brokerRedirectUri: new Uri("https://localhost/realms/master/broker/microsoft/endpoint"));
@@ -27,10 +27,9 @@ realm.AddEntraIdIdentityProvider(
 
 `AddEntraIdIdentityProvider`:
 
-- Requires at least one `WithSecret` on the app registration.
+- Takes the confidential client secret as an Aspire parameter. The Entra package does not create it.
 - Calls Keycloak `AddIdentityProvider` with `providerId` `oidc` (realm child / `IResourceWithParent`).
-- Creates a non-parented config gate (`{idpName}-config`) that `WaitFor`s the registration and
-  password credentials, then at initialize fetches Entra OIDC discovery metadata and writes
+- Creates a non-parented config gate (`{idpName}-config`) that `WaitFor`s the registration, then at initialize fetches Entra OIDC discovery metadata and writes
   `clientId`, `clientSecret`, discovery URL, and resolved endpoint URLs (`authorizationUrl`,
   `tokenUrl`, `jwksUrl`, `issuer`, …) into realm JSON.
 - Writes realm `identityProviderMappers` for the IdP alias so `email` and `preferred_username`

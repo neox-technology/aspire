@@ -4,7 +4,9 @@
 |-------|-------|
 | Slug | `keycloak-entraid` |
 | Status | implemented |
-| Last code review | 2026-08-21 |
+| Last code review | 2026-10-23 |
+
+`AddEntraIdIdentityProvider` takes the client secret parameter. It no longer reads `WithSecret` password credentials.
 
 ## Summary
 

@@ -1,7 +1,7 @@
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
-using Microsoft.Extensions.Logging;
-using System.Security.Cryptography.X509Certificates;
+using Microsoft.Extensions.DependencyInjection;
+using Neox.Azure.Provisioning.Graph;
 
 namespace Neox.Aspire.Hosting.Azure;
 
@@ -12,10 +12,10 @@ public static class AzureEntraIdHostingExtensions {
 
     /// <summary>
     /// Space-separated MSAL interactive login scopes injected as <c>{sectionName}LoginScopes</c>
-    /// for a public-client SPA. API resource scopes stay on <c>{sectionName}Scope</c>
-    /// (requesting them at login fails with AADSTS500207 on External ID).
+    /// for a public-client SPA. Scopes of other app registrations are injected as
+    /// <c>{sectionName}Scopes__n</c>.
     /// </summary>
-    public const string SpaLoginScopes = "openid offline_access";
+    public const string SpaLoginScopes = "openid profile offline_access";
 
     /// <summary>
     /// Exposes an app role on the Entra application (Graph <c>appRoles</c>).
@@ -67,71 +67,30 @@ public static class AzureEntraIdHostingExtensions {
 
         builder.AddAzureProvisioning();
 
-        var resource = new AzureEntraIdAppRegistrationResource(name);
+        if (!builder.Services.Any(descriptor => descriptor.ServiceType == typeof(AzureEntraIdDeletedApplicationRestorer))) {
+            builder.Services.AddSingleton<AzureEntraIdDeletedApplicationRestorer>();
+            builder.OnBeforeStart(async (start, cancellationToken) => {
+                await start.Services.GetRequiredService<AzureEntraIdDeletedApplicationRestorer>()
+                    .RestoreAsync(start.Services, start.Model, cancellationToken)
+                    .ConfigureAwait(false);
+            });
+        }
 
-        return builder.AddResource(resource)
+        var resource = new AzureEntraIdAppRegistrationResource(name);
+        var identity = new AzureEntraIdApplicationIdentityResource(resource);
+
+        resource.IdentityResource = identity;
+
+        var registration = builder.AddResource(resource)
             .WithManifestPublishingCallback(resource.WriteToManifest)
             .WithParameter(AzureEntraIdAppRegistrationResource.UniqueNameParameter, name)
             .WithParameter(AzureEntraIdAppRegistrationResource.DisplayNameParameter, name)
             .WithParameter(AzureEntraIdAppRegistrationResource.RedirectUrisParameter, Array.Empty<string>());
-    }
 
-    /// <summary>
-    /// Adds a check-only resource that verifies an X.509 certificate exists in
-    /// <c>StoreName.My</c> at <paramref name="storeLocation"/>.
-    /// The thumbprint is read from <paramref name="thumbprint"/> at initialize time.
-    /// </summary>
-    public static IResourceBuilder<AsymmetricX509CertResource> AddCertificate(
-        this IDistributedApplicationBuilder builder,
-        string name,
-        IResourceBuilder<ParameterResource> thumbprint,
-        StoreLocation storeLocation) {
-        ArgumentNullException.ThrowIfNull(builder);
-        ArgumentException.ThrowIfNullOrEmpty(name);
-        ArgumentNullException.ThrowIfNull(thumbprint);
+        builder.AddResource(identity)
+            .WaitFor(registration);
 
-        var resource = new AsymmetricX509CertResource(name, thumbprint.Resource, storeLocation);
-
-        return builder.AddResource(resource)
-            .ExcludeFromManifest()
-            .WithInitialState(new CustomResourceSnapshot {
-                ResourceType = "AsymmetricX509Cert",
-                State = KnownResourceStates.NotStarted,
-                Properties = []
-            })
-            .OnInitializeResource(async (cert, evt, ct) => {
-                var resolved = await cert.TryResolveNormalizedThumbprintAsync(ct).ConfigureAwait(false);
-
-                if (string.IsNullOrEmpty(resolved)) {
-                    evt.Logger.LogError(
-                        "Certificate thumbprint parameter {ParameterName} is empty.",
-                        cert.ThumbprintParameter.Name);
-                    await evt.Notifications.PublishUpdateAsync(cert, snapshot => snapshot with {
-                        State = new ResourceStateSnapshot(KnownResourceStates.FailedToStart, KnownResourceStateStyles.Error)
-                    }).ConfigureAwait(false);
-                    return;
-                }
-
-                if (AsymmetricX509CertResource.TryFind(resolved, cert.StoreLocation, out var found)) {
-                    found?.Dispose();
-                    evt.Logger.LogInformation(
-                        "Certificate {Thumbprint} found in StoreName.My at {StoreLocation}.",
-                        resolved,
-                        cert.StoreLocation);
-                    await evt.Notifications.PublishUpdateAsync(cert, snapshot => snapshot with {
-                        State = new ResourceStateSnapshot(KnownResourceStates.Running, KnownResourceStateStyles.Success)
-                    }).ConfigureAwait(false);
-                    return;
-                }
-
-                evt.Logger.LogError(
-                    "Certificate {Thumbprint} was not found in StoreName.My at {StoreLocation}.",
-                    resolved,
-                    cert.StoreLocation);
-                await evt.Notifications.PublishUpdateAsync(cert, snapshot => snapshot with {
-                    State = new ResourceStateSnapshot(KnownResourceStates.FailedToStart, KnownResourceStateStyles.Error)
-                }).ConfigureAwait(false);
-            });
+        return registration;
     }
 
     /// <summary>
@@ -192,13 +151,18 @@ public static class AzureEntraIdHostingExtensions {
 
     /// <summary>
     /// Registers a Graph SPA platform on the app registration. The parent emits
-    /// <c>spa.redirectUris</c> in its Bicep module (create path).
+    /// <c>spa.redirectUris</c> in its Bicep module. Also requests the delegated
+    /// Graph sign-in permissions <c>openid</c>, <c>profile</c> and <c>offline_access</c>.
     /// </summary>
     public static IResourceBuilder<AzureEntraIdSpaApplicationResource> AddSpaApplication(
         this IResourceBuilder<AzureEntraIdAppRegistrationResource> builder,
         string name) {
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentException.ThrowIfNullOrEmpty(name);
+
+        AddWellKnownPermissionIfMissing(builder, MicrosoftGraph.Delegated.Openid);
+        AddWellKnownPermissionIfMissing(builder, MicrosoftGraph.Delegated.Profile);
+        AddWellKnownPermissionIfMissing(builder, MicrosoftGraph.Delegated.OfflineAccess);
 
         var spa = new AzureEntraIdSpaApplicationResource(name, builder.Resource);
 
@@ -223,8 +187,9 @@ public static class AzureEntraIdHostingExtensions {
     }
 
     /// <summary>
-    /// Sets the Application ID URI to <c>api://{appId}</c> via a second Graph application
-    /// in the same module (upsert on <c>uniqueName</c>) so Bicep can interpolate <c>app.appId</c>.
+    /// Sets the Application ID URI to <c>api://{appId}</c> in a follow-up module.
+    /// The Graph extension does not return <c>appId</c> from <c>reference()</c> inside the
+    /// deployment that creates the application.
     /// </summary>
     public static IResourceBuilder<AzureEntraIdAppRegistrationResource> WithDefaultIdentifierUri(
         this IResourceBuilder<AzureEntraIdAppRegistrationResource> builder) {
@@ -232,6 +197,14 @@ public static class AzureEntraIdHostingExtensions {
 
         if (!builder.Resource.TryGetLastAnnotation<AzureEntraIdDefaultIdentifierUriAnnotation>(out _)) {
             builder.WithAnnotation(new AzureEntraIdDefaultIdentifierUriAnnotation());
+        }
+
+        if (builder.Resource.IdentifierUriResource is null) {
+            var identifierUri = new AzureEntraIdIdentifierUriResource(builder.Resource);
+
+            builder.Resource.IdentifierUriResource = identifierUri;
+            builder.ApplicationBuilder.AddResource(identifierUri)
+                .WaitFor(builder);
         }
 
         return builder;
@@ -281,17 +254,25 @@ public static class AzureEntraIdHostingExtensions {
             builder.WithEnvironment(
                 $"{sectionName}Audience",
                 ReferenceExpression.Create($"api://{parent.ClientId}"));
+
+            if (parent.IdentifierUriResource is { } identifierUri &&
+                !builder.Resource.Annotations.OfType<WaitAnnotation>().Any(wait => ReferenceEquals(wait.Resource, identifierUri))) {
+                builder.WaitFor(builder.ApplicationBuilder.CreateResourceBuilder(identifierUri));
+            }
         }
 
-        var scope = parent.RequiredPermissions.Find(permission => permission.Type == AzureEntraIdPermissionType.Scope);
+        var index = 0;
 
-        if (scope is AzureEntraIdScopeResource scopeResource) {
+        foreach (var scope in parent.RequiredPermissions.OfType<AzureEntraIdScopeResource>()) {
+            if (ReferenceEquals(scope.Parent, parent)) {
+                continue;
+            }
+
             builder.WithEnvironment(
-                $"{sectionName}Scope",
-                ReferenceExpression.Create($"api://{scopeResource.Parent.ClientId}/{scopeResource.Value}"));
+                $"{sectionName}Scopes__{index}",
+                ReferenceExpression.Create($"api://{scope.Parent.ClientId}/{scope.Value}"));
+            index++;
         }
-
-        EntraIdClientSecretLifecycle.BindClientSecretEnvironment(builder, parent, sectionName);
 
         var parentBuilder = builder.ApplicationBuilder.CreateResourceBuilder(parent);
 
@@ -330,53 +311,21 @@ public static class AzureEntraIdHostingExtensions {
     }
 
     /// <summary>
-    /// Adds a Graph <c>keyCredentials</c> entry from a store certificate (create path)
-    /// and <c>WaitFor</c>s the certificate resource.
-    /// </summary>
-    public static IResourceBuilder<AzureEntraIdAppRegistrationResource> WithKeyCredential(
-        this IResourceBuilder<AzureEntraIdAppRegistrationResource> builder,
-        IResourceBuilder<AsymmetricX509CertResource> certificate) {
-        ArgumentNullException.ThrowIfNull(builder);
-        ArgumentNullException.ThrowIfNull(certificate);
-
-        var cert = certificate.Resource;
-
-        if (builder.Resource.KeyCredentials.Exists(existing =>
-            ReferenceEquals(existing, cert)
-            || ReferenceEquals(existing.ThumbprintParameter, cert.ThumbprintParameter))) {
-            throw new ArgumentException(
-                $"A key credential for certificate '{cert.Name}' is already defined on '{builder.Resource.Name}'.",
-                nameof(certificate));
-        }
-
-        builder.Resource.KeyCredentials.Add(cert);
-
-        var parameterName = AsymmetricX509CertResource.KeyCredentialParameterName(cert.Name);
-
-        if (!builder.Resource.Parameters.ContainsKey(parameterName)) {
-            builder.WithParameter(parameterName, () => (object)cert.ExportPublicKeyBase64());
-        }
-
-        if (!builder.Resource.Annotations.OfType<WaitAnnotation>().Any(wait => ReferenceEquals(wait.Resource, cert))) {
-            builder.WaitFor(builder.ApplicationBuilder.CreateResourceBuilder(cert));
-        }
-
-        return builder;
-    }
-
-    /// <summary>
     /// Injects Microsoft.Identity.Web configuration (<c>AzureAd__*</c> by default) from
     /// an in-model web application and its parent app registration.
+    /// <paramref name="clientSecret"/> is injected as <c>{sectionName}ClientSecret</c>.
     /// </summary>
     public static IResourceBuilder<TResource> WithMicrosoftIdentityWebApplication<TResource>(
         this IResourceBuilder<TResource> builder,
         EntraIdInstance instance,
         IResourceBuilder<AzureEntraIdWebApplicationResource> webApplication,
+        IResourceBuilder<ParameterResource> clientSecret,
         string sectionName = "AzureAd__")
         where TResource : IResourceWithEnvironment, IResourceWithWaitSupport {
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(instance);
         ArgumentNullException.ThrowIfNull(webApplication);
+        ArgumentNullException.ThrowIfNull(clientSecret);
         ArgumentException.ThrowIfNullOrEmpty(sectionName);
 
         var web = webApplication.Resource;
@@ -384,6 +333,7 @@ public static class AzureEntraIdHostingExtensions {
 
         instance.ApplyInstanceEnvironment(builder, sectionName);
         builder.WithEnvironment($"{sectionName}ClientId", parent.ClientId);
+        builder.WithEnvironment($"{sectionName}ClientSecret", clientSecret);
 
         var tenantId = builder.ApplicationBuilder.Configuration["Azure:TenantId"];
 
@@ -395,31 +345,17 @@ public static class AzureEntraIdHostingExtensions {
             builder.WithEnvironment(
                 $"{sectionName}Audience",
                 ReferenceExpression.Create($"api://{parent.ClientId}"));
+
+            if (parent.IdentifierUriResource is { } identifierUri &&
+                !builder.Resource.Annotations.OfType<WaitAnnotation>().Any(wait => ReferenceEquals(wait.Resource, identifierUri))) {
+                builder.WaitFor(builder.ApplicationBuilder.CreateResourceBuilder(identifierUri));
+            }
         }
-
-        for (var i = 0; i < parent.KeyCredentials.Count; i++) {
-            var cert = parent.KeyCredentials[i];
-            var storePath = cert.StoreLocation == StoreLocation.CurrentUser
-                ? "CurrentUser/My"
-                : "LocalMachine/My";
-
-            builder.WithEnvironment($"{sectionName}ClientCredentials__{i}__SourceType", "StoreWithThumbprint");
-            builder.WithEnvironment($"{sectionName}ClientCredentials__{i}__CertificateStorePath", storePath);
-            builder.WithEnvironment($"{sectionName}ClientCredentials__{i}__CertificateThumbprint", cert.ThumbprintParameter);
-        }
-
-        EntraIdClientSecretLifecycle.BindClientSecretEnvironment(builder, parent, sectionName);
 
         var parentBuilder = builder.ApplicationBuilder.CreateResourceBuilder(parent);
 
         if (!builder.Resource.Annotations.OfType<WaitAnnotation>().Any(wait => ReferenceEquals(wait.Resource, parent))) {
             builder.WaitFor(parentBuilder);
-        }
-
-        foreach (var cert in parent.KeyCredentials) {
-            if (!builder.Resource.Annotations.OfType<WaitAnnotation>().Any(wait => ReferenceEquals(wait.Resource, cert))) {
-                builder.WaitFor(builder.ApplicationBuilder.CreateResourceBuilder(cert));
-            }
         }
 
         return builder;
@@ -539,69 +475,50 @@ public static class AzureEntraIdHostingExtensions {
     }
 
     /// <summary>
-    /// Creates an <see cref="EntraIdPasswordCredentialResource"/> child
-    /// (<see cref="IResourceWithParent{T}"/>) of this app registration. In run mode,
-    /// after the parent reaches <c>Running</c> (via <see cref="ResourceNotificationService"/>),
-    /// calls Graph <c>addPassword</c>, fills the secret parameter, and persists
-    /// <c>Parameters:{name}</c> to AppHost user secrets when missing.
-    /// Does not emit Bicep <c>passwordCredentials</c>.
+    /// Records this registration as a known client of <paramref name="api"/>.
+    /// The client id is written to <c>api.knownClientApplications</c> by a follow-up module
+    /// that runs after both registrations exist. Aspire 13.6 waits for every Bicep output
+    /// referenced by a module, so placing that output on the API module deadlocks when the
+    /// client also waits for the API.
     /// </summary>
-    public static IResourceBuilder<AzureEntraIdAppRegistrationResource> WithSecret(
-        this IResourceBuilder<AzureEntraIdAppRegistrationResource> builder,
-        IResourceBuilder<ParameterResource> secret) {
-        ArgumentNullException.ThrowIfNull(builder);
-        ArgumentNullException.ThrowIfNull(secret);
+    public static IResourceBuilder<AzureEntraIdAppRegistrationResource> AsKnownClientOf(
+        this IResourceBuilder<AzureEntraIdAppRegistrationResource> client,
+        IResourceBuilder<AzureEntraIdAppRegistrationResource> api) {
+        ArgumentNullException.ThrowIfNull(client);
+        ArgumentNullException.ThrowIfNull(api);
 
-        var parameter = secret.Resource;
-
-        if (!parameter.Secret) {
-            throw new ArgumentException(
-                $"Parameter '{parameter.Name}' must be created with secret: true to use WithSecret.",
-                nameof(secret));
+        if (ReferenceEquals(client.Resource, api.Resource)) {
+            throw new InvalidOperationException(
+                $"App registration '{client.Resource.Name}' cannot be a known client of itself.");
         }
 
-        if (builder.Resource.PasswordCredentials.Exists(existing =>
-            ReferenceEquals(existing.SecretParameter, parameter))) {
-            throw new ArgumentException(
-                $"Client secret parameter '{parameter.Name}' is already defined on '{builder.Resource.Name}'.",
-                nameof(secret));
+        var knownClients = EnsureKnownClientsResource(api);
+
+        if (knownClients.Resource.Clients.Contains(client.Resource)) {
+            throw new InvalidOperationException(
+                $"App registration '{client.Resource.Name}' is already a known client of '{api.Resource.Name}'.");
         }
 
-        EntraIdClientSecretLifecycle.EnsureDeferredEmptyDefault(parameter);
+        knownClients.Resource.Clients.Add(client.Resource);
+        knownClients.WaitFor(client);
 
-        var credentialName = $"{builder.Resource.Name}-{parameter.Name}";
-        var credential = new EntraIdPasswordCredentialResource(credentialName, builder.Resource, parameter);
+        if (!client.Resource.Annotations.OfType<WaitAnnotation>().Any(wait => ReferenceEquals(wait.Resource, api.Resource))) {
+            client.WaitFor(api);
+        }
 
-        builder.Resource.PasswordCredentials.Add(credential);
+        api.Resource.KnownClientCallbacks.Add(infrastructure => {
+            var application = infrastructure.GetProvisionableResources()
+                .OfType<GraphApplication>()
+                .Single(app => app.BicepIdentifier == AzureEntraIdAppRegistrationResource.GraphApplicationBicepIdentifier);
 
-        var credentialBuilder = builder.ApplicationBuilder.AddResource(credential)
-            .ExcludeFromManifest()
-            .WithInitialState(new CustomResourceSnapshot {
-                ResourceType = "EntraIdPasswordCredential",
-                State = KnownResourceStates.NotStarted,
-                Properties = []
-            })
-            .OnInitializeResource(async (cred, evt, ct) => {
-                try {
-                    await EntraIdClientSecretLifecycle.EnsureSecretAsync(cred, evt.Services, evt.Logger, ct)
-                        .ConfigureAwait(false);
-                    await evt.Notifications.PublishUpdateAsync(cred, snapshot => snapshot with {
-                        State = new ResourceStateSnapshot(KnownResourceStates.Running, KnownResourceStateStyles.Success)
-                    }).ConfigureAwait(false);
-                }
-                catch (Exception ex) {
-                    evt.Logger.LogError(
-                        ex,
-                        "Failed to create Entra client secret for parameter {ParameterName}.",
-                        cred.SecretParameter.Name);
-                    await evt.Notifications.PublishUpdateAsync(cred, snapshot => snapshot with {
-                        State = new ResourceStateSnapshot(KnownResourceStates.FailedToStart, KnownResourceStateStyles.Error)
-                    }).ConfigureAwait(false);
-                }
-            });
+            application.Api ??= new GraphApiApplication();
 
-        _ = credentialBuilder;
-        return builder;
+            var parameterName = "knownClient_" + client.Resource.Name.Replace("-", "_", StringComparison.Ordinal);
+            application.Api.KnownClientApplications.Add(
+                client.Resource.ClientId.AsProvisioningParameter(infrastructure, parameterName));
+        });
+
+        return client;
     }
 
     /// <summary>
@@ -624,6 +541,30 @@ public static class AzureEntraIdHostingExtensions {
 
         annotation.SupportedAccountType = supportedAccountType;
         return builder;
+    }
+
+    private static IResourceBuilder<AzureEntraIdKnownClientsResource> EnsureKnownClientsResource(
+        IResourceBuilder<AzureEntraIdAppRegistrationResource> api) {
+        if (api.Resource.KnownClientsResource is { } existing) {
+            return api.ApplicationBuilder.CreateResourceBuilder(existing);
+        }
+
+        var resource = new AzureEntraIdKnownClientsResource(api.Resource);
+
+        api.Resource.KnownClientsResource = resource;
+
+        return api.ApplicationBuilder.AddResource(resource)
+            .WaitFor(api);
+    }
+
+    private static void AddWellKnownPermissionIfMissing(
+        IResourceBuilder<AzureEntraIdAppRegistrationResource> builder,
+        AzureEntraIdWellKnownPermission permission) {
+        if (builder.Resource.HasRequiredPermission(permission.Id)) {
+            return;
+        }
+
+        builder.WithPermission(permission);
     }
 
     private static IResourceBuilder<AzureEntraIdScopeResource> AddScopeCore(

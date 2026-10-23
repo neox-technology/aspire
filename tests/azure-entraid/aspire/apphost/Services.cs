@@ -11,9 +11,11 @@ public static class Services
 
     public static void Configure(IDistributedApplicationBuilder builder)
     {
+        var clientSecret = builder.AddParameter(ServiceNames.Auth.ApiClientSecret, secret: true);
+
         Api = builder
             .AddProject<Projects.Neox_Aspire_Hosting_Azure_EntraId_Tests_Api>(ServiceNames.Services.Api)
             .WithExternalHttpEndpoints()
-            .WithMicrosoftIdentityWebApplication(EntraIdInstance.Workforce, Auth.ApiSwagger);
+            .WithMicrosoftIdentityWebApplication(EntraIdInstance.Workforce, Auth.ApiSwagger, clientSecret);
     }
 }

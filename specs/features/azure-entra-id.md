@@ -4,7 +4,9 @@
 |-------|-------|
 | Slug | `azure-entra-id` |
 | Status | implemented |
-| Last code review | 2026-10-09 |
+| Last code review | 2026-10-23 |
+
+`WithSecret`, `WithKeyCredential` and `AddCertificate` are removed. A confidential client secret is an Aspire parameter injected by the caller. `AddSpaApplication` requests delegated `openid`, `profile` and `offline_access`. `AsKnownClientOf` records `api.knownClientApplications` when the module is built. An existing registration still emits display name, redirect URIs, scopes, roles and `requiredResourceAccess`.
 
 ## Summary
 

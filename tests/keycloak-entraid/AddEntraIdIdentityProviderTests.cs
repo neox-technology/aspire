@@ -18,10 +18,8 @@ public sealed class AddEntraIdIdentityProviderTests
         var realm = keycloak.AddRealm(realm: "neox");
         var app = builder.AddAzureAppRegistration("entra-app");
 
-        var ex = Assert.Throws<InvalidOperationException>(() =>
-            realm.AddEntraIdIdentityProvider(EntraIdInstance.Workforce, app));
-
-        Assert.Contains("WithSecret", ex.Message, StringComparison.Ordinal);
+        Assert.Throws<ArgumentNullException>(() =>
+            realm.AddEntraIdIdentityProvider(EntraIdInstance.Workforce, app, null!));
     }
 
     [Fact]
@@ -34,11 +32,12 @@ public sealed class AddEntraIdIdentityProviderTests
         var keycloak = CreateKeycloak(builder, "auth-entra-idp");
         var realm = keycloak.AddRealm(realm: "neox");
         var secret = builder.AddParameter("entra-secret", "placeholder", secret: true);
-        var app = builder.AddAzureAppRegistration("entra-app").WithSecret(secret);
+        var app = builder.AddAzureAppRegistration("entra-app");
 
         var idp = realm.AddEntraIdIdentityProvider(
             EntraIdInstance.Workforce,
             app,
+            secret,
             alias: "microsoft",
             displayName: "Microsoft Entra ID");
 
@@ -54,9 +53,6 @@ public sealed class AddEntraIdIdentityProviderTests
         Assert.Contains(
             config.Annotations.OfType<WaitAnnotation>(),
             w => ReferenceEquals(w.Resource, app.Resource));
-        Assert.Contains(
-            config.Annotations.OfType<WaitAnnotation>(),
-            w => w.Resource is EntraIdPasswordCredentialResource);
         Assert.Contains(
             keycloak.Resource.Annotations.OfType<WaitAnnotation>(),
             w => ReferenceEquals(w.Resource, config));
@@ -108,12 +104,13 @@ public sealed class AddEntraIdIdentityProviderTests
         var keycloak = CreateKeycloak(builder, "auth-broker");
         var realm = keycloak.AddRealm(realm: "neox");
         var secret = builder.AddParameter("entra-secret", "placeholder", secret: true);
-        var app = builder.AddAzureAppRegistration("entra-app").WithSecret(secret);
+        var app = builder.AddAzureAppRegistration("entra-app");
         var brokerUri = new Uri("https://localhost/realms/neox/broker/microsoft/endpoint");
 
         realm.AddEntraIdIdentityProvider(
             EntraIdInstance.Workforce,
             app,
+            secret,
             brokerRedirectUri: brokerUri);
 
         Assert.Contains(

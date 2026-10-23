@@ -24,8 +24,10 @@ var api = builder.AddAzureAppRegistration("api")
 var swagger = api.AddWebApplication("swagger")
     .WithRedirectUri(new Uri("https://localhost/swagger/oauth2-redirect.html"));
 
+var clientSecret = builder.AddParameter("api-client-secret", secret: true);
+
 builder.AddProject<Projects.Api>("api")
-    .WithMicrosoftIdentityWebApplication(EntraIdInstance.Workforce, swagger);
+    .WithMicrosoftIdentityWebApplication(EntraIdInstance.Workforce, swagger, clientSecret);
 ```
 
 `uniqueName` and `displayName` default to the Aspire resource name. `WithSupportedAccountType` sets Graph `signInAudience` (default `AzureADMyOrg`). `AzureADandPersonalMicrosoftAccount` and `PersonalMicrosoftAccount` also emit `api.requestedAccessTokenVersion: 2` on create (Graph requires it). `WithIdentifierUri` adds Application ID URIs; `WithDefaultIdentifierUri` sets `api://{appId}` in the same module via a second Graph application (same `uniqueName`) that interpolates `app.appId` after create and repeats `signInAudience` plus `api.requestedAccessTokenVersion: 2` (Graph rejects `0`). Outputs: `clientId` (`app.appId`), `objectId` (`app.id`). Customize Graph constructs with `.ConfigureInfrastructure`. `WithRedirectUri(string)` on the app registration still accumulates Graph `web.redirectUris`.
@@ -55,15 +57,17 @@ var spaApp = spa.AddSpaApplication("spa-app")
 
 ### Microsoft.Identity.Web
 
-`WithMicrosoftIdentityWebApplication` on an `IResourceWithEnvironment` injects `{sectionName}*` env keys (default `AzureAd__`) for `AddMicrosoftIdentityWebApi`. The first argument is an `EntraIdInstance`: `Workforce` (`https://login.microsoftonline.com/`) or `Ciam` (`https://{subdomain}.ciamlogin.com/` from a string or an Aspire parameter). It also injects `TenantId` (AppHost `Azure:TenantId` when set), `ClientId` (parent output), `Audience` (`api://{clientId}` when `WithDefaultIdentifierUri`), and `ClientCredentials` from each `WithKeyCredential`. The project `WaitFor`s the app registration and certs. The hosting package does not reference Microsoft.Identity.Web.
+`WithMicrosoftIdentityWebApplication` on an `IResourceWithEnvironment` injects `{sectionName}*` env keys (default `AzureAd__`) for `AddMicrosoftIdentityWebApi`. The first argument is an `EntraIdInstance`: `Workforce` (`https://login.microsoftonline.com/`) or `Ciam` (`https://{subdomain}.ciamlogin.com/` from a string or an Aspire parameter). It also injects `TenantId` (AppHost `Azure:TenantId` when set), `ClientId` (parent output), `ClientSecret` from the required `clientSecret` parameter, and `Audience` (`api://{clientId}` when `WithDefaultIdentifierUri`). The project `WaitFor`s the app registration. The hosting package does not reference Microsoft.Identity.Web. Declare the secret parameter next to the project that calls the method. Do not declare it on the app registration: the secret is not available until that registration is provisioned in Azure.
 
 ```csharp
+var clientSecret = builder.AddParameter("api-client-secret", secret: true);
+
 builder.AddProject<Projects.Api>("api")
-    .WithMicrosoftIdentityWebApplication(EntraIdInstance.Workforce, swagger);
+    .WithMicrosoftIdentityWebApplication(EntraIdInstance.Workforce, swagger, clientSecret);
 
 var ciamSubdomain = builder.AddParameter("ciam-subdomain");
 builder.AddProject<Projects.Api>("api")
-    .WithMicrosoftIdentityWebApplication(EntraIdInstance.Ciam(ciamSubdomain), swagger);
+    .WithMicrosoftIdentityWebApplication(EntraIdInstance.Ciam(ciamSubdomain), swagger, clientSecret);
 ```
 
 ### Public-client SPA (`ENTRA_*`)
@@ -147,36 +151,9 @@ registration
     .WithPermission(MicrosoftGraph.Delegated.AppRoleAssignmentReadWriteAll);
 ```
 
-### Certificates
+### Client secrets and certificates
 
-`AddCertificate` registers an `AsymmetricX509CertResource` that checks `StoreName.My` at `StoreLocation.CurrentUser` or `LocalMachine` by thumbprint. The thumbprint comes from an Aspire `ParameterResource` (typically `secret: true`) and is resolved at initialize time. It does not create or upload the certificate. `WithKeyCredential` emits Graph `keyCredentials` (`type: AsymmetricX509Cert`, `usage: Verify`) on the **create** path and `WaitFor`s the cert. The public CER bytes are a deferred secure Bicep parameter.
-
-```csharp
-var thumbprint = builder.AddParameter("api-cert-thumbprint", secret: true);
-var cert = builder.AddCertificate("api-cert", thumbprint, StoreLocation.CurrentUser);
-
-var api = builder.AddAzureAppRegistration("api")
-    .WithKeyCredential(cert);
-```
-
-Set the secret locally with `dotnet user-secrets set "Parameters:api-cert-thumbprint" "<thumbprint>"`.
-
-Never upload the PFX or private key to Entra. Existing applications omit `keyCredentials` (same as scopes / roles). Graph `keyCredentials` replaces the whole collection: every `WithKeyCredential` on the model is emitted together.
-
-### Client secrets (`WithSecret`)
-
-Graph Bicep cannot create `passwordCredentials`. `WithSecret` creates an `EntraIdPasswordCredentialResource` child (`IResourceWithParent`). Aspire forbids `WaitFor` on a parent; run-mode initialize waits for the registration via `ResourceNotificationService`, then calls Graph REST `addPassword`, fills the parameter, and persists `Parameters:{name}` to AppHost user secrets when missing. Re-runs reuse an existing config/user-secret value. `WithMicrosoftIdentityWebApplication` and `WithEntraIdSpaApplication` inject `{sectionName}ClientSecret` from the first password credential and `WaitFor` each credential resource.
-
-```csharp
-var secret = builder.AddParameter("api-client-secret", secret: true);
-var api = builder.AddAzureAppRegistration("api")
-    .WithSecret(secret);
-
-builder.AddProject<Projects.Api>("api")
-    .WithMicrosoftIdentityWebApplication(EntraIdInstance.Workforce, swagger);
-```
-
-Requires Microsoft Graph **`Application.ReadWrite.All`** (same as app registration deploy).
+`WithSecret`, `WithKeyCredential` and `AddCertificate` are not part of this package. A confidential client passes its Aspire parameter (`secret: true`) to `WithMicrosoftIdentityWebApplication`, which injects `{sectionName}ClientSecret`. The package does not call Graph `addPassword` and does not emit `keyCredentials`.
 
 ### Existing applications
 

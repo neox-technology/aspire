@@ -7,8 +7,8 @@
     <RootNamespace>Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.SqlServer.MigrationService</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Aspire.Microsoft.EntityFrameworkCore.SqlServer" Version="13.6.1" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.13" />
+    <PackageReference Include="Aspire.Microsoft.EntityFrameworkCore.SqlServer" Version="$(AspireVersion)" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="$(MicrosoftExtensionsHostingAbstractionsVersion)" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\..\src\Neox.Aspire.EntityFrameworkCore.MigrationWorker\Neox.Aspire.EntityFrameworkCore.MigrationWorker.csproj" />

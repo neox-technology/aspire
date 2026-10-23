@@ -48,35 +48,55 @@ public sealed class AzureEntraIdAppRegistrationResource : AzureProvisioningResou
     }
 
     /// <summary>
-    /// Application (client) ID output from the Graph application.
+    /// Application (client) ID published by the identity module after the application exists.
     /// </summary>
-    public BicepOutputReference ClientId => new(ClientIdOutputName, this);
+    public BicepOutputReference ClientId => new(ClientIdOutputName, IdentitySource);
 
     /// <summary>
-    /// Directory object ID output from the Graph application.
+    /// Directory object ID published by the identity module after the application exists.
     /// </summary>
-    public BicepOutputReference ObjectId => new(ObjectIdOutputName, this);
+    public BicepOutputReference ObjectId => new(ObjectIdOutputName, IdentitySource);
 
     /// <summary>
-    /// App roles registered via <c>AddAppRole</c>. Emitted on the create Graph application only.
+    /// App roles registered via <c>AddAppRole</c>. Emitted on every provision.
     /// </summary>
     internal List<AzureEntraIdAppRoleResource> AppRoles { get; } = [];
 
     /// <summary>
-    /// Store certificates registered via <c>WithKeyCredential</c>. Emitted as Graph
-    /// <c>keyCredentials</c> on the create Graph application only.
+    /// Callbacks registered via <c>AsKnownClientOf</c>. They run on the known-clients
+    /// module, after the client registration exists, so the API module does not wait
+    /// for a client that is itself waiting for this API.
     /// </summary>
-    internal List<AsymmetricX509CertResource> KeyCredentials { get; } = [];
+    internal List<Action<AzureResourceInfrastructure>> KnownClientCallbacks { get; } = [];
 
     /// <summary>
-    /// Password credentials registered via <c>WithSecret</c>. Created post-provision via Graph
-    /// <c>addPassword</c> on each <see cref="EntraIdPasswordCredentialResource"/> (not Bicep).
+    /// Module that writes <c>api.knownClientApplications</c> once each client exists.
     /// </summary>
-    internal List<EntraIdPasswordCredentialResource> PasswordCredentials { get; } = [];
+    internal AzureEntraIdKnownClientsResource? KnownClientsResource { get; set; }
+
+    /// <summary>
+    /// Module that sets <c>identifierUris</c> to <c>api://{appId}</c> after <c>appId</c> is known.
+    /// </summary>
+    internal AzureEntraIdIdentifierUriResource? IdentifierUriResource { get; set; }
+
+    /// <summary>
+    /// Module that reads <c>appId</c> from the created application and creates the service principal.
+    /// </summary>
+    internal AzureEntraIdApplicationIdentityResource? IdentityResource { get; set; }
+
+    private AzureProvisioningResource IdentitySource {
+        get {
+            if (IdentityResource is { } identity) {
+                return identity;
+            }
+
+            return this;
+        }
+    }
 
     /// <summary>
     /// In-model API permissions registered via <c>WithPermission</c>. Emitted as
-    /// Graph <c>requiredResourceAccess</c> on the create Graph application only.
+    /// Graph <c>requiredResourceAccess</c> on every provision.
     /// </summary>
     internal List<IAzureEntraIdPermissibleResource> RequiredPermissions { get; } = [];
 
@@ -114,7 +134,8 @@ public sealed class AzureEntraIdAppRegistrationResource : AzureProvisioningResou
             return existing;
         }
 
-        var app = GraphApplication.FromExisting(GraphApplicationBicepIdentifier, ResolveExistingUniqueName(infra));
+        ApplyExistingUniqueNameParameter();
+        var app = BuildApplication(this, infra);
 
         infra.Add(app);
         return app;
@@ -123,14 +144,12 @@ public sealed class AzureEntraIdAppRegistrationResource : AzureProvisioningResou
     /// <inheritdoc />
     public override BicepTemplateFile GetBicepTemplateFile(string? directory = null, bool deleteTemporaryFileOnDispose = true) {
         ApplyExistingUniqueNameParameter();
-        StripCreateOnlyParametersIfExisting();
+        AzureEntraIdModelValidator.Validate(this);
 
         var file = base.GetBicepTemplateFile(directory, deleteTemporaryFileOnDispose);
-        var dir = Path.GetDirectoryName(file.Path)
-            ?? throw new InvalidOperationException("Generated Bicep module path has no directory.");
 
-        File.WriteAllText(Path.Combine(dir, "bicepconfig.json"), BicepConfigJson);
-        PrependGraphExtension(file.Path);
+        WriteGraphExtension(file);
+
         return file;
     }
 
@@ -186,15 +205,6 @@ public sealed class AzureEntraIdAppRegistrationResource : AzureProvisioningResou
     internal bool HasSpaRedirectUris() => CollectSpaRedirectUris().Length > 0;
 
     internal bool HasWebRedirectUris() => CollectRedirectUris().Length > 0;
-
-    private static BicepValue<string> AsSecureStringParameter(
-        AzureResourceInfrastructure infrastructure,
-        string parameterName) {
-        var parameter = GetOrAddParameter(infrastructure, parameterName, typeof(string));
-
-        parameter.IsSecure = true;
-        return parameter;
-    }
 
     private static BicepValue<string> AsStringParameter(
         AzureEntraIdAppRegistrationResource resource,
@@ -272,35 +282,34 @@ public sealed class AzureEntraIdAppRegistrationResource : AzureProvisioningResou
         }
     }
 
-    private static void BindDefaultIdentifierUriResource(
-        AzureEntraIdAppRegistrationResource resource,
-        AzureResourceInfrastructure infrastructure,
-        GraphApplication app) {
-        if (resource.IsExisting()) {
-            return;
+    internal static void ConfigureIdentifierUri(AzureResourceInfrastructure infrastructure) {
+        var update = (AzureEntraIdIdentifierUriResource)infrastructure.AspireResource;
+        var api = update.Api;
+
+        foreach (var key in new[] { UniqueNameParameter, DisplayNameParameter }) {
+            if (api.Parameters.TryGetValue(key, out var value)) {
+                update.Parameters.TryAdd(key, value);
+            }
         }
 
-        if (!resource.TryGetLastAnnotation<AzureEntraIdDefaultIdentifierUriAnnotation>(out _)) {
-            return;
-        }
-
-        var explicitUris = resource.TryGetLastAnnotation<AzureEntraIdIdentifierUrisAnnotation>(out var annotation)
-            ? annotation.IdentifierUris
-            : [];
-
-        var list = new BicepList<string>
-        {
-            BicepFunction.Interpolate($"api://{app.AppId}")
+        // The Graph extension returns only the properties submitted on create, so
+        // reference('app').appId fails inside the same deployment. The client id is
+        // the output of the first deployment and arrives here as a parameter.
+        var clientId = api.ClientId.AsProvisioningParameter(infrastructure, "clientId");
+        var list = new BicepList<string> {
+            BicepFunction.Interpolate($"api://{clientId}")
         };
 
-        foreach (var uri in explicitUris) {
-            list.Add(uri);
+        if (api.TryGetLastAnnotation<AzureEntraIdIdentifierUrisAnnotation>(out var annotation)) {
+            foreach (var uri in annotation.IdentifierUris) {
+                list.Add(uri);
+            }
         }
 
         infrastructure.Add(new GraphApplication(GraphApplicationIdentifierUrisBicepIdentifier) {
-            UniqueName = app.UniqueName,
-            DisplayName = app.DisplayName,
-            SignInAudience = ResolveSignInAudience(resource),
+            UniqueName = AsStringParameter(api, infrastructure, UniqueNameParameter),
+            DisplayName = AsStringParameter(api, infrastructure, DisplayNameParameter),
+            SignInAudience = ResolveSignInAudience(api),
             IdentifierUris = list,
             Api = new GraphApiApplication {
                 RequestedAccessTokenVersion = 2
@@ -322,26 +331,6 @@ public sealed class AzureEntraIdAppRegistrationResource : AzureProvisioningResou
         }
 
         created.IdentifierUris = BindListParameter(infrastructure, IdentifierUrisParameter);
-    }
-
-    private static void BindKeyCredentials(
-        AzureEntraIdAppRegistrationResource resource,
-        AzureResourceInfrastructure infrastructure,
-        GraphApplication created) {
-        if (resource.KeyCredentials.Count == 0) {
-            return;
-        }
-
-        foreach (var cert in resource.KeyCredentials) {
-            created.KeyCredentials.Add(new GraphKeyCredential {
-                DisplayName = cert.Name,
-                Type = "AsymmetricX509Cert",
-                Usage = "Verify",
-                Key = AsSecureStringParameter(
-                    infrastructure,
-                    AsymmetricX509CertResource.KeyCredentialParameterName(cert.Name))
-            });
-        }
     }
 
     private static BicepList<string> BindListParameter(
@@ -437,46 +426,91 @@ public sealed class AzureEntraIdAppRegistrationResource : AzureProvisioningResou
         return web;
     }
 
+    private static GraphApplication BuildApplication(
+        AzureEntraIdAppRegistrationResource azureResource,
+        AzureResourceInfrastructure infra) {
+        var created = new GraphApplication(GraphApplicationBicepIdentifier) {
+            UniqueName = AsStringParameter(azureResource, infra, UniqueNameParameter),
+            DisplayName = AsStringParameter(azureResource, infra, DisplayNameParameter),
+            SignInAudience = ResolveSignInAudience(azureResource),
+            Web = BindWebApplication(azureResource, infra)
+        };
+
+        BindSpaApplication(azureResource, infra, created);
+        BindExplicitIdentifierUris(azureResource, infra, created);
+        BindApi(azureResource, created);
+        BindAppRoles(azureResource, created);
+        BindRequiredResourceAccess(azureResource, infra, created);
+
+        return created;
+    }
+
     private static void ConfigureGraphInfrastructure(AzureResourceInfrastructure infrastructure) {
         var azureResource = (AzureEntraIdAppRegistrationResource)infrastructure.AspireResource;
 
         azureResource.ApplyExistingUniqueNameParameter();
-        azureResource.StripCreateOnlyParametersIfExisting();
+        AzureEntraIdModelValidator.Validate(azureResource);
 
-        var app = CreateExistingOrNewProvisionableResource(
+        CreateExistingOrNewProvisionableResource(
             infrastructure,
-            (_, uniqueName) => GraphApplication.FromExisting(GraphApplicationBicepIdentifier, uniqueName),
-            infra => {
-                var created = new GraphApplication(GraphApplicationBicepIdentifier) {
-                    UniqueName = AsStringParameter(azureResource, infra, UniqueNameParameter),
-                    DisplayName = AsStringParameter(azureResource, infra, DisplayNameParameter),
-                    SignInAudience = ResolveSignInAudience(azureResource),
-                    Web = BindWebApplication(azureResource, infra)
-                };
+            (_, _) => BuildApplication(azureResource, infrastructure),
+            infra => BuildApplication(azureResource, infra));
+    }
 
-                BindSpaApplication(azureResource, infra, created);
-                BindExplicitIdentifierUris(azureResource, infra, created);
-                BindApi(azureResource, created);
-                BindAppRoles(azureResource, created);
-                BindRequiredResourceAccess(azureResource, infra, created);
-                BindKeyCredentials(azureResource, infra, created);
-                return created;
-            });
+    internal static void ConfigureIdentity(AzureResourceInfrastructure infrastructure) {
+        var identity = (AzureEntraIdApplicationIdentityResource)infrastructure.AspireResource;
+        var api = identity.Api;
 
-        BindDefaultIdentifierUriResource(azureResource, infrastructure, app);
+        if (api.Parameters.TryGetValue(UniqueNameParameter, out var uniqueName)) {
+            identity.Parameters.TryAdd(UniqueNameParameter, uniqueName);
+        }
 
-        var sp = new GraphServicePrincipal(GraphServicePrincipalBicepIdentifier) {
+        var app = GraphApplication.FromExisting(
+            GraphApplicationBicepIdentifier,
+            AsStringParameter(api, infrastructure, UniqueNameParameter));
+
+        infrastructure.Add(app);
+        infrastructure.Add(new GraphServicePrincipal(GraphServicePrincipalBicepIdentifier) {
             AppId = app.AppId
-        };
-
-        infrastructure.Add(sp);
-
+        });
         infrastructure.Add(new ProvisioningOutput(ClientIdOutputName, typeof(string)) {
             Value = app.AppId
         });
         infrastructure.Add(new ProvisioningOutput(ObjectIdOutputName, typeof(string)) {
             Value = app.Id
         });
+    }
+
+    internal static void ConfigureKnownClients(AzureResourceInfrastructure infrastructure) {
+        var update = (AzureEntraIdKnownClientsResource)infrastructure.AspireResource;
+        var api = update.Api;
+
+        foreach (var pair in api.Parameters) {
+            if (pair.Key.StartsWith("knownClient_", StringComparison.Ordinal)) {
+                continue;
+            }
+
+            update.Parameters.TryAdd(pair.Key, pair.Value);
+        }
+
+        api.ApplyExistingUniqueNameParameter();
+        AzureEntraIdModelValidator.Validate(api);
+
+        var app = BuildApplication(api, infrastructure);
+
+        infrastructure.Add(app);
+
+        foreach (var callback in api.KnownClientCallbacks) {
+            callback(infrastructure);
+        }
+    }
+
+    internal static void WriteGraphExtension(BicepTemplateFile file) {
+        var dir = Path.GetDirectoryName(file.Path)
+            ?? throw new InvalidOperationException("Generated Bicep module path has no directory.");
+
+        File.WriteAllText(Path.Combine(dir, "bicepconfig.json"), BicepConfigJson);
+        PrependGraphExtension(file.Path);
     }
 
     private static ProvisioningParameter GetOrAddParameter(
@@ -548,18 +582,4 @@ public sealed class AzureEntraIdAppRegistrationResource : AzureProvisioningResou
         };
     }
 
-    private void StripCreateOnlyParametersIfExisting() {
-        if (!this.IsExisting()) {
-            return;
-        }
-
-        Parameters.Remove(DisplayNameParameter);
-        Parameters.Remove(RedirectUrisParameter);
-        Parameters.Remove(SpaRedirectUrisParameter);
-        Parameters.Remove(IdentifierUrisParameter);
-
-        foreach (var cert in KeyCredentials) {
-            Parameters.Remove(AsymmetricX509CertResource.KeyCredentialParameterName(cert.Name));
-        }
-    }
 }

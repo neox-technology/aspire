@@ -17,28 +17,25 @@ public static class KeycloakEntraIdHostingExtensions {
 
     /// <summary>
     /// Registers an Entra ID app registration as a Keycloak OIDC identity provider on the realm.
-    /// The registration must already have <c>WithSecret</c>. Client id and secret are written into
-    /// realm JSON at initialize time by a non-parented config gate after the registration and
-    /// password credentials are ready. Keycloak <c>WaitFor</c>s that gate (not the IdP child).
+    /// <paramref name="clientSecret"/> is the confidential client secret. Client id and secret are
+    /// written into realm JSON at initialize time by a non-parented config gate after the
+    /// registration is ready. Keycloak <c>WaitFor</c>s that gate (not the IdP child).
     /// </summary>
     public static IResourceBuilder<KeycloakIdentityProviderResource> AddEntraIdIdentityProvider(
         this IResourceBuilder<KeycloakRealmResource> realm,
         EntraIdInstance instance,
         IResourceBuilder<AzureEntraIdAppRegistrationResource> appRegistration,
+        IResourceBuilder<ParameterResource> clientSecret,
         string alias = "microsoft",
         string? displayName = null,
         Uri? brokerRedirectUri = null) {
         ArgumentNullException.ThrowIfNull(realm);
         ArgumentNullException.ThrowIfNull(instance);
         ArgumentNullException.ThrowIfNull(appRegistration);
+        ArgumentNullException.ThrowIfNull(clientSecret);
         ArgumentException.ThrowIfNullOrWhiteSpace(alias);
 
         var registration = appRegistration.Resource;
-
-        if (registration.PasswordCredentials.Count == 0) {
-            throw new InvalidOperationException(
-                $"App registration '{registration.Name}' must call WithSecret before AddEntraIdIdentityProvider.");
-        }
 
         if (brokerRedirectUri is not null) {
             appRegistration
@@ -61,6 +58,7 @@ public static class KeycloakEntraIdHostingExtensions {
             .WithAnnotation(new KeycloakEntraIdIdentityProviderAnnotation {
                 Instance = instance,
                 AppRegistration = registration,
+                ClientSecret = clientSecret.Resource,
             })
             .WithInitialState(new CustomResourceSnapshot {
                 ResourceType = "KeycloakEntraIdConfig",
@@ -68,11 +66,6 @@ public static class KeycloakEntraIdHostingExtensions {
                 Properties = [],
             })
             .WaitFor(appRegistration);
-
-        foreach (var credential in registration.PasswordCredentials) {
-            configBuilder = configBuilder.WaitFor(
-                configBuilder.ApplicationBuilder.CreateResourceBuilder(credential));
-        }
 
         configBuilder = configBuilder.OnInitializeResource(async (resource, evt, ct) => {
             try {
@@ -141,7 +134,7 @@ public static class KeycloakEntraIdHostingExtensions {
                 $"App registration '{appRegistration.Name}' ClientId output is empty.");
         }
 
-        var secretParameter = appRegistration.PasswordCredentials[0].SecretParameter;
+        var secretParameter = annotation.ClientSecret;
         var clientSecret = await secretParameter.GetValueAsync(cancellationToken).ConfigureAwait(false);
 
         if (string.IsNullOrEmpty(clientSecret)) {
