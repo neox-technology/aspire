@@ -858,6 +858,31 @@ public sealed class AddAzureAppRegistrationTests
     }
 
     [Fact]
+    public async Task WithMicrosoftIdentityWebApplication_without_client_secret_omits_client_secret()
+    {
+        var builder = DistributedApplication.CreateBuilder();
+
+        builder.Configuration["Azure:TenantId"] = "11111111-1111-1111-1111-111111111111";
+
+        var app = builder.AddAzureAppRegistration("api")
+            .WithDefaultIdentifierUri();
+        var web = app.AddWebApplication("swagger")
+            .WithRedirectUri(new Uri("https://localhost/swagger/oauth2-redirect.html"));
+        var container = builder.AddContainer("svc", "redis")
+            .WithMicrosoftIdentityWebApplication(EntraIdInstance.Workforce, web);
+
+        Assert.Contains(
+            container.Resource.Annotations.OfType<WaitAnnotation>(),
+            wait => ReferenceEquals(wait.Resource, app.Resource));
+
+        var env = await ResolveEnvironmentAsync(builder, container.Resource);
+
+        Assert.Equal("https://login.microsoftonline.com/", env["AzureAd__Instance"]);
+        Assert.True(env.ContainsKey("AzureAd__ClientId"));
+        Assert.False(env.ContainsKey("AzureAd__ClientSecret"));
+    }
+
+    [Fact]
     public void AddSpaApplication_registers_child_with_app_registration_parent()
     {
         var builder = DistributedApplication.CreateBuilder();
@@ -996,19 +1021,6 @@ public sealed class AddAzureAppRegistrationTests
         var env = await ResolveEnvironmentAsync(builder, container.Resource);
 
         Assert.Equal("https://contoso.ciamlogin.com/", env["AzureAd__Instance"]);
-    }
-
-    [Fact]
-    public void WithMicrosoftIdentityWebApplication_throws_when_client_secret_is_null()
-    {
-        var builder = DistributedApplication.CreateBuilder();
-        var app = builder.AddAzureAppRegistration("api");
-        var web = app.AddWebApplication("swagger")
-            .WithRedirectUri(new Uri("https://localhost/swagger/oauth2-redirect.html"));
-
-        Assert.Throws<ArgumentNullException>(() =>
-            builder.AddContainer("svc", "redis")
-                .WithMicrosoftIdentityWebApplication(EntraIdInstance.Workforce, web, null!));
     }
 
     [Fact]

@@ -315,19 +315,30 @@ public static class AzureEntraIdHostingExtensions {
     /// <summary>
     /// Injects Microsoft.Identity.Web configuration (<c>AzureAd__*</c> by default) from
     /// an in-model web application and its parent app registration.
-    /// <paramref name="clientSecret"/> is injected as <c>{sectionName}ClientSecret</c>.
     /// </summary>
     public static IResourceBuilder<TResource> WithMicrosoftIdentityWebApplication<TResource>(
         this IResourceBuilder<TResource> builder,
         EntraIdInstance instance,
         IResourceBuilder<AzureEntraIdWebApplicationResource> webApplication,
-        IResourceBuilder<ParameterResource> clientSecret,
+        string sectionName = "AzureAd__")
+        where TResource : IResourceWithEnvironment, IResourceWithWaitSupport =>
+        builder.WithMicrosoftIdentityWebApplication(instance, webApplication, clientSecret: null, sectionName);
+
+    /// <summary>
+    /// Injects Microsoft.Identity.Web configuration (<c>AzureAd__*</c> by default) from
+    /// an in-model web application and its parent app registration.
+    /// <paramref name="clientSecret"/> is injected as <c>{sectionName}ClientSecret</c> when provided.
+    /// </summary>
+    public static IResourceBuilder<TResource> WithMicrosoftIdentityWebApplication<TResource>(
+        this IResourceBuilder<TResource> builder,
+        EntraIdInstance instance,
+        IResourceBuilder<AzureEntraIdWebApplicationResource> webApplication,
+        IResourceBuilder<ParameterResource>? clientSecret,
         string sectionName = "AzureAd__")
         where TResource : IResourceWithEnvironment, IResourceWithWaitSupport {
         ArgumentNullException.ThrowIfNull(builder);
         ArgumentNullException.ThrowIfNull(instance);
         ArgumentNullException.ThrowIfNull(webApplication);
-        ArgumentNullException.ThrowIfNull(clientSecret);
         ArgumentException.ThrowIfNullOrEmpty(sectionName);
 
         var web = webApplication.Resource;
@@ -335,7 +346,10 @@ public static class AzureEntraIdHostingExtensions {
 
         instance.ApplyInstanceEnvironment(builder, sectionName);
         builder.WithEnvironment($"{sectionName}ClientId", parent.ClientId);
-        builder.WithEnvironment($"{sectionName}ClientSecret", clientSecret);
+
+        if (clientSecret is not null) {
+            builder.WithEnvironment($"{sectionName}ClientSecret", clientSecret);
+        }
 
         var tenantId = builder.ApplicationBuilder.Configuration["Azure:TenantId"];
 
