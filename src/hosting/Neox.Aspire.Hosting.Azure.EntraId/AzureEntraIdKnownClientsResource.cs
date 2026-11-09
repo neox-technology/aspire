@@ -18,7 +18,6 @@ public sealed class AzureEntraIdKnownClientsResource : AzureProvisioningResource
         ArgumentNullException.ThrowIfNull(api);
 
         Api = api;
-        Scope = AzureBicepResourceScope.CreateForTenant();
     }
 
     /// <summary>

@@ -20,7 +20,6 @@ public sealed class AzureEntraIdApplicationIdentityResource : AzureProvisioningR
         ArgumentNullException.ThrowIfNull(api);
 
         Api = api;
-        Scope = AzureBicepResourceScope.CreateForTenant();
         References.Add(api);
     }
 
