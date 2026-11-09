@@ -45,6 +45,7 @@ public sealed class AzureEntraIdAppRegistrationResource : AzureProvisioningResou
     /// <param name="name">Aspire resource name (also the default Graph <c>uniqueName</c>).</param>
     public AzureEntraIdAppRegistrationResource(string name)
         : base(name, ConfigureGraphInfrastructure) {
+        Scope = AzureBicepResourceScope.CreateForTenant();
     }
 
     /// <summary>
@@ -283,6 +284,8 @@ public sealed class AzureEntraIdAppRegistrationResource : AzureProvisioningResou
     }
 
     internal static void ConfigureIdentifierUri(AzureResourceInfrastructure infrastructure) {
+        infrastructure.TargetScope = DeploymentScope.Tenant;
+
         var update = (AzureEntraIdIdentifierUriResource)infrastructure.AspireResource;
         var api = update.Api;
 
@@ -446,6 +449,8 @@ public sealed class AzureEntraIdAppRegistrationResource : AzureProvisioningResou
     }
 
     private static void ConfigureGraphInfrastructure(AzureResourceInfrastructure infrastructure) {
+        infrastructure.TargetScope = DeploymentScope.Tenant;
+
         var azureResource = (AzureEntraIdAppRegistrationResource)infrastructure.AspireResource;
 
         azureResource.ApplyExistingUniqueNameParameter();
@@ -458,6 +463,8 @@ public sealed class AzureEntraIdAppRegistrationResource : AzureProvisioningResou
     }
 
     internal static void ConfigureIdentity(AzureResourceInfrastructure infrastructure) {
+        infrastructure.TargetScope = DeploymentScope.Tenant;
+
         var identity = (AzureEntraIdApplicationIdentityResource)infrastructure.AspireResource;
         var api = identity.Api;
 
@@ -482,6 +489,8 @@ public sealed class AzureEntraIdAppRegistrationResource : AzureProvisioningResou
     }
 
     internal static void ConfigureKnownClients(AzureResourceInfrastructure infrastructure) {
+        infrastructure.TargetScope = DeploymentScope.Tenant;
+
         var update = (AzureEntraIdKnownClientsResource)infrastructure.AspireResource;
         var api = update.Api;
 

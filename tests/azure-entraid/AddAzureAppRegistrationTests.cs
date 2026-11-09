@@ -22,6 +22,9 @@ public sealed class AddAzureAppRegistrationTests
         Assert.False(app.Resource.IsExisting());
         Assert.Equal("web", app.Resource.Parameters[AzureEntraIdAppRegistrationResource.UniqueNameParameter]);
         Assert.Equal("web", app.Resource.Parameters[AzureEntraIdAppRegistrationResource.DisplayNameParameter]);
+        Assert.True(app.Resource.Scope?.IsTenantScope);
+        Assert.False(app.Resource.IsExcludedFromPublish());
+        Assert.True(app.Resource.IdentityResource?.Scope?.IsTenantScope);
     }
 
     [Fact]
@@ -32,6 +35,7 @@ public sealed class AddAzureAppRegistrationTests
 
         var bicep = app.Resource.GetBicepTemplateString();
 
+        Assert.Contains("targetScope = 'tenant'", bicep, StringComparison.Ordinal);
         Assert.Contains("extension microsoftGraphV1", bicep, StringComparison.Ordinal);
         Assert.Contains("resource app 'Microsoft.Graph/applications@v1.0' = {", bicep, StringComparison.Ordinal);
         Assert.Contains("uniqueName:", bicep, StringComparison.Ordinal);
@@ -44,6 +48,7 @@ public sealed class AddAzureAppRegistrationTests
         Assert.NotNull(identity);
         var identityBicep = identity.GetBicepTemplateString();
 
+        Assert.Contains("targetScope = 'tenant'", identityBicep, StringComparison.Ordinal);
         Assert.Contains("existing =", identityBicep, StringComparison.Ordinal);
         Assert.Contains("resource sp 'Microsoft.Graph/servicePrincipals@v1.0' = {", identityBicep, StringComparison.Ordinal);
         Assert.Contains("output clientId string = app.appId", identityBicep, StringComparison.Ordinal);

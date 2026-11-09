@@ -85,10 +85,12 @@ public static class AzureEntraIdHostingExtensions {
             .WithManifestPublishingCallback(resource.WriteToManifest)
             .WithParameter(AzureEntraIdAppRegistrationResource.UniqueNameParameter, name)
             .WithParameter(AzureEntraIdAppRegistrationResource.DisplayNameParameter, name)
-            .WithParameter(AzureEntraIdAppRegistrationResource.RedirectUrisParameter, Array.Empty<string>());
+            .WithParameter(AzureEntraIdAppRegistrationResource.RedirectUrisParameter, Array.Empty<string>())
+            .OnInitializeResource(async (_, evt, cancellationToken) => {
+                await AzureSubscriptionPrompt.EnsureOpenAsync(evt.Services, cancellationToken).ConfigureAwait(false);
+            });
 
-        builder.AddResource(identity)
-            .WaitFor(registration);
+        builder.AddResource(identity);
 
         return registration;
     }

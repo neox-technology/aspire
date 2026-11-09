@@ -15,7 +15,10 @@ public sealed class AzureEntraIdIdentifierUriResource : AzureProvisioningResourc
     /// </summary>
     public AzureEntraIdIdentifierUriResource(AzureEntraIdAppRegistrationResource api)
         : base(RequireName(api), AzureEntraIdAppRegistrationResource.ConfigureIdentifierUri) {
+        ArgumentNullException.ThrowIfNull(api);
+
         Api = api;
+        Scope = AzureBicepResourceScope.CreateForTenant();
     }
 
     /// <summary>

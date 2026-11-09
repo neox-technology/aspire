@@ -15,7 +15,10 @@ public sealed class AzureEntraIdKnownClientsResource : AzureProvisioningResource
     /// </summary>
     public AzureEntraIdKnownClientsResource(AzureEntraIdAppRegistrationResource api)
         : base(RequireName(api), AzureEntraIdAppRegistrationResource.ConfigureKnownClients) {
+        ArgumentNullException.ThrowIfNull(api);
+
         Api = api;
+        Scope = AzureBicepResourceScope.CreateForTenant();
     }
 
     /// <summary>

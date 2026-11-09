@@ -17,7 +17,11 @@ public sealed class AzureEntraIdApplicationIdentityResource : AzureProvisioningR
     /// </summary>
     public AzureEntraIdApplicationIdentityResource(AzureEntraIdAppRegistrationResource api)
         : base(RequireName(api), AzureEntraIdAppRegistrationResource.ConfigureIdentity) {
+        ArgumentNullException.ThrowIfNull(api);
+
         Api = api;
+        Scope = AzureBicepResourceScope.CreateForTenant();
+        References.Add(api);
     }
 
     /// <summary>
