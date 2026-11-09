@@ -113,5 +113,9 @@ jobs:
           grep -q "<VersionPrefix>${CORE}</VersionPrefix>" "$PROPS"
           grep -q "<StabilizePackageVersion>${STABILIZE}</StabilizePackageVersion>" "$PROPS"
           git add "$PROPS"
-          git commit -m "chore: set package version ${CORE} (stabilize=${STABILIZE}) for ${BRANCH}"
+          if git diff --cached --quiet; then
+            echo "eng/Versions.props already at ${CORE} (stabilize=${STABILIZE}); pushing ${BRANCH} without a version commit"
+          else
+            git commit -m "chore: set package version ${CORE} (stabilize=${STABILIZE}) for ${BRANCH}"
+          fi
           git push -u origin "$BRANCH"
