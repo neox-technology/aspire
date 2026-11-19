@@ -5,9 +5,9 @@
     <IsShipping>false</IsShipping>
     <IsPackable>false</IsPackable>
     <IsTestUtilityProject Condition="'$(IsUnitTestProject)' != 'true'">true</IsTestUtilityProject>
-    <!-- Aspire 13.5+: ASPIRE010 is a warning (error under Arcade TreatWarningsAsErrors).
-         Harnesses keep NuGet-restored DCP/dashboard; they do not use the Aspire CLI bundle. -->
-    <AspireUseCliBundle>false</AspireUseCliBundle>
-    <NoWarn>$(NoWarn);ASPIRE010</NoWarn>
+    <!-- Aspire 17 C# AppHosts require the CLI bundle (ASPIRE013). ASPIRE010 remains for non-C# hosts. -->
+    <AspireUseCliBundle>true</AspireUseCliBundle>
+    <!-- ASPIRE012 / CS0618: harnesses keep Aspire.AppHost.Sdk and AddProject (ProjectResource). -->
+    <NoWarn>$(NoWarn);ASPIRE010;ASPIRE012;CS0618</NoWarn>
   </PropertyGroup>
 </Project>

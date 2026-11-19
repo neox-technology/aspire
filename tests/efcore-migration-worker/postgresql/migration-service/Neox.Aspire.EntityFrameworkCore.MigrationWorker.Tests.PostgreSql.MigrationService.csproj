@@ -7,7 +7,7 @@
     <RootNamespace>Neox.Aspire.EntityFrameworkCore.MigrationWorker.Tests.PostgreSql.MigrationService</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="$(AspireVersion)" />
+    <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="$(AspireNpgsqlEntityFrameworkCorePostgreSQLVersion)" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="$(MicrosoftExtensionsHostingAbstractionsVersion)" />
   </ItemGroup>
   <ItemGroup>

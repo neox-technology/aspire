@@ -1,34 +1,36 @@
 <Project>
   <PropertyGroup>
-    <VersionPrefix>1.0.1</VersionPrefix>
+    <VersionPrefix>1.1.0</VersionPrefix>
     <PreReleaseVersionLabel>preview</PreReleaseVersionLabel>
     <!-- Set to true for repo-wide GA (stable versions). Leave false while preview. -->
     <!-- Packages with SuppressFinalPackageVersion stay prerelease after stabilize. -->
     <StabilizePackageVersion>false</StabilizePackageVersion>
     <DotNetFinalVersionKind Condition="'$(StabilizePackageVersion)' == 'true'">release</DotNetFinalVersionKind>
 
-    <!-- Align with Aspire 13.5.3 net10.0 dependency graph -->
-    <AspireVersion>13.5.3</AspireVersion>
-    <!-- Aspire.Hosting.Keycloak is preview-only on nuget.org (no stable 13.5.3) -->
-    <AspireHostingKeycloakVersion>13.5.3-preview.1.26425.3</AspireHostingKeycloakVersion>
-    <AspireKeycloakAuthenticationVersion>13.5.3-preview.1.26425.3</AspireKeycloakAuthenticationVersion>
-    <MicrosoftEntityFrameworkCoreVersion>10.0.11</MicrosoftEntityFrameworkCoreVersion>
+    <!-- Align with Aspire 17.0.0 net10.0 dependency graph -->
+    <AspireVersion>17.0.0</AspireVersion>
+    <!-- Aspire.Hosting.Keycloak is preview-only on nuget.org -->
+    <AspireHostingKeycloakVersion>17.0.0-preview.1.26567.5</AspireHostingKeycloakVersion>
+    <AspireKeycloakAuthenticationVersion>17.0.0-preview.1.26567.5</AspireKeycloakAuthenticationVersion>
+    <!-- Aspire.Npgsql.EntityFrameworkCore.PostgreSQL has no stable 17.0.0; nearest is this preview. -->
+    <AspireNpgsqlEntityFrameworkCorePostgreSQLVersion>17.0.0-preview.1.26567.5</AspireNpgsqlEntityFrameworkCorePostgreSQLVersion>
+    <MicrosoftEntityFrameworkCoreVersion>10.0.15</MicrosoftEntityFrameworkCoreVersion>
     <NpgsqlEntityFrameworkCorePostgreSQLVersion>10.0.3</NpgsqlEntityFrameworkCorePostgreSQLVersion>
-    <MySqlEntityFrameworkCoreVersion>10.0.9</MySqlEntityFrameworkCoreVersion>
-    <OracleEntityFrameworkCoreVersion>10.23.26300</OracleEntityFrameworkCoreVersion>
-    <MicrosoftExtensionsHostingAbstractionsVersion>10.0.11</MicrosoftExtensionsHostingAbstractionsVersion>
+    <MySqlEntityFrameworkCoreVersion>10.0.12</MySqlEntityFrameworkCoreVersion>
+    <OracleEntityFrameworkCoreVersion>10.23.26400</OracleEntityFrameworkCoreVersion>
+    <MicrosoftExtensionsHostingAbstractionsVersion>10.0.15</MicrosoftExtensionsHostingAbstractionsVersion>
     <!-- Arcade property (XUnitVersion); pins xunit.core / assert / runners -->
     <XUnitVersion>2.9.3</XUnitVersion>
     <AzureProvisioningVersion>1.6.0</AzureProvisioningVersion>
-    <MicrosoftIdentityWebVersion>4.14.2</MicrosoftIdentityWebVersion>
-    <SwashbuckleAspNetCoreVersion>10.2.3</SwashbuckleAspNetCoreVersion>
+    <MicrosoftIdentityWebVersion>4.18.0</MicrosoftIdentityWebVersion>
+    <SwashbuckleAspNetCoreVersion>10.3.1</SwashbuckleAspNetCoreVersion>
     <AzureIdentityVersion>1.21.0</AzureIdentityVersion>
-    <AzureResourceManagerAppContainersVersion>1.5.0</AzureResourceManagerAppContainersVersion>
+    <AzureResourceManagerAppContainersVersion>1.6.0</AzureResourceManagerAppContainersVersion>
     <YamlDotNetVersion>18.1.0</YamlDotNetVersion>
-    <SystemTextJsonVersion>10.0.11</SystemTextJsonVersion>
-    <!-- SDK 10.0.111 ships Roslyn 5.0.0; generators must not reference a newer compiler (CS9057).
-         Microsoft.CodeAnalysis.Analyzers has no 5.0.0 package; 5.3.0 is the matching stable line. -->
+    <SystemTextJsonVersion>10.0.15</SystemTextJsonVersion>
+    <MicrosoftGraphVersion>6.10.0</MicrosoftGraphVersion>
+    <!-- SDK 10.0.111 ships Roslyn 5.0.0; generators must not reference a newer compiler (CS9057). -->
     <MicrosoftCodeAnalysisCSharpVersion>5.0.0</MicrosoftCodeAnalysisCSharpVersion>
-    <MicrosoftCodeAnalysisAnalyzersVersion>5.3.0</MicrosoftCodeAnalysisAnalyzersVersion>
+    <MicrosoftCodeAnalysisAnalyzersVersion>5.12.0</MicrosoftCodeAnalysisAnalyzersVersion>
   </PropertyGroup>
 </Project>

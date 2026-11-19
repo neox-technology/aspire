@@ -69,6 +69,9 @@ jobs:
         with:
           dotnet-version: "10.0.110"
 
+      - name: Install Aspire CLI
+        run: curl -fsSL https://aspire.dev/install.sh | bash -s -- --version 17.0.0
+
       - name: Compute OfficialBuildId
         id: buildid
         run: echo "official_build_id=$(date -u +%Y%m%d).${{ github.run_number }}" >> "$GITHUB_OUTPUT"
