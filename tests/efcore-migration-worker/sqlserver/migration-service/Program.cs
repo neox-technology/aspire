@@ -16,14 +16,21 @@ public static class Program
             ?? ServiceNames.Databases.Application;
 
         builder.AddSqlServerDbContext<TestDbContext>(connectionName);
-        builder.Services.AddEfCoreMigrationService<TestDbContext>();
 
         var secondaryConnectionName = builder.Configuration["SecondaryConnectionName"];
 
         if (!string.IsNullOrWhiteSpace(secondaryConnectionName))
         {
             builder.AddSqlServerDbContext<SecondaryDbContext>(secondaryConnectionName);
-            builder.Services.AddEfCoreMigrationService<SecondaryDbContext>();
+            builder.Services.AddEfCoreMultiMigrationsService(migrations =>
+            {
+                migrations.AddDbContextToMigrate<TestDbContext>();
+                migrations.AddDbContextToMigrate<SecondaryDbContext>();
+            });
+        }
+        else
+        {
+            builder.Services.AddEfCoreMigrationService<TestDbContext>();
         }
 
         builder.Build().Run();

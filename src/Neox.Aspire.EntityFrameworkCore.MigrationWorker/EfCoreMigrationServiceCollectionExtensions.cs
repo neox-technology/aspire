@@ -29,6 +29,30 @@ public static class EfCoreMigrationServiceCollectionExtensions {
         return services;
     }
 
+    /// <summary>
+    /// Registers one <see cref="EfCoreMigrationServicesWorker"/> that migrates every context
+    /// added inside <paramref name="configure"/>, in order, then stops the host once.
+    /// Each context must already be registered in the service collection.
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="configure">Adds the contexts to migrate.</param>
+    /// <returns>The builder that collected the contexts.</returns>
+    public static IEfCoreMigrationServicesBuilder AddEfCoreMultiMigrationsService(
+        this IServiceCollection services,
+        Action<IEfCoreMigrationServicesBuilder> configure) {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(configure);
+
+        var builder = new EfCoreMigrationServicesBuilder();
+
+        configure(builder);
+
+        services.AddSingleton(builder);
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, EfCoreMigrationServicesWorker>());
+
+        return builder;
+    }
+
     private static EfCoreMigrationRegistry GetOrAddRegistry(IServiceCollection services) {
         var existing = services.FirstOrDefault(d => d.ServiceType == typeof(EfCoreMigrationRegistry));
 

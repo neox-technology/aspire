@@ -39,7 +39,6 @@ _N/A — DI / worker library._
 - Registering or configuring the `DbContext` / database provider (consumer responsibility)
 - Product-specific `DbContext` types from consuming apps
 - Parallel migration of multiple `DbContext` types (sequential by design so `StopApplication` is safe)
-- Fluent builder API for registration (generic extension is enough)
 - MSTest (xUnit only for this feature’s tests)
 - Azure SQL / Azure Database for PostgreSQL harnesses (same EF providers as SqlServer / PostgreSql)
 - SQLite, Cosmos DB, MariaDB (no first-class Aspire hosting + relational `MigrateAsync` pair in this matrix)
@@ -48,6 +47,7 @@ _N/A — DI / worker library._
 
 - [x] Package id is `Neox.Aspire.EntityFrameworkCore.MigrationWorker` at `src/Neox.Aspire.EntityFrameworkCore.MigrationWorker/` (not under `src/hosting/`).
 - [x] `AddEfCoreMigrationService<TDbContext>()` adds `TDbContext` to an ordered registry (duplicates ignored) and registers a **single** non-generic hosted `EfCoreMigrationWorker` (idempotent across calls).
+- [x] `AddEfCoreMultiMigrationsService` collects contexts through `IEfCoreMigrationServicesBuilder.AddDbContextToMigrate<T>()` and registers one `EfCoreMigrationServicesWorker`, which migrates every collected context in order and then calls `StopApplication` once.
 - [x] The worker creates a DI scope per registered type, resolves `DbContext`, calls `Database.MigrateAsync` **sequentially** in registration order, then calls `IHostApplicationLifetime.StopApplication()` **once** (no intermediate stop).
 - [x] Arcade pack produces a Shipping nupkg for the project.
 - [x] Integration harness lives under `tests/efcore-migration-worker/{sqlserver|postgresql|mysql|oracle}/` with Neox folders `apphost/`, `migration-service/`, `service-defaults/`, `data/`, `tests/`.
@@ -70,7 +70,8 @@ See [`domain-glossary`](domain-glossary.md) (`migration worker`, `Shipping`, `Ne
 | Project | `src/Neox.Aspire.EntityFrameworkCore.MigrationWorker/` |
 | Package id | `Neox.Aspire.EntityFrameworkCore.MigrationWorker` |
 | Namespace | `Neox.Aspire.EntityFrameworkCore` |
-| Extension | `AddEfCoreMigrationService<TDbContext>(this IServiceCollection)` |
+| Extension | `AddEfCoreMigrationService<TDbContext>(this IServiceCollection)` and `AddEfCoreMultiMigrationsService` |
+| Multi worker | `EfCoreMigrationServicesWorker` via `IEfCoreMigrationServicesBuilder.AddDbContextToMigrate<T>()` |
 | Registry | `EfCoreMigrationRegistry` (internal) — ordered `DbContext` types |
 | Worker | `EfCoreMigrationWorker : BackgroundService` (non-generic; one hosted instance) |
 | SQL Server tests | `tests/efcore-migration-worker/sqlserver/` |

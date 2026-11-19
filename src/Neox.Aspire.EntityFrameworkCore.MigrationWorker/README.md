@@ -33,14 +33,17 @@ builder.Build().Run();
 
 ### Multiple DbContext types (same process)
 
-Call the extension once per type. The hosted service is registered only once; migrations run sequentially, then `StopApplication` runs once:
+Call `AddEfCoreMultiMigrationsService` once. `AddDbContextToMigrate` records each context. One `EfCoreMigrationServicesWorker` migrates them sequentially, then `StopApplication` runs once:
 
 ```csharp
 builder.Services.AddDbContext<ApplicationDbContext>(...);
 builder.Services.AddDbContext<SecondaryDbContext>(...);
 
-builder.Services.AddEfCoreMigrationService<ApplicationDbContext>();
-builder.Services.AddEfCoreMigrationService<SecondaryDbContext>();
+builder.Services.AddEfCoreMultiMigrationsService(migrations =>
+{
+    migrations.AddDbContextToMigrate<ApplicationDbContext>();
+    migrations.AddDbContextToMigrate<SecondaryDbContext>();
+});
 ```
 
 On startup the hosted service:
@@ -55,6 +58,6 @@ Use a dedicated worker project as a migration service and add it from the AppHos
 ## Notes
 
 - The package does **not** register or configure the `DbContext` or database provider — that remains the consumer’s responsibility.
-- Duplicate `AddEfCoreMigrationService<T>()` calls for the same type are ignored.
+- Duplicate `AddEfCoreMigrationService<T>()` and `AddDbContextToMigrate<T>()` calls for the same type are ignored.
 - Namespace: `Neox.Aspire.EntityFrameworkCore` (package id differs from the namespace).
 - License: MIT.
